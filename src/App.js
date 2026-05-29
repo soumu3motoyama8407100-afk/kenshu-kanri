@@ -308,8 +308,12 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,profile
   const [toast,setToast]=useState(null);
   const [pdfExt,setPdfExt]=useState(null);
   const [showProfile,setShowProfile]=useState(false);
+  const [viewFY,setViewFY]=useState(fiscalYear);
+  const isCurrentFY=viewFY===fiscalYear;
+  const fyInternals=internals.filter(t=>inFiscalYear(t.date,viewFY));
+  const fyExternals=externals.filter(x=>x.targetEmpIds.includes(emp.id)&&inFiscalYear(x.date,viewFY));
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(null),2500);};
-  const count=getCount(emp.id,fiscalYear);
+ const count=getCount(emp.id,viewFY);
   const myExt=externals.filter(x=>x.targetEmpIds.includes(emp.id));
   const monthCounts=Array.from({length:12},(_,i)=>{
     const month=(i+4)%12||12; const year=i<9?fiscalYear:fiscalYear+1;
@@ -381,20 +385,28 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,profile
               </div>
             </div>
           )}
-          {tab==="internal"&&internals.map(t=>(
+          {tab==="internal"&&(fyInternals.length===0
+            ?<div style={S.empty}>{viewFY}年度の内部研修はありません</div>
+            :fyInternals.map(t=>(
             <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)}
               onReport={v=>{setIS(emp.id,t.id,"report",v);showToast(v==="提出済"?"復命書を提出済にしました":"未提出に戻しました");}}
               onVideo={v=>{setIS(emp.id,t.id,"video",v);showToast(v==="視聴済"?"動画を視聴済":"未視聴に戻しました");}}
               onWatchVideo={()=>{setVideoT(t);setTab("video");}}/>
+            ))
+          )}
           ))}
-          {tab==="external"&&(myExt.length===0?<div style={S.empty}>申し込み済みの外部研修はありません</div>
-            :myExt.map(x=><ExternalCard key={x.id} ext={x} status={getXS(emp.id,x.id)}
-              onAttend={()=>{setXS(emp.id,x.id,{attended:true});showToast("受講済にしました");}}
-              onReport={()=>{setXS(emp.id,x.id,{reportSubmitted:true});showToast("復命書を提出しました");}}
+         {tab==="external"&&(fyExternals.length===0
+            ?<div style={S.empty}>{viewFY}年度の外部研修はありません</div>
+            :fyExternals.map(x=><ExternalCard key={x.id} ext={x} status={getXS(emp.id,x.id)}
+              onAttend={()=>{if(isCurrentFY){setXS(emp.id,x.id,{attended:true});showToast("受講済にしました");}}}
+              onReport={()=>{if(isCurrentFY){setXS(emp.id,x.id,{reportSubmitted:true});showToast("復命書を提出しました");}}}
               onViewPdf={()=>setPdfExt(x)}/>)
           )}
-          {tab==="video"&&<VideoTab trainings={internals} selected={videoT||internals[0]}
-            onSelect={t=>{setVideoT(t);setIS(emp.id,t.id,"video","視聴済");showToast("「視聴済」に更新しました");}}
+          {tab==="video"&&<VideoTab trainings={internals} {tab==="video"&&<VideoTab trainings={fyInternals} selected={videoT||fyInternals[0]}
+            onSelect={t=>setVideoT(t)}
+            onMarkWatched={(t,val)=>{
+              if(isCurrentFY){setIS(emp.id,t.id,"video",val);showToast(val==="視聴済"?"「視聴済」にしました":"未視聴に戻しました");}
+            }}
             getStatus={t=>getIS(emp.id,t.id)}/>}
         </div>
       </div>
@@ -518,28 +530,46 @@ function ExternalCard({ext,status,onAttend,onReport,onViewPdf}){
 function SPill({color,bg,border,children}){return <div style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 14px",borderRadius:20,background:bg,color,fontSize:13,fontWeight:600,border:`1.5px solid ${border}`}}>{children}</div>;}
 function ToggleChip({label,active,color,onClick}){return <button onClick={onClick} style={{padding:"5px 14px",borderRadius:20,border:"1.5px solid",borderColor:active?color:"#e5e7eb",background:active?color:"#fff",color:active?"#fff":"#6b7280",fontSize:12,fontWeight:active?700:400,cursor:"pointer"}}>{label}</button>;}
 
-function VideoTab({trainings,selected,onSelect,getStatus}){
+function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus}){
   const cur=selected||trainings[0];
+  const s=cur?getStatus(cur):null;
   return(
     <div>
       <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:10,marginBottom:12}}>
-        {trainings.filter(t=>t.videoUrl).map(t=>{const s=getStatus(t);const active=cur?.id===t.id;return(
-          <button key={t.id} onClick={()=>onSelect(t)} style={{minWidth:130,padding:"8px 12px",borderRadius:10,border:"1.5px solid",borderColor:active?"#1e40af":"#e5e7eb",background:active?"#1e40af":"#fff",color:active?"#fff":"#374151",fontSize:12,cursor:"pointer",textAlign:"left"}}>
-            <div style={{fontWeight:600,marginBottom:3}}>{t.title}</div><div>{s.video==="視聴済"?"✅ 視聴済":"○ 未視聴"}</div>
-          </button>);
+        {trainings.filter(t=>t.videoUrl).map(t=>{
+          const st=getStatus(t); const active=cur?.id===t.id;
+          return <button key={t.id} onClick={()=>onSelect(t)} style={{minWidth:130,padding:"8px 12px",borderRadius:10,
+            border:"1.5px solid",borderColor:active?"#1e40af":"#e5e7eb",
+            background:active?"#1e40af":"#fff",color:active?"#fff":"#374151",fontSize:12,cursor:"pointer",textAlign:"left"}}>
+            <div style={{fontWeight:600,marginBottom:3}}>{t.title}</div>
+            <div>{st.video==="視聴済"?"✅ 視聴済":"○ 未視聴"}</div>
+          </button>;
         })}
       </div>
       {cur?.videoUrl&&<>
         <div style={{fontWeight:700,color:"#1e3a5f",marginBottom:8}}>{cur.title}</div>
         <div style={{position:"relative",paddingBottom:"56.25%",borderRadius:12,overflow:"hidden",background:"#000"}}>
-          <iframe style={{position:"absolute",inset:0,width:"100%",height:"100%",border:"none"}} src={cur.videoUrl} allowFullScreen title={cur.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"/>
+          <iframe style={{position:"absolute",inset:0,width:"100%",height:"100%",border:"none"}}
+            src={cur.videoUrl} allowFullScreen title={cur.title}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"/>
         </div>
-        <div style={{marginTop:10,padding:"8px 12px",background:"#f0fdf4",borderRadius:8,color:"#15803d",fontSize:13}}>✅ 視聴すると自動的に「視聴済」に更新されます</div>
+        <div style={{marginTop:12}}>
+          {s?.video==="視聴済"
+            ?<div style={{padding:"10px 14px",background:"#f0fdf4",borderRadius:10,color:"#15803d",fontSize:13,fontWeight:600,textAlign:"center"}}>
+              ✅ 視聴済み
+              <button onClick={()=>onMarkWatched(cur,"未視聴")} style={{marginLeft:12,fontSize:11,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"3px 10px",cursor:"pointer"}}>
+                未視聴に戻す
+              </button>
+            </div>
+            :<button onClick={()=>onMarkWatched(cur,"視聴済")} style={{width:"100%",padding:"12px",background:"#16a34a",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>
+              ✅ 視聴完了！　視聴済みにする
+            </button>
+          }
+        </div>
       </>}
     </div>
   );
 }
-
 function PdfModal({ext,onClose}){
   return(
     <div style={S.overlay} onClick={onClose}>
@@ -573,9 +603,21 @@ function AdminScreen({employees,internals,setInternals,externals,setExternals,de
               {[currentFY()-1,currentFY(),currentFY()+1].map(y=><option key={y} value={y}>{y}年度</option>)}
             </select>
             <button style={{...S.logoutBtn,background:"#1e40af",color:"#fff",borderColor:"#1e40af"}} onClick={()=>window.print()}>🖨 印刷</button>
-            <button style={S.logoutBtn} onClick={onLogout}>ログアウト</button>
-          </div>
+           <button style={S.logoutBtn} onClick={onLogout}>ログアウト</button>
         </div>
+
+        {/* 年度切替 */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"8px 16px",background:"#f8fafc",borderBottom:"1px solid #e5e7eb"}}>
+          <span style={{fontSize:12,color:"#6b7280",fontWeight:600}}>📅 年度</span>
+          <select value={viewFY} onChange={e=>setViewFY(Number(e.target.value))}
+            style={{padding:"4px 10px",borderRadius:8,border:"1px solid #e5e7eb",fontSize:13,fontWeight:600,color:"#1e3a5f",cursor:"pointer"}}>
+            {[fiscalYear-2,fiscalYear-1,fiscalYear].map(y=>(
+              <option key={y} value={y}>{y}年度{y===fiscalYear?"（今年度）":""}</option>
+            ))}
+          </select>
+          {!isCurrentFY&&<span style={{fontSize:11,color:"#d97706",fontWeight:600,background:"#fef3c7",padding:"2px 8px",borderRadius:20}}>過去年度閲覧中</span>}
+        </div>
+
         <div style={S.tabBar}>
           {[["ranking","🏅 ランキング"],["iProgress","📊 内部 進捗"],["iManage","📚 内部 管理"],["xProgress","🌐 外部 進捗"],["xManage","✏️ 外部 管理"],["profiles","👤 個人情報"]].map(([k,l])=>(
             <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{}),fontSize:11,padding:"10px 2px"}} onClick={()=>setTab(k)}>{l}</button>
