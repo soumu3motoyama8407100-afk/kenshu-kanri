@@ -8,7 +8,7 @@ const supabase = createClient(
 
 const ADMIN = { id:"ADMIN", password:"admin123" };
 const ORG_NAME = "社会福祉法人　ザ・ハート・クラブ";
-const LOGO_B64 = "/title-_2_-removebg-preview-removebg-preview-2.png";
+const LOGO_B64 = "/title-_2_-removebg-preview.png";
 
 const INIT_INTERNAL = [
   { id:"T001", title:"新入社員オリエンテーション", date:"2026-04-01", required:true,  videoUrl:"https://www.youtube.com/embed/dQw4w9WgXcQ", description:"会社の基本方針・規則・業務フローを学ぶ研修" },
@@ -377,10 +377,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
             <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{})}} onClick={()=>setTab(k)}>{l}</button>
           ))}
         </div>
-        <div style={{textAlign:"center",padding:"12px 0 8px",borderTop:"1px solid #F0D9B0"}}>
-  <img src={LOGO_B64} alt="ロゴ" style={{height:36,objectFit:"contain",opacity:0.7}}/>
-</div>
-
+        <div style={S.scroll}>
           {tab==="score"&&(
             <div style={{display:"flex",flexDirection:"column",gap:16}}>
               <PointCard count={count} fiscalYear={viewFY}/>
@@ -433,6 +430,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
               getStatus={t=>getIS(emp.id,t.id)} readonly={!isCurrentFY}/>
           )}
         </div>
+      </div>
     </div>
   );
 }
@@ -462,10 +460,7 @@ function ManagerScreen({dept,employees,internals,getIS,setIS,externals,getXS,set
             <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{})}} onClick={()=>setTab(k)}>{l}</button>
           ))}
         </div>
-        <div style={{textAlign:"center",padding:"12px 0 8px",borderTop:"1px solid #F0D9B0"}}>
-  <img src={LOGO_B64} alt="ロゴ" style={{height:36,objectFit:"contain",opacity:0.7}}/>
-</div>
-          <div style={{...S.scroll,maxHeight:"calc(100vh - 185px)"}}>
+        <div style={{...S.scroll,maxHeight:"calc(100vh - 185px)"}}>
           {tab==="iProgress"&&(
             <div>
               <div style={{fontSize:12,color:"#A07840",fontWeight:600,marginBottom:12,padding:"8px 12px",background:"#FDF6EC",borderRadius:8}}>
@@ -538,10 +533,12 @@ function ManagerScreen({dept,employees,internals,getIS,setIS,externals,getXS,set
             </div>
           )}
         </div>
-  <div style={{textAlign:"center",padding:"10px 0 8px",borderTop:"1px solid #F0D9B0",background:"#fff"}}>
-        <img src={LOGO_B64} alt="ロゴ" style={{height:32,objectFit:"contain",opacity:0.7}}/>
       </div>
-    );
+    <div style={{textAlign:"center",padding:"8px 0 6px",borderTop:"1px solid #F0D9B0",background:"#fff"}}>
+        <img src={LOGO_B64} alt="ロゴ" style={{height:28,objectFit:"contain",opacity:0.65}}/>
+      </div>
+    </div>
+  );
 }
 
 function internalStepsDone(status){
@@ -759,10 +756,10 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
           {tab==="xProgress" &&<ExternalProgressTab employees={employees} externals={externals} getXS={getXS} setXS={setXS} fiscalYear={fiscalYear}/>}
           {tab==="xManage"   &&<ExternalManageTab employees={employees} externals={externals} setExternals={setExternals} deleteExternal={deleteExternal}/>}
           {tab==="empManage" &&<EmployeeManageTab employees={employees} setEmployees={setEmployees} internals={internals} getIS={getIS} getXS={getXS} externals={externals} fiscalYear={fiscalYear}/>}
-       </div>
-      <div style={{textAlign:"center",padding:"10px 0 8px",borderTop:"1px solid #F0D9B0",background:"#fff"}}>
-        <img src={LOGO_B64} alt="ロゴ" style={{height:32,objectFit:"contain",opacity:0.7}}/>
+        </div>
       </div>
+    <div style={{textAlign:"center",padding:"8px 0 6px",borderTop:"1px solid #F0D9B0",background:"#fff"}}>
+        <img src={LOGO_B64} alt="ロゴ" style={{height:28,objectFit:"contain",opacity:0.65}}/>
       </div>
     </div>
   );
