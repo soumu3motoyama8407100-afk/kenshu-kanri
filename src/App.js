@@ -8,7 +8,13 @@ const supabase = createClient(
 
 const ADMIN = { id:"ADMIN", password:"admin123" };
 const ORG_NAME = "社会福祉法人　ザ・ハート・クラブ";
+const LOGO_B64 = "data:image/png;base64,ENDOFFILE
 
+# Append logo data
+printf '%s' "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" >> /home/claude/App_v4.js
+echo '";' >> /home/claude/App_v4.js
+
+echo "Part 1 done: 0 lines"
 const INIT_INTERNAL = [
   { id:"T001", title:"新入社員オリエンテーション", date:"2026-04-01", required:true,  videoUrl:"https://www.youtube.com/embed/dQw4w9WgXcQ", description:"会社の基本方針・規則・業務フローを学ぶ研修" },
   { id:"T002", title:"情報セキュリティ研修",       date:"2026-04-15", required:true,  videoUrl:"https://www.youtube.com/embed/dQw4w9WgXcQ", description:"個人情報保護・サイバーセキュリティの基礎知識" },
@@ -37,13 +43,14 @@ const makeAttendUrl = tid => `${window.location.href.split("?")[0]}?attend=${tid
 const db = {
   async getEmployees() {
     const {data} = await supabase.from("employees").select("*").order("sort_order").order("id");
-    return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept,joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[]}));
+    return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept,joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false}));
   },
   async upsertEmployee(emp) {
     await supabase.from("employees").upsert({
       id:emp.id,password:emp.password,name:emp.name,dept:emp.dept,
       join_date:emp.joinDate||null,qualifications:emp.qualifications||[],
-      cert_trainings:emp.certTrainings||[],updated_at:new Date().toISOString()
+      cert_trainings:emp.certTrainings||[],is_manager:emp.isManager||false,
+      updated_at:new Date().toISOString()
     },{onConflict:"id"});
   },
   async deleteEmployee(id) { await supabase.from("employees").delete().eq("id",id); },
@@ -142,23 +149,24 @@ export default function App() {
     return iC+xC;
   };
 
-  const handleLogin=(empId,isAdmin)=>{
-    setSession({empId,isAdmin});
-    if(pendingAttend&&!isAdmin){ setIS(empId,pendingAttend,"attendance","参加済"); setPendingAttend(null); }
+  const handleLogin=(empId,isAdmin,isManager,dept)=>{
+    setSession({empId,isAdmin,isManager,dept});
+    if(pendingAttend&&!isAdmin&&!isManager){ setIS(empId,pendingAttend,"attendance","参加済"); setPendingAttend(null); }
   };
   const handleLogout=()=>setSession(null);
 
   if(loading) return(
-    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1e3a5f)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <div style={{color:"#fff",textAlign:"center"}}>
-        <div style={{fontSize:48,marginBottom:16}}>📋</div>
-        <div style={{fontSize:18,fontWeight:700}}>研修管理システム</div>
-        <div style={{fontSize:14,color:"#93c5fd",marginTop:8}}>読み込み中...</div>
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#F5EDD8 0%,#FDF6EC 60%,#F5EDD8 100%)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{textAlign:"center"}}>
+        <img src={LOGO_B64} alt="ロゴ" style={{height:60,marginBottom:16,objectFit:"contain"}}/>
+        <div style={{fontSize:18,fontWeight:700,color:"#4A3020"}}>研修管理システム</div>
+        <div style={{fontSize:14,color:"#C89A55",marginTop:8}}>読み込み中...</div>
       </div>
     </div>
   );
 
   if(!session) return <LoginScreen pendingAttend={pendingAttend} internals={internals} employees={employees} onLogin={handleLogin}/>;
+
   if(session.isAdmin) return(
     <AdminScreen employees={employees} setEmployees={setEmployees}
       internals={internals} setInternals={async fn=>{ const n=typeof fn==="function"?fn(internals):fn; setInternals(n); for(const t of n) await db.upsertInternal(t); }}
@@ -169,6 +177,17 @@ export default function App() {
       fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}
       getCount={getCount} onLogout={handleLogout}/>
   );
+
+  if(session.isManager) return(
+    <ManagerScreen
+      dept={session.dept}
+      employees={employees.filter(e=>e.dept===session.dept)}
+      internals={internals} getIS={getIS} setIS={setIS}
+      externals={externals} getXS={getXS} setXS={setXS}
+      fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}
+      onLogout={handleLogout}/>
+  );
+
   const emp=employees.find(e=>e.id===session.empId);
   if(!emp){ handleLogout(); return null; }
   return(
@@ -185,25 +204,26 @@ function LoginScreen({pendingAttend,internals,employees,onLogin}){
   const training=internals.find(t=>t.id===pendingAttend);
   const submit=()=>{
     setErr("");
-    if(id===ADMIN.id&&pw===ADMIN.password){onLogin(ADMIN.id,true);return;}
+    if(id===ADMIN.id&&pw===ADMIN.password){onLogin(ADMIN.id,true,false,"");return;}
     const emp=employees.find(e=>e.id===id&&e.password===pw);
-    if(emp){onLogin(emp.id,false);return;}
+    if(emp){onLogin(emp.id,false,emp.isManager||false,emp.dept);return;}
     setErr("IDまたはパスワードが正しくありません");
   };
   return(
-    <div style={S.page}>
-      <div style={S.loginWrap}>
-        {training&&<div style={S.qrBanner}><span style={{fontSize:20}}>📋</span><div>
-          <div style={{fontWeight:600,fontSize:14}}>研修QRを読み取りました</div>
-          <div style={{fontSize:13,color:"#15803d"}}>「{training.title}」の参加が自動登録されます</div>
-        </div></div>}
-        <div style={S.logoArea}><div style={S.logoIcon}>研修</div><h1 style={S.appName}>研修管理システム</h1><p style={S.appSub}>{ORG_NAME}</p></div>
-        <div style={S.fGroup}><label style={S.label}>従業員ID</label>
-          <input style={S.input} placeholder="例: E001" value={id} onChange={e=>{setId(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&submit()}/></div>
-        <div style={S.fGroup}><label style={S.label}>パスワード</label>
-          <input style={S.input} type="password" placeholder="パスワード" value={pw} onChange={e=>{setPw(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&submit()}/></div>
-        {err&&<div style={S.errBox}>{err}</div>}
-        <button style={S.btn} onClick={submit}>ログイン</button>
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#F5EDD8 0%,#FDF6EC 60%,#F5EDD8 100%)",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"16px 8px",fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif"}}>
+      <div style={{width:"100%",maxWidth:400,background:"#fff",borderRadius:20,padding:"28px 24px",boxShadow:"0 24px 60px rgba(200,154,85,.25)",marginTop:40,border:"1px solid #F0D9B0"}}>
+        {training&&<div style={{display:"flex",alignItems:"center",gap:10,background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:10,padding:"10px 14px",marginBottom:20}}><span style={{fontSize:20}}>📋</span><div><div style={{fontWeight:600,fontSize:14}}>研修QRを読み取りました</div><div style={{fontSize:13,color:"#15803d"}}>「{training.title}」の参加が自動登録されます</div></div></div>}
+        <div style={{textAlign:"center",marginBottom:24}}>
+          <img src={LOGO_B64} alt={ORG_NAME} style={{height:64,objectFit:"contain",marginBottom:12}}/>
+          <h1 style={{fontSize:20,fontWeight:800,color:"#4A3020",margin:"0 0 4px"}}>研修管理システム</h1>
+          <p style={{fontSize:12,color:"#C89A55",margin:0}}>ログインしてください</p>
+        </div>
+        <div style={{marginBottom:14}}><label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:5}}>従業員ID</label>
+          <input style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"1.5px solid #E8D5B0",fontSize:14,outline:"none",boxSizing:"border-box"}} placeholder="例: E001" value={id} onChange={e=>{setId(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&submit()}/></div>
+        <div style={{marginBottom:14}}><label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:5}}>パスワード</label>
+          <input style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"1.5px solid #E8D5B0",fontSize:14,outline:"none",boxSizing:"border-box"}} type="password" placeholder="パスワード" value={pw} onChange={e=>{setPw(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&submit()}/></div>
+        {err&&<div style={{background:"#fef2f2",border:"1px solid #fca5a5",color:"#dc2626",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:12}}>{err}</div>}
+        <button style={{width:"100%",padding:"11px",background:"#C89A55",color:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}} onClick={submit}>ログイン</button>
         <div style={{marginTop:12,fontSize:11,color:"#9ca3af",textAlign:"center"}}>管理者: ADMIN / admin123</div>
       </div>
     </div>
@@ -212,28 +232,26 @@ function LoginScreen({pendingAttend,internals,employees,onLogin}){
 
 function PointCard({count,fiscalYear}){
   const points=calcPoints(count); const badge=getBadge(count);
-  const pct=Math.min(count/10*100,100); const bc=count>=10?"#7c3aed":count>=5?"#d97706":"#3b82f6";
+  const pct=Math.min(count/10*100,100); const bc=count>=10?"#7c3aed":count>=5?"#d97706":"#C89A55";
   return(
-    <div style={{background:"linear-gradient(135deg,#1e3a5f,#1e40af)",borderRadius:18,padding:"20px 22px",color:"#fff",position:"relative",overflow:"hidden"}}>
-      <div style={{position:"absolute",right:-20,top:-20,width:100,height:100,borderRadius:"50%",background:"rgba(255,255,255,.06)"}}/>
+    <div style={{background:"linear-gradient(135deg,#C89A55,#A07840)",borderRadius:18,padding:"20px 22px",color:"#fff",position:"relative",overflow:"hidden"}}>
+      <div style={{position:"absolute",right:-20,top:-20,width:100,height:100,borderRadius:"50%",background:"rgba(255,255,255,.08)"}}/>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12,position:"relative"}}>
-        <div><div style={{fontSize:11,color:"rgba(255,255,255,.7)",marginBottom:2}}>{fiscalYear}年度 復命書提出実績</div>
+        <div><div style={{fontSize:11,color:"rgba(255,255,255,.8)",marginBottom:2}}>{fiscalYear}年度 復命書提出実績</div>
           <div style={{fontSize:36,fontWeight:800,lineHeight:1}}>{count}<span style={{fontSize:14,fontWeight:400,marginLeft:4}}>件</span></div></div>
         <div style={{textAlign:"center"}}>
           <div style={{fontSize:34}}>{points>0?(points===2?"🏆":"⭐"):"🌱"}</div>
-          <div style={{fontSize:11,marginTop:2,color:points>=2?"#c4b5fd":points>=1?"#fcd34d":"rgba(255,255,255,.6)"}}>人事考課 <span style={{fontSize:16,fontWeight:800}}>+{points}</span>点</div>
+          <div style={{fontSize:11,marginTop:2,color:points>=2?"#c4b5fd":points>=1?"#fcd34d":"rgba(255,255,255,.7)"}}>人事考課 <span style={{fontSize:16,fontWeight:800}}>+{points}</span>点</div>
         </div>
       </div>
       <div style={{marginBottom:8}}>
         <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"rgba(255,255,255,.8)",marginBottom:4}}><span>今年度の復命書提出状況</span><span>{count}/10件</span></div>
-        <div style={{position:"relative",height:10,background:"rgba(255,255,255,.2)",borderRadius:5,overflow:"visible"}}>
-          <div style={{height:"100%",width:`${pct}%`,background:bc,borderRadius:5,transition:"width .5s"}}/>
+        <div style={{position:"relative",height:10,background:"rgba(255,255,255,.25)",borderRadius:5,overflow:"visible"}}>
+          <div style={{height:"100%",width:`${pct}%`,background:"#fff",borderRadius:5,transition:"width .5s"}}/>
           <div style={{position:"absolute",left:"50%",top:-3,width:2,height:16,background:"rgba(255,255,255,.6)",borderRadius:1}}/>
-          <div style={{position:"absolute",left:"50%",top:14,transform:"translateX(-50%)",fontSize:9,color:"rgba(255,255,255,.7)",whiteSpace:"nowrap"}}>+1点</div>
-          <div style={{position:"absolute",right:0,top:14,transform:"translateX(50%)",fontSize:9,color:"rgba(255,255,255,.7)",whiteSpace:"nowrap"}}>+2点</div>
         </div>
       </div>
-      <div style={{marginTop:16,padding:"8px 12px",background:"rgba(255,255,255,.12)",borderRadius:10,fontSize:12}}>
+      <div style={{marginTop:16,padding:"8px 12px",background:"rgba(255,255,255,.15)",borderRadius:10,fontSize:12}}>
         {count>=10?"🎉 10件達成！人事考課 +2点獲得おめでとうございます！":count>=5?`⭐ +1点獲得中！あと${10-count}件で +2点`:`🌱 あと${5-count}件で +1点、${10-count}件で +2点`}
       </div>
       {badge&&<div style={{display:"flex",alignItems:"center",gap:8,marginTop:10}}><span style={{fontSize:18}}>{badge.icon}</span><span style={{fontSize:12,color:"rgba(255,255,255,.8)"}}>{badge.label} バッジ獲得中</span></div>}
@@ -247,7 +265,7 @@ function ProfileModal({emp,onClose}){
     <div style={S.overlay} onClick={onClose}>
       <div style={{...S.modal,maxWidth:420}} onClick={e=>e.stopPropagation()}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-          <div><div style={{fontWeight:800,fontSize:18,color:"#1e3a5f"}}>{emp.name}</div><div style={{fontSize:13,color:"#6b7280"}}>{emp.dept} · {emp.id}</div></div>
+          <div><div style={{fontWeight:800,fontSize:18,color:"#4A3020"}}>{emp.name}</div><div style={{fontSize:13,color:"#6b7280"}}>{emp.dept} · {emp.id}</div></div>
           <button style={S.logoutBtn} onClick={onClose}>✕</button>
         </div>
         <div style={S.profileSection}><div style={S.profileLabel}>📅 入社年月日</div>
@@ -259,6 +277,57 @@ function ProfileModal({emp,onClose}){
           {(emp.certTrainings||[]).length===0?<div style={{fontSize:13,color:"#9ca3af"}}>未登録</div>
             :<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:4}}>{emp.certTrainings.map((c,i)=><span key={i} style={{...S.qBadge,background:"#ede9fe",color:"#7c3aed",borderColor:"#c4b5fd"}}>{c}</span>)}</div>}</div>
         <button style={{...S.btn,marginTop:4}} onClick={onClose}>閉じる</button>
+      </div>
+    </div>
+  );
+}
+
+function QRScanModal({onScan,onClose}){
+  const videoRef=require("react").useRef(null);
+  const [error,setError]=useState("");
+  const [scanning,setScanning]=useState(false);
+  useEffect(()=>{
+    let stream=null; let animFrame=null;
+    const canvas=document.createElement("canvas"); const ctx=canvas.getContext("2d");
+    const startCamera=async()=>{
+      try{
+        stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+        if(videoRef.current){videoRef.current.srcObject=stream;videoRef.current.play();setScanning(true);scanLoop();}
+      }catch(e){setError("カメラへのアクセスが拒否されました。ブラウザの設定でカメラを許可してください。");}
+    };
+    const scanLoop=()=>{
+      if(!videoRef.current)return;
+      const v=videoRef.current;
+      if(v.readyState===v.HAVE_ENOUGH_DATA){
+        canvas.width=v.videoWidth;canvas.height=v.videoHeight;ctx.drawImage(v,0,0);
+        const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
+        if(window.jsQR){const code=window.jsQR(imageData.data,imageData.width,imageData.height);
+          if(code){const p=new URLSearchParams(code.data.split("?")[1]||"");const tid=p.get("attend");
+            if(tid){if(stream)stream.getTracks().forEach(t=>t.stop());onScan(tid);return;}}}
+      }
+      animFrame=requestAnimationFrame(scanLoop);
+    };
+    if(window.jsQR){startCamera();}else{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js";s.onload=startCamera;document.head.appendChild(s);}
+    return()=>{if(stream)stream.getTracks().forEach(t=>t.stop());if(animFrame)cancelAnimationFrame(animFrame);};
+  },[]);// eslint-disable-line
+  return(
+    <div style={S.overlay} onClick={onClose}>
+      <div style={{...S.modal,maxWidth:400}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div style={{fontWeight:800,fontSize:16,color:"#4A3020"}}>📷 QRコードをスキャン</div>
+          <button style={S.logoutBtn} onClick={onClose}>✕</button>
+        </div>
+        {error?<div style={{padding:"16px",background:"#fef2f2",borderRadius:10,color:"#dc2626",fontSize:13,textAlign:"center"}}>{error}</div>
+          :<div>
+            <div style={{position:"relative",borderRadius:12,overflow:"hidden",background:"#000",aspectRatio:"1"}}>
+              <video ref={videoRef} style={{width:"100%",height:"100%",objectFit:"cover"}} playsInline muted/>
+              {scanning&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
+                <div style={{width:200,height:200,border:"2px solid #C89A55",borderRadius:8,boxShadow:"0 0 0 9999px rgba(0,0,0,.4)"}}/>
+              </div>}
+            </div>
+            <div style={{marginTop:12,fontSize:13,color:"#6b7280",textAlign:"center"}}>{scanning?"QRコードを枠内に合わせてください":"カメラを起動中..."}</div>
+          </div>}
+        <button style={{...S.btn,marginTop:12,background:"#6b7280"}} onClick={onClose}>キャンセル</button>
       </div>
     </div>
   );
@@ -289,21 +358,21 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
       {toast&&<div style={S.toast}>{toast}</div>}
       {pdfExt&&<PdfModal ext={pdfExt} onClose={()=>setPdfExt(null)}/>}
       {showProfile&&<ProfileModal emp={emp} onClose={()=>setShowProfile(false)}/>}
-        {showQRScan&&<QRScanModal onScan={tid=>{setIS(emp.id,tid,"attendance","参加済");setShowQRScan(false);showToast("✅ 参加済に登録しました！");}} onClose={()=>setShowQRScan(false)}/>}
+      {showQRScan&&<QRScanModal onScan={tid=>{setIS(emp.id,tid,"attendance","参加済");setShowQRScan(false);showToast("✅ 参加済に登録しました！");}} onClose={()=>setShowQRScan(false)}/>}
       <div style={S.appWrap}>
         <div style={S.header}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <button onClick={()=>setShowProfile(true)} style={{width:38,height:38,borderRadius:"50%",background:"rgba(255,255,255,.15)",border:"1.5px solid rgba(255,255,255,.3)",color:"#fff",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>👤</button>
+            <button onClick={()=>setShowProfile(true)} style={{width:38,height:38,borderRadius:"50%",background:"rgba(255,255,255,.25)",border:"1.5px solid rgba(255,255,255,.4)",color:"#4A3020",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>👤</button>
             <div><div style={S.headerName}>{emp.name}</div><div style={S.headerSub}>{emp.dept} · {emp.id}</div></div>
           </div>
-         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            <button onClick={()=>setShowQRScan(true)} style={{padding:"6px 12px",borderRadius:8,background:"#16a34a",color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:600}}>📷 QR読取</button>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <button onClick={()=>setShowQRScan(true)} style={{padding:"6px 12px",borderRadius:8,background:"#A07840",color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:600}}>📷 QR読取</button>
             <button style={S.logoutBtn} onClick={onLogout}>ログアウト</button>
           </div>
         </div>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"8px 16px",background:"#f8fafc",borderBottom:"1px solid #e5e7eb"}}>
-          <span style={{fontSize:12,color:"#6b7280",fontWeight:600}}>📅 年度</span>
-          <select value={viewFY} onChange={e=>setViewFY(Number(e.target.value))} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #e5e7eb",fontSize:13,fontWeight:600,color:"#1e3a5f",cursor:"pointer"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"8px 16px",background:"#FDF6EC",borderBottom:"1px solid #E8D5B0"}}>
+          <span style={{fontSize:12,color:"#A07840",fontWeight:600}}>📅 年度</span>
+          <select value={viewFY} onChange={e=>setViewFY(Number(e.target.value))} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:13,fontWeight:600,color:"#4A3020",cursor:"pointer",background:"#fff"}}>
             {[fiscalYear-2,fiscalYear-1,fiscalYear].map(y=><option key={y} value={y}>{y}年度{y===fiscalYear?"（今年度）":""}</option>)}
           </select>
           {!isCurrentFY&&<span style={{fontSize:11,color:"#d97706",fontWeight:600,background:"#fef3c7",padding:"2px 8px",borderRadius:20}}>過去年度閲覧中</span>}
@@ -317,35 +386,20 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
           {tab==="score"&&(
             <div style={{display:"flex",flexDirection:"column",gap:16}}>
               <PointCard count={count} fiscalYear={viewFY}/>
-              <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:16}}>
-                <div style={{fontWeight:700,fontSize:14,color:"#1e3a5f",marginBottom:12}}>📊 月別復命書提出状況（{viewFY}年度）</div>
+              <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16}}>
+                <div style={{fontWeight:700,fontSize:14,color:"#4A3020",marginBottom:12}}>📊 月別復命書提出状況（{viewFY}年度）</div>
                 <div style={{display:"flex",gap:4,alignItems:"flex-end",height:80}}>
                   {monthCounts.map((m,i)=>(
                     <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                      <div style={{fontSize:9,color:m.count>0?"#1e40af":"#9ca3af",fontWeight:700}}>{m.count>0?m.count:""}</div>
-                      <div style={{width:"100%",height:`${(m.count/maxM)*60}px`,minHeight:m.count>0?4:0,background:m.count>=3?"#7c3aed":m.count>=2?"#2563eb":m.count>=1?"#3b82f6":"#e5e7eb",borderRadius:"3px 3px 0 0"}}/>
+                      <div style={{fontSize:9,color:m.count>0?"#C89A55":"#9ca3af",fontWeight:700}}>{m.count>0?m.count:""}</div>
+                      <div style={{width:"100%",height:`${(m.count/maxM)*60}px`,minHeight:m.count>0?4:0,background:m.count>=3?"#7c3aed":m.count>=2?"#C89A55":m.count>=1?"#D4AA70":"#e5e7eb",borderRadius:"3px 3px 0 0"}}/>
                       <div style={{fontSize:9,color:"#9ca3af"}}>{m.label}</div>
                     </div>
                   ))}
                 </div>
               </div>
-              <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:16}}>
-                <div style={{fontWeight:700,fontSize:14,color:"#1e3a5f",marginBottom:12}}>📋 {viewFY}年度の内訳</div>
-                {[
-                  {label:"内部研修（提出済）",count:fyInternals.filter(t=>getIS(emp.id,t.id).report==="提出済").length,color:"#2563eb"},
-                  {label:"外部研修（提出済）",count:fyExternals.filter(x=>getXS(emp.id,x.id).reportSubmitted).length,color:"#d97706"},
-                ].map(row=>(
-                  <div key={row.label} style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
-                    <div style={{width:140,fontSize:12,color:"#374151"}}>{row.label}</div>
-                    <div style={{flex:1,height:16,background:"#f3f4f6",borderRadius:8,overflow:"hidden"}}>
-                      <div style={{height:"100%",width:`${Math.min(row.count/10*100,100)}%`,background:row.color,borderRadius:8}}/>
-                    </div>
-                    <div style={{fontSize:14,fontWeight:700,color:row.color,minWidth:28,textAlign:"right"}}>{row.count}件</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:16}}>
-                <div style={{fontWeight:700,fontSize:14,color:"#1e3a5f",marginBottom:12}}>🎖 バッジコレクション</div>
+              <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16}}>
+                <div style={{fontWeight:700,fontSize:14,color:"#4A3020",marginBottom:12}}>🎖 バッジコレクション</div>
                 <div style={{display:"flex",gap:10}}>
                   {BADGES.map(b=>{const earned=count>=b.min;return(
                     <div key={b.id} style={{flex:1,textAlign:"center",padding:"12px 8px",borderRadius:12,background:earned?b.bg:"#f9fafb",border:`1.5px solid ${earned?b.color:"#e5e7eb"}`,opacity:earned?1:0.45}}>
@@ -362,7 +416,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
             :fyInternals.map(t=>(
               <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)} readonly={!isCurrentFY}
                 onReport={v=>{ if(isCurrentFY){setIS(emp.id,t.id,"report",v);showToast(v==="提出済"?"復命書を提出済にしました":"未提出に戻しました");} }}
-                onVideo={v=>{ if(isCurrentFY){setIS(emp.id,t.id,"video",v);showToast(v==="視聴済"?"動画を視聴済":"未視聴に戻しました");} }}
+                onVideo={v=>{ if(isCurrentFY){setIS(emp.id,t.id,"video",v);} }}
                 onWatchVideo={()=>{setVideoT(t);setTab("video");}}/>
             ))
           )}
@@ -386,6 +440,109 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
   );
 }
 
+// ── 部署長画面 ─────────────────────────────────────────────────
+function ManagerScreen({dept,employees,internals,getIS,setIS,externals,getXS,setXS,fiscalYear,setFiscalYear,onLogout}){
+  const [tab,setTab]=useState("iProgress");
+  const fyInternals=internals.filter(t=>inFiscalYear(t.date,fiscalYear));
+  const fyExternals=externals.filter(x=>inFiscalYear(x.date,fiscalYear));
+  return(
+    <div style={S.page}>
+      <div style={{...S.appWrap,maxWidth:960}}>
+        <div style={S.header}>
+          <div>
+            <div style={S.headerName}>🏢 {dept} 部署長ダッシュボード</div>
+            <div style={S.headerSub}>{ORG_NAME}</div>
+          </div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <select value={fiscalYear} onChange={e=>setFiscalYear(Number(e.target.value))} style={{padding:"4px 8px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:12,cursor:"pointer",background:"#fff"}}>
+              {[currentFY()-1,currentFY(),currentFY()+1].map(y=><option key={y} value={y}>{y}年度</option>)}
+            </select>
+            <button style={S.logoutBtn} onClick={onLogout}>ログアウト</button>
+          </div>
+        </div>
+        <div style={S.tabBar}>
+          {[["iProgress","📊 内部研修 進捗"],["xProgress","🌐 外部研修 進捗"]].map(([k,l])=>(
+            <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{})}} onClick={()=>setTab(k)}>{l}</button>
+          ))}
+        </div>
+        <div style={{...S.scroll,maxHeight:"calc(100vh - 185px)"}}>
+          {tab==="iProgress"&&(
+            <div>
+              <div style={{fontSize:12,color:"#A07840",fontWeight:600,marginBottom:12,padding:"8px 12px",background:"#FDF6EC",borderRadius:8}}>
+                📋 {dept}の内部研修進捗（{fiscalYear}年度）
+              </div>
+              {fyInternals.length===0&&<div style={S.empty}>{fiscalYear}年度の内部研修はありません</div>}
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                  <thead><tr style={{background:"#C89A55",color:"#fff"}}>
+                    <th style={S.th}>従業員</th>
+                    {fyInternals.map(t=><th key={t.id} style={{...S.th,minWidth:140}}>{t.required?"【必】":""}{t.title}</th>)}
+                  </tr></thead>
+                  <tbody>{employees.map((emp,i)=>(
+                    <tr key={emp.id} style={{background:i%2===0?"#fff":"#FDF6EC"}}>
+                      <td style={S.td}><div style={{fontWeight:600}}>{emp.name}</div></td>
+                      {fyInternals.map(t=>{
+                        const s=getIS(emp.id,t.id);
+                        const [d1,d2,d3]=internalStepsDone(s);
+                        const done=[d1,d2,d3].filter(Boolean).length;
+                        const bc=done===3?"#16a34a":done===0?"#e5e7eb":"#f59e0b";
+                        return(
+                          <td key={t.id} style={{...S.td,minWidth:140}}>
+                            <div style={{height:4,background:"#e5e7eb",borderRadius:2,overflow:"hidden",marginBottom:4}}><div style={{height:"100%",width:`${Math.round(done/3*100)}%`,background:bc,borderRadius:2}}/></div>
+                            <div style={{display:"flex",gap:3,alignItems:"center"}}>
+                              {[["参/動",d1,"#16a34a"],["復命書",d2,"#2563eb"],["確認",d3,"#7c3aed"]].map(([l,ok,c])=>(
+                                <span key={l} style={{fontSize:9,padding:"1px 4px",borderRadius:4,background:ok?c:"#f3f4f6",color:ok?"#fff":"#9ca3af",fontWeight:ok?700:400}}>{l}</span>
+                              ))}
+                              {d2&&!d3&&<button style={{fontSize:9,padding:"2px 6px",borderRadius:4,border:"1px solid #C89A55",background:"#FDF6EC",color:"#A07840",cursor:"pointer",marginLeft:2,fontWeight:600}}
+                                onClick={()=>setIS(emp.id,t.id,"reportConfirmed",true)}>確認✓</button>}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          {tab==="xProgress"&&(
+            <div>
+              <div style={{fontSize:12,color:"#A07840",fontWeight:600,marginBottom:12,padding:"8px 12px",background:"#FDF6EC",borderRadius:8}}>
+                📋 {dept}の外部研修進捗（{fiscalYear}年度）
+              </div>
+              {fyExternals.filter(x=>x.targetEmpIds.some(id=>employees.map(e=>e.id).includes(id))).length===0
+                &&<div style={S.empty}>{fiscalYear}年度の外部研修はありません</div>}
+              {fyExternals.filter(x=>x.targetEmpIds.some(id=>employees.map(e=>e.id).includes(id))).map(x=>{
+                const targets=employees.filter(e=>x.targetEmpIds.includes(e.id));
+                return(
+                  <div key={x.id} style={{marginBottom:24}}>
+                    <div style={{fontWeight:700,color:"#4A3020",fontSize:14,marginBottom:4}}><span style={S.extBadge}>外部</span> {x.title}</div>
+                    <div style={{fontSize:12,color:"#6b7280",marginBottom:10}}>📅 {x.date} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}</div>
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                      <thead><tr style={{background:"#C89A55",color:"#fff"}}><th style={S.th}>従業員</th><th style={S.th}>受講</th><th style={S.th}>復命書</th><th style={S.th}>管理者確認</th></tr></thead>
+                      <tbody>{targets.map((emp,i)=>{const s=getXS(emp.id,x.id);return(
+                        <tr key={emp.id} style={{background:i%2===0?"#fff":"#FDF6EC"}}>
+                          <td style={S.td}>{emp.name}</td>
+                          <td style={S.td}>{s.attended?"✅":"○"}</td>
+                          <td style={S.td}>{s.reportSubmitted?"📄":"─"}</td>
+                          <td style={S.td}>{s.reportConfirmed?<span style={{color:"#15803d",fontWeight:600}}>✅確認済</span>
+                            :s.reportSubmitted?<button style={{...S.qrBtn,fontSize:11,borderColor:"#C89A55",color:"#A07840",background:"#FDF6EC"}} onClick={()=>setXS(emp.id,x.id,{reportConfirmed:true})}>確認済にする</button>
+                            :<span style={{color:"#9ca3af"}}>─</span>}</td>
+                        </tr>
+                      );})}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function internalStepsDone(status){
   const s1=status.attendance==="参加済"||status.video==="視聴済";
   const s2=s1&&status.report==="提出済";
@@ -397,7 +554,7 @@ function InternalProgress({status}){
   const [s1,s2,s3]=internalStepsDone(status);
   const steps=[{label:"参加/動画",done:s1,active:!s1,color:"#16a34a",bg:"#dcfce7"},{label:"復命書",done:s2,active:s1&&!s2,color:"#2563eb",bg:"#dbeafe"},{label:"確認",done:s3,active:s2&&!s3,color:"#7c3aed",bg:"#ede9fe"}];
   const dc=[s1,s2,s3].filter(Boolean).length; const pct=Math.round(dc/3*100);
-  const bc=dc===3?"#16a34a":dc===0?"#e5e7eb":"#f59e0b";
+  const bc=dc===3?"#16a34a":dc===0?"#e5e7eb":"#C89A55";
   return(
     <div style={{minWidth:130}}>
       <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}>
@@ -464,12 +621,11 @@ function InternalCard({training,status,onReport,onVideo,onWatchVideo,readonly}){
                 {training.videoUrl&&<button style={{...S.watchBtn,marginTop:8}} onClick={onWatchVideo}>▶ 動画を視聴する</button>}
               </div>
             )}
-            {showVideo&&readonly&&status.video==="視聴済"&&<div style={{marginTop:8}}><SPill color="#7c3aed" bg="#ede9fe" border="#c4b5fd">▶ 視聴済</SPill></div>}
           </div>
           <div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書提出</div>
             {readonly?<SPill color={status.report==="提出済"?"#2563eb":"#9ca3af"} bg={status.report==="提出済"?"#dbeafe":"#f9fafb"} border={status.report==="提出済"?"#bfdbfe":"#e5e7eb"}>{status.report==="提出済"?"✅ 提出済":"未提出"}</SPill>
-              :<div style={{display:"flex",gap:8}}>{["提出済","未提出"].map(v=><ToggleChip key={v} label={v} active={status.report===v} color={v==="提出済"?"#2563eb":"#f59e0b"} onClick={()=>onReport(v)}/>)}</div>}
+              :<div style={{display:"flex",gap:8}}>{["提出済","未提出"].map(v=><ToggleChip key={v} label={v} active={status.report===v} color={v==="提出済"?"#2563eb":"#C89A55"} onClick={()=>onReport(v)}/>)}</div>}
           </div>
           <div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>3</span> 管理者確認</div>
@@ -518,98 +674,6 @@ function ExternalCard({ext,status,onAttend,onReport,onViewPdf,readonly}){
   );
 }
 
-function QRScanModal({onScan,onClose}){
-  const videoRef=React.useRef(null);
-  const [error,setError]=useState("");
-  const [scanning,setScanning]=useState(false);
-
-  useEffect(()=>{
-    let stream=null;
-    let animFrame=null;
-    const canvas=document.createElement("canvas");
-    const ctx=canvas.getContext("2d");
-
-    const startCamera=async()=>{
-      try{
-        stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
-        if(videoRef.current){
-          videoRef.current.srcObject=stream;
-          videoRef.current.play();
-          setScanning(true);
-          scanLoop();
-        }
-      }catch(e){
-        setError("カメラへのアクセスが拒否されました。ブラウザの設定でカメラを許可してください。");
-      }
-    };
-
-    const scanLoop=()=>{
-      if(!videoRef.current)return;
-      const v=videoRef.current;
-      if(v.readyState===v.HAVE_ENOUGH_DATA){
-        canvas.width=v.videoWidth;
-        canvas.height=v.videoHeight;
-        ctx.drawImage(v,0,0);
-        const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
-        if(window.jsQR){
-          const code=window.jsQR(imageData.data,imageData.width,imageData.height);
-          if(code){
-            const url=code.data;
-            const p=new URLSearchParams(url.split("?")[1]||"");
-            const tid=p.get("attend");
-            if(tid){
-              if(stream)stream.getTracks().forEach(t=>t.stop());
-              onScan(tid);
-              return;
-            }
-          }
-        }
-      }
-      animFrame=requestAnimationFrame(scanLoop);
-    };
-
-    // jsQRライブラリを読み込んでからカメラ起動
-    if(window.jsQR){
-      startCamera();
-    } else {
-      const s=document.createElement("script");
-      s.src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js";
-      s.onload=startCamera;
-      document.head.appendChild(s);
-    }
-
-    return()=>{
-      if(stream)stream.getTracks().forEach(t=>t.stop());
-      if(animFrame)cancelAnimationFrame(animFrame);
-    };
-  },[]);// eslint-disable-line
-
-  return(
-    <div style={S.overlay} onClick={onClose}>
-      <div style={{...S.modal,maxWidth:400}} onClick={e=>e.stopPropagation()}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-          <div style={{fontWeight:800,fontSize:16,color:"#1e3a5f"}}>📷 QRコードをスキャン</div>
-          <button style={S.logoutBtn} onClick={onClose}>✕</button>
-        </div>
-        {error
-          ?<div style={{padding:"16px",background:"#fef2f2",borderRadius:10,color:"#dc2626",fontSize:13,textAlign:"center"}}>{error}</div>
-          :<div>
-            <div style={{position:"relative",borderRadius:12,overflow:"hidden",background:"#000",aspectRatio:"1"}}>
-              <video ref={videoRef} style={{width:"100%",height:"100%",objectFit:"cover"}} playsInline muted/>
-              {scanning&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
-                <div style={{width:200,height:200,border:"2px solid #fff",borderRadius:8,boxShadow:"0 0 0 9999px rgba(0,0,0,.4)"}}/>
-              </div>}
-            </div>
-            <div style={{marginTop:12,fontSize:13,color:"#6b7280",textAlign:"center"}}>
-              {scanning?"QRコードを枠内に合わせてください":"カメラを起動中..."}
-            </div>
-          </div>
-        }
-        <button style={{...S.btn,marginTop:12,background:"#6b7280"}} onClick={onClose}>キャンセル</button>
-      </div>
-    </div>
-  );
-}
 function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus,readonly}){
   const cur=selected||trainings[0]; const s=cur?getStatus(cur):null;
   return(
@@ -617,14 +681,14 @@ function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus,readonly}
       {(!trainings||trainings.length===0)&&<div style={S.empty}>この年度に動画付きの研修はありません</div>}
       <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:10,marginBottom:12}}>
         {(trainings||[]).map(t=>{const st=getStatus(t);const active=cur?.id===t.id;return(
-          <button key={t.id} onClick={()=>onSelect(t)} style={{minWidth:130,padding:"8px 12px",borderRadius:10,border:"1.5px solid",borderColor:active?"#1e40af":"#e5e7eb",background:active?"#1e40af":"#fff",color:active?"#fff":"#374151",fontSize:12,cursor:"pointer",textAlign:"left"}}>
+          <button key={t.id} onClick={()=>onSelect(t)} style={{minWidth:130,padding:"8px 12px",borderRadius:10,border:"1.5px solid",borderColor:active?"#C89A55":"#e5e7eb",background:active?"#C89A55":"#fff",color:active?"#fff":"#374151",fontSize:12,cursor:"pointer",textAlign:"left"}}>
             <div style={{fontWeight:600,marginBottom:3}}>{t.title}</div>
             <div>{st.video==="視聴済"?"✅ 視聴済":"○ 未視聴"}</div>
           </button>);
         })}
       </div>
       {cur?.videoUrl&&<>
-        <div style={{fontWeight:700,color:"#1e3a5f",marginBottom:8}}>{cur.title}</div>
+        <div style={{fontWeight:700,color:"#4A3020",marginBottom:8}}>{cur.title}</div>
         <div style={{position:"relative",paddingBottom:"56.25%",borderRadius:12,overflow:"hidden",background:"#000"}}>
           <iframe style={{position:"absolute",inset:0,width:"100%",height:"100%",border:"none"}} src={cur.videoUrl} allowFullScreen title={cur.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"/>
         </div>
@@ -652,7 +716,7 @@ function PdfModal({ext,onClose}){
     <div style={S.overlay} onClick={onClose}>
       <div style={{...S.modal,maxWidth:700,width:"95vw",height:"88vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-          <div><div style={{fontWeight:800,fontSize:16,color:"#1e3a5f"}}>📄 研修要綱</div><div style={{fontSize:13,color:"#6b7280"}}>{ext.title}</div></div>
+          <div><div style={{fontWeight:800,fontSize:16,color:"#4A3020"}}>📄 研修要綱</div><div style={{fontSize:13,color:"#6b7280"}}>{ext.title}</div></div>
           <button style={S.logoutBtn} onClick={onClose}>✕ 閉じる</button>
         </div>
         <div style={{flex:1,borderRadius:10,overflow:"hidden",border:"1px solid #e5e7eb"}}>
@@ -671,12 +735,15 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
       {qrT&&<QRModal training={qrT} onClose={()=>setQrT(null)}/>}
       <div style={{...S.appWrap,maxWidth:960}}>
         <div style={S.header}>
-          <div><div style={S.headerName}>🛡 管理者ダッシュボード</div><div style={S.headerSub}>{ORG_NAME}</div></div>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <img src={LOGO_B64} alt="ロゴ" style={{height:40,objectFit:"contain"}}/>
+            <div><div style={S.headerName}>🛡 管理者ダッシュボード</div><div style={S.headerSub}>{ORG_NAME}</div></div>
+          </div>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            <select value={fiscalYear} onChange={e=>setFiscalYear(Number(e.target.value))} style={{padding:"4px 8px",borderRadius:8,border:"1px solid #e5e7eb",fontSize:12,cursor:"pointer"}}>
+            <select value={fiscalYear} onChange={e=>setFiscalYear(Number(e.target.value))} style={{padding:"4px 8px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:12,cursor:"pointer",background:"#fff"}}>
               {[currentFY()-1,currentFY(),currentFY()+1].map(y=><option key={y} value={y}>{y}年度</option>)}
             </select>
-            <button style={{...S.logoutBtn,background:"#1e40af",color:"#fff",borderColor:"#1e40af"}} onClick={()=>window.print()}>🖨 印刷</button>
+            <button style={{...S.logoutBtn,background:"#C89A55",color:"#fff",borderColor:"#C89A55"}} onClick={()=>window.print()}>🖨 印刷</button>
             <button style={S.logoutBtn} onClick={onLogout}>ログアウト</button>
           </div>
         </div>
@@ -698,13 +765,11 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
   );
 }
 
-// ── 職員管理タブ ──────────────────────────────────────────────
 function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externals,fiscalYear}){
   const [showAdd,setShowAdd]=useState(false);
   const [editEmp,setEditEmp]=useState(null);
-  const [newE,setNewE]=useState({id:"",password:"",name:"",dept:"",joinDate:"",qualifications:"",certTrainings:""});
+  const [newE,setNewE]=useState({id:"",password:"",name:"",dept:"",joinDate:"",qualifications:"",certTrainings:"",isManager:false});
   const [importMsg,setImportMsg]=useState("");
-  const [exporting,setExporting]=useState(false);
 
   const saveEmp=async(emp)=>{
     const e={
@@ -712,12 +777,13 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
       joinDate:emp.joinDate||"",
       qualifications:(emp.qualifications||"").split(",").map(s=>s.trim()).filter(Boolean),
       certTrainings:(emp.certTrainings||"").split(",").map(s=>s.trim()).filter(Boolean),
+      isManager:emp.isManager||false,
     };
     if(!e.id||!e.password||!e.name||!e.dept)return;
     await db.upsertEmployee(e);
     setEmployees(p=>{const idx=p.findIndex(x=>x.id===e.id);return idx>=0?p.map(x=>x.id===e.id?e:x):[...p,e];});
     setShowAdd(false); setEditEmp(null);
-    setNewE({id:"",password:"",name:"",dept:"",joinDate:"",qualifications:"",certTrainings:""});
+    setNewE({id:"",password:"",name:"",dept:"",joinDate:"",qualifications:"",certTrainings:"",isManager:false});
   };
 
   const delEmp=async(id)=>{
@@ -726,7 +792,6 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
     setEmployees(p=>p.filter(e=>e.id!==id));
   };
 
-  // CSVインポート
   const handleCSV=e=>{
     const file=e.target.files[0]; if(!file)return;
     const reader=new FileReader();
@@ -740,8 +805,9 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
         const emp={
           id:cols[0],password:cols[1]||"pass001",name:cols[2],dept:cols[3],
           joinDate:cols[4]||"",
-          qualifications:cols[5]?cols[5].split(",").map(s=>s.trim()).filter(Boolean):[],
-          certTrainings:cols[6]?cols[6].split(",").map(s=>s.trim()).filter(Boolean):[],
+          qualifications:cols[5]?cols[5].split("|").map(s=>s.trim()).filter(Boolean):[],
+          certTrainings:cols[6]?cols[6].split("|").map(s=>s.trim()).filter(Boolean):[],
+          isManager:cols[7]==="1"||cols[7]==="true",
         };
         await db.upsertEmployee(emp);
         setEmployees(p=>{const idx=p.findIndex(x=>x.id===emp.id);return idx>=0?p.map(x=>x.id===emp.id?emp:x):[...p,emp];});
@@ -754,82 +820,60 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
     e.target.value="";
   };
 
-  // CSVエクスポート（テンプレート）
-  const downloadTemplate=()=>{
-    const header="職員ID,パスワード,氏名,部署,入社年月日,保有資格,受講済み認定研修\n";
-    const rows=employees.length>0
-      ?employees.map(e=>`${e.id},${e.password},${e.name},${e.dept},${e.joinDate||""},${(e.qualifications||[]).join("|")},${(e.certTrainings||[]).join("|")}`).join("\n")
-      :"E001,pass001,山田 太郎,総務部,2020-04-01,社会福祉士|介護福祉士,認知症ケア専門士";
+  const downloadCSV=()=>{
+    const header="職員ID,パスワード,氏名,部署,入社年月日,保有資格,受講済み認定研修,部署長(1=YES)\n";
+    const rows=employees.map(e=>`${e.id},${e.password},${e.name},${e.dept},${e.joinDate||""},${(e.qualifications||[]).join("|")},${(e.certTrainings||[]).join("|")},${e.isManager?1:0}`).join("\n");
     const blob=new Blob(["\uFEFF"+header+rows],{type:"text/csv;charset=utf-8;"});
     const url=URL.createObjectURL(blob);
     const a=document.createElement("a");a.href=url;a.download="職員名簿.csv";a.click();
     URL.revokeObjectURL(url);
   };
 
-  // Excel風HTMLエクスポート（印刷対応）
-  const exportExcel=()=>{
-    setExporting(true);
+  const exportHTML=()=>{
     const today=new Date().toLocaleDateString("ja-JP");
     const depts=[...new Set(employees.map(e=>e.dept))];
-
-    let html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
-    <title>${ORG_NAME} 職員研修履歴</title>
-    <style>
-      body{font-family:'游ゴシック',sans-serif;margin:0;padding:20px;color:#222;}
-      h1{background:#1E3A5F;color:#fff;padding:12px 20px;margin:0 0 4px;font-size:18px;}
-      h2{background:#3A5F8A;color:#fff;padding:8px 16px;margin:20px 0 0;font-size:14px;}
-      .sub{background:#f0f4fa;padding:4px 16px;font-size:11px;color:#666;margin-bottom:12px;}
-      table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:24px;}
-      th{background:#1E3A5F;color:#fff;padding:8px 10px;text-align:left;font-weight:600;}
-      td{padding:6px 10px;border-bottom:1px solid #e5e7eb;}
-      tr:nth-child(even) td{background:#f8fafc;}
-      .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;margin:1px;}
-      .q{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;}
-      .c{background:#ede9fe;color:#7c3aed;border:1px solid #c4b5fd;}
-      .t{background:#dcfce7;color:#15803d;border:1px solid #86efac;}
-      @media print{.noprint{display:none;}h2{page-break-before:always;}}
-    </style></head><body>
+    let html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${ORG_NAME} 職員研修履歴</title>
+    <style>body{font-family:'游ゴシック',sans-serif;margin:0;padding:20px;color:#222;}
+    h1{background:#C89A55;color:#fff;padding:12px 20px;margin:0 0 4px;font-size:18px;}
+    h2{background:#A07840;color:#fff;padding:8px 16px;margin:20px 0 0;font-size:14px;}
+    .sub{background:#FDF6EC;padding:4px 16px;font-size:11px;color:#A07840;margin-bottom:12px;}
+    table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:24px;}
+    th{background:#C89A55;color:#fff;padding:8px 10px;text-align:left;font-weight:600;}
+    td{padding:6px 10px;border-bottom:1px solid #E8D5B0;}
+    tr:nth-child(even) td{background:#FDF6EC;}
+    .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;margin:1px;}
+    .q{background:#dbeafe;color:#1e40af;}.c{background:#ede9fe;color:#7c3aed;}.t{background:#dcfce7;color:#15803d;}
+    @media print{h2{page-break-before:always;}}</style></head><body>
     <h1>${ORG_NAME}　職員研修履歴　${fiscalYear}年度</h1>
     <div class="sub">出力日：${today}　　対象人数：${employees.length}名</div>`;
 
     const makeTable=(emps,title)=>{
-      let rows=emps.map((emp,i)=>{
+      const rows=emps.map((emp,i)=>{
         const yrs=calcYears(emp.joinDate);
-        const iTrainings=internals.filter(t=>inFiscalYear(t.date,fiscalYear)&&getIS(emp.id,t.id).attendance==="参加済");
-        const xTrainings=externals.filter(x=>inFiscalYear(x.date,fiscalYear)&&x.targetEmpIds.includes(emp.id)&&getXS(emp.id,x.id).attended);
-        const allTrainings=[...iTrainings.map(t=>t.title),...xTrainings.map(x=>x.title)];
-        return `<tr>
-          <td>${i+1}</td>
-          <td>${emp.id}</td>
-          <td><strong>${emp.name}</strong></td>
-          <td>${emp.dept}</td>
-          <td>${yrs||"─"}</td>
-          <td>${(emp.qualifications||[]).map(q=>`<span class="badge q">${q}</span>`).join("")||"─"}</td>
-          <td>${(emp.certTrainings||[]).map(c=>`<span class="badge c">${c}</span>`).join("")||"─"}</td>
-          <td>${allTrainings.map(t=>`<span class="badge t">${t}</span>`).join("")||"─"}</td>
-        </tr>`;
+        const iT=internals.filter(t=>inFiscalYear(t.date,fiscalYear)&&getIS(emp.id,t.id).attendance==="参加済");
+        const xT=externals.filter(x=>inFiscalYear(x.date,fiscalYear)&&x.targetEmpIds.includes(emp.id)&&getXS(emp.id,x.id).attended);
+        const all=[...iT.map(t=>t.title),...xT.map(x=>x.title)];
+        return `<tr><td>${i+1}</td><td>${emp.id}</td><td><strong>${emp.name}</strong>${emp.isManager?' <span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:10px;">部署長</span>':''}</td><td>${emp.dept}</td><td>${yrs||"─"}</td>
+        <td>${(emp.qualifications||[]).map(q=>`<span class="badge q">${q}</span>`).join("")||"─"}</td>
+        <td>${(emp.certTrainings||[]).map(c=>`<span class="badge c">${c}</span>`).join("")||"─"}</td>
+        <td>${all.map(t=>`<span class="badge t">${t}</span>`).join("")||"─"}</td></tr>`;
       }).join("");
       return `<h2>${title}（${emps.length}名）</h2>
-      <table><thead><tr><th>No.</th><th>ID</th><th>氏名</th><th>部署</th><th>勤続年数</th><th>保有資格</th><th>認定研修</th><th>参加済み研修（${fiscalYear}年度）</th></tr></thead>
-      <tbody>${rows}</tbody></table>`;
+      <table><thead><tr><th>No.</th><th>ID</th><th>氏名</th><th>部署</th><th>勤続年数</th><th>保有資格</th><th>認定研修</th><th>参加済み研修（${fiscalYear}年度）</th></tr></thead><tbody>${rows}</tbody></table>`;
     };
 
     html+=makeTable(employees,"全員一覧");
-    depts.forEach(dept=>{
-      html+=makeTable(employees.filter(e=>e.dept===dept),dept);
-    });
-    html+=`</body></html>`;
-
+    depts.forEach(dept=>{ html+=makeTable(employees.filter(e=>e.dept===dept),dept); });
+    html+="</body></html>";
     const blob=new Blob([html],{type:"text/html;charset=utf-8;"});
     const url=URL.createObjectURL(blob);
     const a=document.createElement("a");a.href=url;a.download=`職員研修履歴_${fiscalYear}年度.html`;a.click();
     URL.revokeObjectURL(url);
-    setExporting(false);
   };
 
   const EmpForm=({data,onChange,onSave,onCancel,isEdit})=>(
     <div style={S.formBox}>
-      <div style={{fontWeight:700,color:"#0369a1",marginBottom:12}}>{isEdit?"職員情報を編集":"新しい職員を追加"}</div>
+      <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>{isEdit?"職員情報を編集":"新しい職員を追加"}</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
         {[{key:"id",label:"職員ID",ph:"E001"},{key:"password",label:"パスワード",ph:"pass001"},{key:"name",label:"氏名",ph:"山田 太郎"},{key:"dept",label:"部署",ph:"総務部"},{key:"joinDate",label:"入社年月日",type:"date"},{key:"qualifications",label:"保有資格（カンマ区切り）",ph:"社会福祉士,介護福祉士"}].map(f=>(
           <div key={f.key}>
@@ -840,10 +884,15 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
           </div>
         ))}
       </div>
-      <div style={{marginBottom:12}}>
+      <div style={{marginBottom:10}}>
         <label style={S.label}>受講済み認定研修（カンマ区切り）</label>
-        <input style={S.input} placeholder="認知症ケア専門士,実務者研修修了" value={data.certTrainings||""}
-          onChange={e=>onChange({...data,certTrainings:e.target.value})}/>
+        <input style={S.input} placeholder="認知症ケア専門士,実務者研修修了" value={data.certTrainings||""} onChange={e=>onChange({...data,certTrainings:e.target.value})}/>
+      </div>
+      <div style={{marginBottom:14}}>
+        <label style={{...S.label,display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+          <input type="checkbox" checked={data.isManager||false} onChange={e=>onChange({...data,isManager:e.target.checked})} style={{width:16,height:16,accentColor:"#C89A55"}}/>
+          🏢 この職員を部署長にする（自部署の進捗確認・復命書確認が可能）
+        </label>
       </div>
       <div style={{display:"flex",gap:8}}>
         <button style={{...S.btn,flex:1}} onClick={()=>onSave(data)}>保存する</button>
@@ -854,46 +903,35 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
 
   return(
     <div style={{padding:4}}>
-      {/* ツールバー */}
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
         <button style={{...S.btn,width:"auto",padding:"8px 16px"}} onClick={()=>setShowAdd(true)}>＋ 職員を追加</button>
         <label style={{...S.btn,width:"auto",padding:"8px 16px",cursor:"pointer",background:"#059669"}}>
-          <input type="file" accept=".csv" style={{display:"none"}} onChange={handleCSV}/>
-          📥 CSVインポート
+          <input type="file" accept=".csv" style={{display:"none"}} onChange={handleCSV}/>📥 CSVインポート
         </label>
-        <button style={{...S.btn,width:"auto",padding:"8px 16px",background:"#d97706"}} onClick={downloadTemplate}>
-          📤 CSV出力（編集用）
-        </button>
-        <button style={{...S.btn,width:"auto",padding:"8px 16px",background:"#7c3aed"}} onClick={exportExcel} disabled={exporting}>
-          📊 研修履歴を出力（部署別）
-        </button>
+        <button style={{...S.btn,width:"auto",padding:"8px 16px",background:"#d97706"}} onClick={downloadCSV}>📤 CSV出力</button>
+        <button style={{...S.btn,width:"auto",padding:"8px 16px",background:"#7c3aed"}} onClick={exportHTML}>📊 研修履歴出力</button>
       </div>
-
       {importMsg&&<div style={{padding:"8px 14px",background:"#f0fdf4",border:"1px solid #86efac",borderRadius:8,color:"#15803d",marginBottom:12,fontSize:13}}>{importMsg}</div>}
-
       {showAdd&&<EmpForm data={newE} onChange={setNewE} onSave={saveEmp} onCancel={()=>setShowAdd(false)} isEdit={false}/>}
-      {editEmp&&<EmpForm data={{...editEmp,qualifications:(editEmp.qualifications||[]).join(","),certTrainings:(editEmp.certTrainings||[]).join(",")}} onChange={d=>setEditEmp({...editEmp,...d})} onSave={saveEmp} onCancel={()=>setEditEmp(null)} isEdit={true}/>}
-
-      <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>登録済み職員：{employees.length}名</div>
-
+      {editEmp&&<EmpForm data={editEmp} onChange={d=>setEditEmp(d)} onSave={saveEmp} onCancel={()=>setEditEmp(null)} isEdit={true}/>}
+      <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>登録済み職員：{employees.length}名　（うち部署長：{employees.filter(e=>e.isManager).length}名）</div>
       {employees.length===0&&<div style={S.empty}>職員が登録されていません。CSVインポートまたは手動で追加してください。</div>}
-
       {[...new Set(employees.map(e=>e.dept))].map(dept=>(
         <div key={dept} style={{marginBottom:16}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#1e3a5f",padding:"6px 12px",background:"#f0f4fa",borderRadius:8,marginBottom:6}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"6px 12px",background:"#FDF6EC",borderRadius:8,marginBottom:6,border:"1px solid #E8D5B0"}}>
             🏢 {dept}（{employees.filter(e=>e.dept===dept).length}名）
           </div>
           {employees.filter(e=>e.dept===dept).map(emp=>(
             <div key={emp.id} style={{...S.card,padding:"10px 14px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <div style={{flex:1}}>
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <span style={{fontWeight:700,color:"#1e3a5f"}}>{emp.name}</span>
+                  <span style={{fontWeight:700,color:"#4A3020"}}>{emp.name}</span>
+                  {emp.isManager&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,background:"#fef3c7",color:"#92400e"}}>🏢 部署長</span>}
                   <span style={{fontSize:11,color:"#6b7280"}}>{emp.id} / {emp.password}</span>
                 </div>
                 <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>
                   {emp.joinDate&&`入社:${emp.joinDate}　`}
-                  {(emp.qualifications||[]).length>0&&`資格:${emp.qualifications.join("・")}　`}
-                  {(emp.certTrainings||[]).length>0&&`認定:${emp.certTrainings.join("・")}`}
+                  {(emp.qualifications||[]).length>0&&`資格:${emp.qualifications.join("・")}`}
                 </div>
               </div>
               <div style={{display:"flex",gap:6}}>
@@ -916,22 +954,21 @@ function RankingTab({employees,fiscalYear,getCount}){
   return(
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10}}>
-        {[{label:"全体平均",value:`${avg}件`,color:"#2563eb",sub:"提出/人"},{label:"平均加点",value:`+${ranked.length>0?(ranked.reduce((s,r)=>s+r.points,0)/ranked.length).toFixed(1):0}点`,color:"#7c3aed",sub:"人事考課"},{label:"+1点以上",value:`${reach5}名`,color:"#d97706",sub:"5件達成"},{label:"+2点達成",value:`${reach10}名`,color:"#16a34a",sub:"10件達成"}]
-          .map(c=><div key={c.label} style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:12,padding:"12px 10px",textAlign:"center"}}><div style={{fontSize:10,color:"#6b7280",marginBottom:4}}>{c.label}</div><div style={{fontSize:20,fontWeight:800,color:c.color}}>{c.value}</div><div style={{fontSize:10,color:"#9ca3af",marginTop:2}}>{c.sub}</div></div>)}
+        {[{label:"全体平均",value:`${avg}件`,color:"#C89A55",sub:"提出/人"},{label:"平均加点",value:`+${ranked.length>0?(ranked.reduce((s,r)=>s+r.points,0)/ranked.length).toFixed(1):0}点`,color:"#7c3aed",sub:"人事考課"},{label:"+1点以上",value:`${reach5}名`,color:"#d97706",sub:"5件達成"},{label:"+2点達成",value:`${reach10}名`,color:"#16a34a",sub:"10件達成"}]
+          .map(c=><div key={c.label} style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:12,padding:"12px 10px",textAlign:"center"}}><div style={{fontSize:10,color:"#6b7280",marginBottom:4}}>{c.label}</div><div style={{fontSize:20,fontWeight:800,color:c.color}}>{c.value}</div><div style={{fontSize:10,color:"#9ca3af",marginTop:2}}>{c.sub}</div></div>)}
       </div>
-      <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,overflow:"hidden"}}>
-        <div style={{background:"#1e3a5f",color:"#fff",padding:"12px 16px",fontWeight:700,fontSize:14}}>🏅 {fiscalYear}年度 復命書提出ランキング</div>
-        {ranked.map((emp,i)=>{const rank=i+1;const rs=rankStyle(rank);const badge=getBadge(emp.count);const bc=emp.count>=10?"#7c3aed":emp.count>=5?"#d97706":"#3b82f6";
+      <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,overflow:"hidden"}}>
+        <div style={{background:"#C89A55",color:"#fff",padding:"12px 16px",fontWeight:700,fontSize:14}}>🏅 {fiscalYear}年度 復命書提出ランキング</div>
+        {ranked.map((emp,i)=>{const rank=i+1;const rs=rankStyle(rank);const badge=getBadge(emp.count);const bc=emp.count>=10?"#7c3aed":emp.count>=5?"#d97706":"#C89A55";
           return(
-            <div key={emp.id} style={{padding:"12px 16px",borderBottom:"1px solid #f3f4f6",background:rank===1?"#fffbeb":rank<=3?"#fafafa":"#fff"}}>
+            <div key={emp.id} style={{padding:"12px 16px",borderBottom:"1px solid #f3f4f6",background:rank===1?"#fffbeb":rank<=3?"#fdf6ec":"#fff"}}>
               <div style={{display:"flex",alignItems:"center",gap:12}}>
                 <div style={{minWidth:32,textAlign:"center",fontSize:rank<=3?20:14,fontWeight:800,color:rs.color}}>{rs.icon}</div>
                 <div style={{flex:1}}>
-                  <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontWeight:700,fontSize:14,color:"#1e3a5f"}}>{emp.name}</span><span style={{fontSize:11,color:"#6b7280"}}>{emp.dept}</span>{badge&&<span style={{fontSize:16}}>{badge.icon}</span>}</div>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontWeight:700,fontSize:14,color:"#4A3020"}}>{emp.name}</span><span style={{fontSize:11,color:"#6b7280"}}>{emp.dept}</span>{badge&&<span style={{fontSize:16}}>{badge.icon}</span>}</div>
                   <div style={{display:"flex",alignItems:"center",gap:8,marginTop:5}}>
-                    <div style={{flex:1,height:8,background:"#f3f4f6",borderRadius:4,overflow:"hidden",position:"relative"}}>
+                    <div style={{flex:1,height:8,background:"#f3f4f6",borderRadius:4,overflow:"hidden"}}>
                       <div style={{height:"100%",width:`${(emp.count/maxCount)*100}%`,background:bc,borderRadius:4}}/>
-                      <div style={{position:"absolute",left:"50%",top:0,width:1,height:"100%",background:"rgba(0,0,0,.15)"}}/>
                     </div>
                     <span style={{fontSize:12,fontWeight:700,color:bc,minWidth:28}}>{emp.count}件</span>
                   </div>
@@ -941,17 +978,6 @@ function RankingTab({employees,fiscalYear,getCount}){
             </div>
           );
         })}
-      </div>
-      <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:16}}>
-        <div style={{fontWeight:700,fontSize:14,color:"#1e3a5f",marginBottom:12}}>🏢 部署別 平均復命書提出数</div>
-        {Object.entries(ranked.reduce((acc,e)=>{if(!acc[e.dept])acc[e.dept]={total:0,count:0};acc[e.dept].total+=e.count;acc[e.dept].count+=1;return acc;},{}))
-          .sort((a,b)=>b[1].total/b[1].count-a[1].total/a[1].count)
-          .map(([dept,d])=>{const avg=d.total/d.count;return(
-            <div key={dept} style={{marginBottom:10}}>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}><span style={{fontWeight:600,color:"#374151"}}>{dept}</span><span style={{color:"#6b7280"}}>{avg.toFixed(1)}件 / 人</span></div>
-              <div style={{height:10,background:"#f3f4f6",borderRadius:5,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(avg/10*100,100)}%`,background:"#2563eb",borderRadius:5}}/></div>
-            </div>
-          );})}
       </div>
     </div>
   );
@@ -970,9 +996,9 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
           return(
             <div key={t.id} style={S.sCard}>
               {t.required&&<span style={S.reqBadge}>必須</span>}
-              <div style={{fontSize:11,fontWeight:700,color:"#1e3a5f",margin:"4px 0 6px",lineHeight:1.3}}>{t.title}</div>
+              <div style={{fontSize:11,fontWeight:700,color:"#4A3020",margin:"4px 0 6px",lineHeight:1.3}}>{t.title}</div>
               <MiniBar label="参加/動画" v={s1} n={n} color="#16a34a"/>
-              <MiniBar label="復命書" v={s2} n={n} color="#2563eb"/>
+              <MiniBar label="復命書" v={s2} n={n} color="#C89A55"/>
               <MiniBar label="確認済" v={s3} n={n} color="#7c3aed"/>
               <button style={{...S.qrBtn,marginTop:8,width:"100%"}} onClick={()=>onQR(t)}>QR生成</button>
             </div>
@@ -982,16 +1008,16 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
       {fyInternals.length===0&&<div style={S.empty}>{fiscalYear}年度の内部研修はありません</div>}
       <div style={{overflowX:"auto"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-          <thead><tr style={{background:"#1e3a5f",color:"#fff"}}>
+          <thead><tr style={{background:"#C89A55",color:"#fff"}}>
             <th style={S.th}>従業員</th><th style={S.th}>部署</th>
             {fyInternals.map(t=><th key={t.id} style={{...S.th,minWidth:140}}>{t.required?"【必】":""}{t.title}</th>)}
           </tr></thead>
           <tbody>{employees.map((emp,i)=>(
-            <tr key={emp.id} style={{background:i%2===0?"#fff":"#f8fafc"}}>
+            <tr key={emp.id} style={{background:i%2===0?"#fff":"#FDF6EC"}}>
               <td style={S.td}>{emp.name}</td><td style={S.td}>{emp.dept}</td>
               {fyInternals.map(t=>{
                 const s=getIS(emp.id,t.id); const [d1,d2,d3]=internalStepsDone(s);
-                const done=[d1,d2,d3].filter(Boolean).length; const bc=done===3?"#16a34a":done===0?"#e5e7eb":"#f59e0b";
+                const done=[d1,d2,d3].filter(Boolean).length; const bc=done===3?"#16a34a":done===0?"#e5e7eb":"#C89A55";
                 return(
                   <td key={t.id} style={{...S.td,minWidth:140}}>
                     <div style={{height:4,background:"#e5e7eb",borderRadius:2,overflow:"hidden",marginBottom:4}}><div style={{height:"100%",width:`${Math.round(done/3*100)}%`,background:bc,borderRadius:2}}/></div>
@@ -999,7 +1025,7 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
                       {[["参/動",d1,"#16a34a"],["復命書",d2,"#2563eb"],["確認",d3,"#7c3aed"]].map(([l,ok,c])=>(
                         <span key={l} style={{fontSize:9,padding:"1px 4px",borderRadius:4,background:ok?c:"#f3f4f6",color:ok?"#fff":"#9ca3af",fontWeight:ok?700:400}}>{l}</span>
                       ))}
-                      {d2&&!d3&&<button style={{fontSize:9,padding:"2px 6px",borderRadius:4,border:"1px solid #c4b5fd",background:"#f5f3ff",color:"#7c3aed",cursor:"pointer",marginLeft:2,fontWeight:600}} onClick={()=>setIS(emp.id,t.id,"reportConfirmed",true)}>確認✓</button>}
+                      {d2&&!d3&&<button style={{fontSize:9,padding:"2px 6px",borderRadius:4,border:"1px solid #C89A55",background:"#FDF6EC",color:"#A07840",cursor:"pointer",marginLeft:2,fontWeight:600}} onClick={()=>setIS(emp.id,t.id,"reportConfirmed",true)}>確認✓</button>}
                     </div>
                   </td>
                 );
@@ -1027,7 +1053,7 @@ function InternalManageTab({internals,setInternals,deleteInternal}){
       <button style={{...S.btn,marginBottom:16}} onClick={()=>setShowAdd(!showAdd)}>＋ 研修を追加</button>
       {showAdd&&(
         <div style={S.formBox}>
-          <div style={{fontWeight:700,color:"#0369a1",marginBottom:12}}>新しい内部研修を登録</div>
+          <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>新しい内部研修を登録</div>
           {[{key:"title",label:"研修名",placeholder:"例：コンプライアンス研修"},{key:"date",label:"実施日",type:"date"},{key:"videoUrl",label:"YouTube URL",placeholder:"https://www.youtube.com/embed/..."},{key:"description",label:"説明",placeholder:"研修の概要"}]
             .map(f=><div key={f.key} style={{marginBottom:10}}><label style={S.label}>{f.label}</label><input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={newT[f.key]} onChange={e=>setNewT(p=>({...p,[f.key]:e.target.value}))}/></div>)}
           <div style={{marginBottom:12}}><label style={{...S.label,display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}><input type="checkbox" checked={newT.required} onChange={e=>setNewT(p=>({...p,required:e.target.checked}))} style={{width:16,height:16,accentColor:"#dc2626"}}/>全員必須の研修にする</label></div>
@@ -1054,17 +1080,18 @@ function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear}){
       {fyExternals.length===0&&<div style={S.empty}>{fiscalYear}年度の外部研修はありません</div>}
       {fyExternals.map(x=>{const targets=employees.filter(e=>x.targetEmpIds.includes(e.id));return(
         <div key={x.id} style={{marginBottom:24}}>
-          <div style={{fontWeight:700,color:"#1e3a5f",fontSize:14,marginBottom:4}}><span style={S.extBadge}>外部</span> {x.title}</div>
+          <div style={{fontWeight:700,color:"#4A3020",fontSize:14,marginBottom:4}}><span style={S.extBadge}>外部</span> {x.title}</div>
           <div style={{fontSize:12,color:"#6b7280",marginBottom:10}}>📅 {x.date} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}</div>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-            <thead><tr style={{background:"#1e3a5f",color:"#fff"}}><th style={S.th}>従業員</th><th style={S.th}>部署</th><th style={S.th}>進捗</th><th style={S.th}>受講</th><th style={S.th}>復命書</th><th style={S.th}>管理者確認</th></tr></thead>
+            <thead><tr style={{background:"#C89A55",color:"#fff"}}><th style={S.th}>従業員</th><th style={S.th}>部署</th><th style={S.th}>進捗</th><th style={S.th}>受講</th><th style={S.th}>復命書</th><th style={S.th}>管理者確認</th></tr></thead>
             <tbody>{targets.map((emp,i)=>{const s=getXS(emp.id,x.id);return(
-              <tr key={emp.id} style={{background:i%2===0?"#fff":"#f8fafc"}}>
+              <tr key={emp.id} style={{background:i%2===0?"#fff":"#FDF6EC"}}>
                 <td style={S.td}>{emp.name}</td><td style={S.td}>{emp.dept}</td>
+                <td style={{...S.td,minWidth:140}}><ExternalProgress status={s}/></td>
                 <td style={S.td}>{s.attended?"✅":"○"}</td>
                 <td style={S.td}>{s.reportSubmitted?"📄":"─"}</td>
                 <td style={S.td}>{s.reportConfirmed?<span style={{color:"#15803d",fontWeight:600}}>✅確認済</span>
-                  :s.reportSubmitted?<button style={{...S.qrBtn,fontSize:11}} onClick={()=>setXS(emp.id,x.id,{reportConfirmed:true})}>確認済にする</button>
+                  :s.reportSubmitted?<button style={{...S.qrBtn,fontSize:11,borderColor:"#C89A55",color:"#A07840",background:"#FDF6EC"}} onClick={()=>setXS(emp.id,x.id,{reportConfirmed:true})}>確認済にする</button>
                   :<span style={{color:"#9ca3af"}}>─</span>}</td>
               </tr>
             );})}
@@ -1093,22 +1120,22 @@ function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
       <button style={{...S.btn,marginBottom:16}} onClick={()=>setShowAdd(!showAdd)}>＋ 外部研修を申し込み登録</button>
       {showAdd&&(
         <div style={S.formBox}>
-          <div style={{fontWeight:700,color:"#0369a1",marginBottom:12}}>外部研修を登録</div>
+          <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>外部研修を登録</div>
           {[{key:"title",label:"研修名",placeholder:"例：DXセミナー"},{key:"date",label:"実施日",type:"date"},{key:"organizer",label:"主催団体",placeholder:"例：総務省"},{key:"location",label:"場所",placeholder:"例：東京"}]
             .map(f=><div key={f.key} style={{marginBottom:10}}><label style={S.label}>{f.label}</label><input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={newX[f.key]} onChange={e=>setNewX(p=>({...p,[f.key]:e.target.value}))}/></div>)}
           <div style={{marginBottom:14}}>
             <label style={S.label}>研修要綱PDF（任意）</label>
-            <label style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,border:"1.5px dashed #bfdbfe",background:"#f0f9ff",cursor:"pointer"}}>
+            <label style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,border:"1.5px dashed #E8D5B0",background:"#FDF6EC",cursor:"pointer"}}>
               <input type="file" accept="application/pdf" style={{display:"none"}} onChange={handlePdf}/>
               <span style={{fontSize:20}}>📄</span>
-              <div><div style={{fontSize:13,fontWeight:600,color:"#1e40af"}}>{newX.pdfName?"✅ "+newX.pdfName:"クリックしてPDFをアップロード"}</div></div>
+              <div><div style={{fontSize:13,fontWeight:600,color:"#A07840"}}>{newX.pdfName?"✅ "+newX.pdfName:"クリックしてPDFをアップロード"}</div></div>
             </label>
           </div>
           <div style={{marginBottom:14}}>
             <label style={S.label}>対象者を選択</label>
             <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
               {employees.map(e=>(
-                <label key={e.id} style={{display:"flex",alignItems:"center",gap:5,fontSize:13,cursor:"pointer",padding:"4px 10px",borderRadius:20,border:"1.5px solid",borderColor:newX.targetEmpIds.includes(e.id)?"#1e40af":"#e5e7eb",background:newX.targetEmpIds.includes(e.id)?"#eff6ff":"#fff",color:newX.targetEmpIds.includes(e.id)?"#1e40af":"#374151"}}>
+                <label key={e.id} style={{display:"flex",alignItems:"center",gap:5,fontSize:13,cursor:"pointer",padding:"4px 10px",borderRadius:20,border:"1.5px solid",borderColor:newX.targetEmpIds.includes(e.id)?"#C89A55":"#e5e7eb",background:newX.targetEmpIds.includes(e.id)?"#FDF6EC":"#fff",color:newX.targetEmpIds.includes(e.id)?"#A07840":"#374151"}}>
                   <input type="checkbox" checked={newX.targetEmpIds.includes(e.id)} onChange={()=>toggleEmp(e.id)} style={{display:"none"}}/>{e.name}
                 </label>
               ))}
@@ -1127,8 +1154,8 @@ function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
               <div style={{marginTop:6,fontSize:12,color:"#6b7280"}}>対象: {targets.map(e=>e.name).join("、")}</div>
               <div style={{marginTop:8}}>
                 {x.pdfData?<div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:12,color:"#15803d",fontWeight:600}}>📄 {x.pdfName}</span>
-                  <label style={{fontSize:11,color:"#2563eb",cursor:"pointer",textDecoration:"underline"}}><input type="file" accept="application/pdf" style={{display:"none"}} onChange={e=>handleExistPdf(x.id,e)}/>差し替え</label></div>
-                :<label style={{fontSize:12,color:"#2563eb",cursor:"pointer",textDecoration:"underline"}}><input type="file" accept="application/pdf" style={{display:"none"}} onChange={e=>handleExistPdf(x.id,e)}/>📄 PDFをアップロード</label>}
+                  <label style={{fontSize:11,color:"#A07840",cursor:"pointer",textDecoration:"underline"}}><input type="file" accept="application/pdf" style={{display:"none"}} onChange={e=>handleExistPdf(x.id,e)}/>差し替え</label></div>
+                :<label style={{fontSize:12,color:"#A07840",cursor:"pointer",textDecoration:"underline"}}><input type="file" accept="application/pdf" style={{display:"none"}} onChange={e=>handleExistPdf(x.id,e)}/>📄 PDFをアップロード</label>}
               </div>
             </div>
             <button style={S.delBtn} onClick={()=>{if(window.confirm("削除しますか？"))deleteExternal(x.id);}}>削除</button>
@@ -1154,15 +1181,15 @@ function QRModal({training,onClose}){
   return(
     <div style={S.overlay} onClick={onClose}>
       <div style={S.modal} onClick={e=>e.stopPropagation()}>
-        <div style={{fontWeight:800,fontSize:17,color:"#1e3a5f",marginBottom:4}}>QRコード</div>
+        <div style={{fontWeight:800,fontSize:17,color:"#4A3020",marginBottom:4}}>QRコード</div>
         <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>{training.title}</div>
         <div id="qr-canvas-area" style={{display:"flex",justifyContent:"center",marginBottom:12}}/>
-        <div style={{background:"#f8fafc",borderRadius:8,padding:"8px 12px",fontSize:11,color:"#6b7280",wordBreak:"break-all",marginBottom:12}}>{url}</div>
+        <div style={{background:"#FDF6EC",borderRadius:8,padding:"8px 12px",fontSize:11,color:"#A07840",wordBreak:"break-all",marginBottom:12}}>{url}</div>
         <div style={{display:"flex",gap:8}}>
           <button style={{...S.btn,flex:1}} onClick={()=>navigator.clipboard?.writeText(url).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);})}>{copied?"✅ コピー済":"URLをコピー"}</button>
           <button style={{...S.btn,flex:1,background:"#059669"}} onClick={()=>window.print()}>🖨 印刷</button>
         </div>
-        <div style={{marginTop:12,padding:"8px 12px",background:"#fffbeb",borderRadius:8,fontSize:12,color:"#92400e"}}>💡 研修会場に掲示してください。</div>
+        <div style={{marginTop:12,padding:"8px 12px",background:"#FDF6EC",borderRadius:8,fontSize:12,color:"#A07840"}}>💡 研修会場に掲示してください。</div>
         <button style={{width:"100%",marginTop:12,padding:"10px",background:"#f3f4f6",border:"none",borderRadius:10,cursor:"pointer",fontWeight:600}} onClick={onClose}>閉じる</button>
       </div>
     </div>
@@ -1170,51 +1197,44 @@ function QRModal({training,onClose}){
 }
 
 const S={
-  page:{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a 0%,#1e3a5f 60%,#0f172a 100%)",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"16px 8px",fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif"},
-  loginWrap:{width:"100%",maxWidth:400,background:"#fff",borderRadius:20,padding:"28px 24px",boxShadow:"0 24px 60px rgba(0,0,0,.45)",marginTop:40},
-  qrBanner:{display:"flex",alignItems:"center",gap:10,background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:10,padding:"10px 14px",marginBottom:20},
-  logoArea:{textAlign:"center",marginBottom:24},
-  logoIcon:{width:56,height:56,background:"#1e3a5f",color:"#fff",borderRadius:14,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:800,marginBottom:10},
-  appName:{fontSize:20,fontWeight:800,color:"#1e3a5f",margin:"0 0 4px"},
-  appSub:{fontSize:12,color:"#6b7280",margin:0},
-  fGroup:{marginBottom:14},
-  label:{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:5},
-  input:{width:"100%",padding:"10px 14px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,outline:"none",boxSizing:"border-box"},
-  btn:{width:"100%",padding:"11px",background:"#1e40af",color:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"},
-  errBox:{background:"#fef2f2",border:"1px solid #fca5a5",color:"#dc2626",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:12},
-  appWrap:{width:"100%",maxWidth:700,background:"#fff",borderRadius:20,boxShadow:"0 24px 60px rgba(0,0,0,.45)",overflow:"hidden"},
-  header:{background:"#1e3a5f",color:"#fff",padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"},
-  headerName:{fontSize:16,fontWeight:700},
-  headerSub:{fontSize:11,color:"#93c5fd",marginTop:2},
-  logoutBtn:{padding:"5px 12px",borderRadius:8,border:"1px solid #e5e7eb",background:"#fff",color:"#374151",cursor:"pointer",fontSize:12,fontWeight:600},
-  tabBar:{display:"flex",borderBottom:"1px solid #e5e7eb"},
-  tab:{flex:1,padding:"11px 4px",border:"none",background:"transparent",fontSize:13,fontWeight:600,color:"#6b7280",cursor:"pointer"},
-  tabOn:{color:"#1e40af",borderBottom:"2.5px solid #1e40af"},
+  page:{minHeight:"100vh",background:"linear-gradient(135deg,#F5EDD8 0%,#FDF6EC 60%,#F5EDD8 100%)",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"16px 8px",fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif"},
+  appWrap:{width:"100%",maxWidth:700,background:"#fff",borderRadius:20,boxShadow:"0 24px 60px rgba(200,154,85,.2)",overflow:"hidden",border:"1px solid #E8D5B0"},
+  header:{background:"#C89A55",color:"#fff",padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"},
+  headerName:{fontSize:16,fontWeight:700,color:"#fff"},
+  headerSub:{fontSize:11,color:"rgba(255,255,255,.8)",marginTop:2},
+  logoutBtn:{padding:"5px 12px",borderRadius:8,border:"1px solid #E8D5B0",background:"#fff",color:"#4A3020",cursor:"pointer",fontSize:12,fontWeight:600},
+  tabBar:{display:"flex",borderBottom:"1px solid #E8D5B0"},
+  tab:{flex:1,padding:"11px 4px",border:"none",background:"transparent",fontSize:13,fontWeight:600,color:"#A07840",cursor:"pointer"},
+  tabOn:{color:"#C89A55",borderBottom:"2.5px solid #C89A55"},
   scroll:{padding:14,overflowY:"auto",maxHeight:"calc(100vh - 200px)"},
-  card:{border:"1px solid #e5e7eb",borderRadius:12,marginBottom:10,overflow:"hidden"},
+  card:{border:"1px solid #E8D5B0",borderRadius:12,marginBottom:10,overflow:"hidden"},
   cardHead:{padding:"11px 14px",display:"flex",alignItems:"flex-start",cursor:"pointer",gap:8},
-  cardTitle:{fontWeight:700,color:"#1e3a5f",fontSize:14,marginTop:4},
+  cardTitle:{fontWeight:700,color:"#4A3020",fontSize:14,marginTop:4},
   cardDate:{fontSize:11,color:"#6b7280",marginTop:2},
-  cardBody:{padding:"0 14px 14px",borderTop:"1px solid #f3f4f6"},
+  cardBody:{padding:"0 14px 14px",borderTop:"1px solid #F0D9B0"},
   sBlock:{marginBottom:14},
   sLabel:{fontSize:12,fontWeight:600,color:"#374151",marginBottom:6,display:"flex",alignItems:"center",gap:6},
-  stepNum:{display:"inline-flex",alignItems:"center",justifyContent:"center",width:18,height:18,borderRadius:"50%",background:"#1e3a5f",color:"#fff",fontSize:10,fontWeight:700,flexShrink:0},
-  watchBtn:{width:"100%",padding:"10px",background:"#1e40af",color:"#fff",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer"},
+  stepNum:{display:"inline-flex",alignItems:"center",justifyContent:"center",width:18,height:18,borderRadius:"50%",background:"#C89A55",color:"#fff",fontSize:10,fontWeight:700,flexShrink:0},
+  watchBtn:{width:"100%",padding:"10px",background:"#C89A55",color:"#fff",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer"},
   actionBtn:{padding:"8px 20px",background:"#16a34a",color:"#fff",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer"},
   reqBadge:{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#fef2f2",color:"#dc2626"},
   extBadge:{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#fef9c3",color:"#854d0e"},
-  sCard:{minWidth:150,background:"#f8fafc",borderRadius:12,padding:"12px 14px",border:"1px solid #e2e8f0",flexShrink:0},
-  qrBtn:{padding:"5px 12px",borderRadius:8,border:"1px solid #bfdbfe",background:"#eff6ff",color:"#1e40af",cursor:"pointer",fontSize:12,fontWeight:600},
+  sCard:{minWidth:150,background:"#FDF6EC",borderRadius:12,padding:"12px 14px",border:"1px solid #E8D5B0",flexShrink:0},
+  qrBtn:{padding:"5px 12px",borderRadius:8,border:"1px solid #E8D5B0",background:"#FDF6EC",color:"#A07840",cursor:"pointer",fontSize:12,fontWeight:600},
   delBtn:{padding:"6px 12px",borderRadius:8,border:"1px solid #fca5a5",background:"#fef2f2",color:"#dc2626",cursor:"pointer",fontSize:12},
   th:{padding:"10px 12px",textAlign:"left",fontWeight:600,fontSize:12,whiteSpace:"nowrap"},
   td:{padding:"8px 12px",borderBottom:"1px solid #f3f4f6",verticalAlign:"middle",fontSize:12},
   overlay:{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16},
   modal:{background:"#fff",borderRadius:20,padding:24,width:"100%",maxWidth:360,boxShadow:"0 20px 60px rgba(0,0,0,.4)"},
-  toast:{position:"fixed",top:20,left:"50%",transform:"translateX(-50%)",background:"#1e3a5f",color:"#fff",padding:"10px 20px",borderRadius:20,fontSize:13,fontWeight:600,zIndex:2000,boxShadow:"0 4px 20px rgba(0,0,0,.3)"},
+  toast:{position:"fixed",top:20,left:"50%",transform:"translateX(-50%)",background:"#C89A55",color:"#fff",padding:"10px 20px",borderRadius:20,fontSize:13,fontWeight:600,zIndex:2000,boxShadow:"0 4px 20px rgba(200,154,85,.4)"},
   empty:{textAlign:"center",color:"#9ca3af",fontSize:14,padding:"40px 0"},
-  formBox:{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:12,padding:16,marginBottom:16},
-  profileSection:{marginBottom:16,paddingBottom:14,borderBottom:"1px solid #f3f4f6"},
-  profileLabel:{fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:6},
-  profileValue:{fontSize:15,fontWeight:600,color:"#1e3a5f"},
-  qBadge:{fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:20,background:"#dbeafe",color:"#1e40af",border:"1px solid #bfdbfe"},
+  formBox:{background:"#FDF6EC",border:"1px solid #E8D5B0",borderRadius:12,padding:16,marginBottom:16},
+  profileSection:{marginBottom:16,paddingBottom:14,borderBottom:"1px solid #F0D9B0"},
+  profileLabel:{fontSize:11,fontWeight:700,color:"#A07840",marginBottom:6},
+  profileValue:{fontSize:15,fontWeight:600,color:"#4A3020"},
+  qBadge:{fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:20,background:"#FDF6EC",color:"#A07840",border:"1px solid #E8D5B0"},
+  btn:{width:"100%",padding:"11px",background:"#C89A55",color:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"},
+  input:{width:"100%",padding:"10px 14px",borderRadius:10,border:"1.5px solid #E8D5B0",fontSize:14,outline:"none",boxSizing:"border-box"},
+  label:{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:5},
+  fGroup:{marginBottom:14},
 };
