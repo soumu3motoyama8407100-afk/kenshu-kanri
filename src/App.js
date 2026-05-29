@@ -963,7 +963,8 @@ function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear}){
             <thead><tr style={{background:"#1e3a5f",color:"#fff"}}><th style={S.th}>従業員</th><th style={S.th}>部署</th><th style={S.th}>進捗</th><th style={S.th}>受講</th><th style={S.th}>復命書</th><th style={S.th}>管理者確認</th></tr></thead>
             <tbody>{targets.map((emp,i)=>{const s=getXS(emp.id,x.id);return(
               <tr key={emp.id} style={{background:i%2===0?"#fff":"#f8fafc"}}>
-                <td style={S.td}>{emp.name}</td><td style={S.td}>{emp.dept}</td><td style={S.td}>{s.attended?"✅":"○"}</td>
+                <td style={S.td}>{emp.name}</td><td style={S.td}>{emp.dept}</td>
+                <td style={S.td}>{s.attended?"✅":"○"}</td>
                 <td style={S.td}>{s.reportSubmitted?"📄":"─"}</td>
                 <td style={S.td}>{s.reportConfirmed?<span style={{color:"#15803d",fontWeight:600}}>✅確認済</span>
                   :s.reportSubmitted?<button style={{...S.qrBtn,fontSize:11}} onClick={()=>setXS(emp.id,x.id,{reportConfirmed:true})}>確認済にする</button>
@@ -982,4 +983,141 @@ function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
   const [showAdd,setShowAdd]=useState(false);
   const [newX,setNewX]=useState({title:"",date:"",organizer:"",location:"",targetEmpIds:[],pdfData:null,pdfName:null});
   const toggleEmp=id=>setNewX(p=>({...p,targetEmpIds:p.targetEmpIds.includes(id)?p.targetEmpIds.filter(x=>x!==id):[...p.targetEmpIds,id]}));
-  const handlePdf=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r
+  const handlePdf=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setNewX(p=>({...p,pdfData:ev.target.result.split(",")[1],pdfName:f.name}));r.readAsDataURL(f);};
+  const handleExistPdf=(xId,e)=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setExternals(p=>p.map(x=>x.id===xId?{...x,pdfData:ev.target.result.split(",")[1],pdfName:f.name}:x));r.readAsDataURL(f);};
+  const add=async()=>{
+    if(!newX.title||!newX.date||newX.targetEmpIds.length===0)return;
+    const x={...newX,id:"X"+String(Date.now()).slice(-6)};
+    await setExternals(p=>[...p,x]);
+    setNewX({title:"",date:"",organizer:"",location:"",targetEmpIds:[],pdfData:null,pdfName:null});setShowAdd(false);
+  };
+  return(
+    <div style={{padding:4}}>
+      <button style={{...S.btn,marginBottom:16}} onClick={()=>setShowAdd(!showAdd)}>＋ 外部研修を申し込み登録</button>
+      {showAdd&&(
+        <div style={S.formBox}>
+          <div style={{fontWeight:700,color:"#0369a1",marginBottom:12}}>外部研修を登録</div>
+          {[{key:"title",label:"研修名",placeholder:"例：DXセミナー"},{key:"date",label:"実施日",type:"date"},{key:"organizer",label:"主催団体",placeholder:"例：総務省"},{key:"location",label:"場所",placeholder:"例：東京"}]
+            .map(f=><div key={f.key} style={{marginBottom:10}}><label style={S.label}>{f.label}</label><input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={newX[f.key]} onChange={e=>setNewX(p=>({...p,[f.key]:e.target.value}))}/></div>)}
+          <div style={{marginBottom:14}}>
+            <label style={S.label}>研修要綱PDF（任意）</label>
+            <label style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,border:"1.5px dashed #bfdbfe",background:"#f0f9ff",cursor:"pointer"}}>
+              <input type="file" accept="application/pdf" style={{display:"none"}} onChange={handlePdf}/>
+              <span style={{fontSize:20}}>📄</span>
+              <div><div style={{fontSize:13,fontWeight:600,color:"#1e40af"}}>{newX.pdfName?"✅ "+newX.pdfName:"クリックしてPDFをアップロード"}</div></div>
+            </label>
+          </div>
+          <div style={{marginBottom:14}}>
+            <label style={S.label}>対象者を選択</label>
+            <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+              {employees.map(e=>(
+                <label key={e.id} style={{display:"flex",alignItems:"center",gap:5,fontSize:13,cursor:"pointer",padding:"4px 10px",borderRadius:20,border:"1.5px solid",borderColor:newX.targetEmpIds.includes(e.id)?"#1e40af":"#e5e7eb",background:newX.targetEmpIds.includes(e.id)?"#eff6ff":"#fff",color:newX.targetEmpIds.includes(e.id)?"#1e40af":"#374151"}}>
+                  <input type="checkbox" checked={newX.targetEmpIds.includes(e.id)} onChange={()=>toggleEmp(e.id)} style={{display:"none"}}/>{e.name}
+                </label>
+              ))}
+            </div>
+            {newX.targetEmpIds.length===0&&<div style={{fontSize:11,color:"#dc2626",marginTop:6}}>※ 1名以上選択してください</div>}
+          </div>
+          <button style={S.btn} onClick={add}>登録する</button>
+        </div>
+      )}
+      {externals.map(x=>{const targets=employees.filter(e=>x.targetEmpIds.includes(e.id));return(
+        <div key={x.id} style={{...S.card,padding:"14px",marginBottom:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div style={{flex:1}}>
+              <span style={S.extBadge}>外部</span><div style={S.cardTitle}>{x.title}</div>
+              <div style={S.cardDate}>📅 {x.date} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}</div>
+              <div style={{marginTop:6,fontSize:12,color:"#6b7280"}}>対象: {targets.map(e=>e.name).join("、")}</div>
+              <div style={{marginTop:8}}>
+                {x.pdfData?<div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:12,color:"#15803d",fontWeight:600}}>📄 {x.pdfName}</span>
+                  <label style={{fontSize:11,color:"#2563eb",cursor:"pointer",textDecoration:"underline"}}><input type="file" accept="application/pdf" style={{display:"none"}} onChange={e=>handleExistPdf(x.id,e)}/>差し替え</label></div>
+                :<label style={{fontSize:12,color:"#2563eb",cursor:"pointer",textDecoration:"underline"}}><input type="file" accept="application/pdf" style={{display:"none"}} onChange={e=>handleExistPdf(x.id,e)}/>📄 PDFをアップロード</label>}
+              </div>
+            </div>
+            <button style={S.delBtn} onClick={()=>{if(window.confirm("削除しますか？"))deleteExternal(x.id);}}>削除</button>
+          </div>
+        </div>
+      );})}
+    </div>
+  );
+}
+
+function MiniBar({label,v,n,color}){
+  const pct=n>0?(v/n)*100:0;
+  return(<div style={{marginBottom:5}}><div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#6b7280",marginBottom:2}}><span>{label}</span><span>{v}/{n}</span></div><div style={{height:4,background:"#e5e7eb",borderRadius:3,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:color,borderRadius:3}}/></div></div>);
+}
+
+function QRModal({training,onClose}){
+  const url=makeAttendUrl(training.id); const [copied,setCopied]=useState(false);
+  useEffect(()=>{
+    const draw=()=>{const el=document.getElementById("qr-canvas-area");if(!el)return;el.innerHTML="";new window.QRCode(el,{text:url,width:220,height:220,correctLevel:window.QRCode.CorrectLevel.H});};
+    if(window.QRCode){draw();return;}
+    const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";s.onload=draw;document.head.appendChild(s);
+  },[url]);
+  return(
+    <div style={S.overlay} onClick={onClose}>
+      <div style={S.modal} onClick={e=>e.stopPropagation()}>
+        <div style={{fontWeight:800,fontSize:17,color:"#1e3a5f",marginBottom:4}}>QRコード</div>
+        <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>{training.title}</div>
+        <div id="qr-canvas-area" style={{display:"flex",justifyContent:"center",marginBottom:12}}/>
+        <div style={{background:"#f8fafc",borderRadius:8,padding:"8px 12px",fontSize:11,color:"#6b7280",wordBreak:"break-all",marginBottom:12}}>{url}</div>
+        <div style={{display:"flex",gap:8}}>
+          <button style={{...S.btn,flex:1}} onClick={()=>navigator.clipboard?.writeText(url).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);})}>{copied?"✅ コピー済":"URLをコピー"}</button>
+          <button style={{...S.btn,flex:1,background:"#059669"}} onClick={()=>window.print()}>🖨 印刷</button>
+        </div>
+        <div style={{marginTop:12,padding:"8px 12px",background:"#fffbeb",borderRadius:8,fontSize:12,color:"#92400e"}}>💡 研修会場に掲示してください。</div>
+        <button style={{width:"100%",marginTop:12,padding:"10px",background:"#f3f4f6",border:"none",borderRadius:10,cursor:"pointer",fontWeight:600}} onClick={onClose}>閉じる</button>
+      </div>
+    </div>
+  );
+}
+
+const S={
+  page:{minHeight:"100vh",background:"linear-gradient(135deg,#0f172a 0%,#1e3a5f 60%,#0f172a 100%)",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"16px 8px",fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif"},
+  loginWrap:{width:"100%",maxWidth:400,background:"#fff",borderRadius:20,padding:"28px 24px",boxShadow:"0 24px 60px rgba(0,0,0,.45)",marginTop:40},
+  qrBanner:{display:"flex",alignItems:"center",gap:10,background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:10,padding:"10px 14px",marginBottom:20},
+  logoArea:{textAlign:"center",marginBottom:24},
+  logoIcon:{width:56,height:56,background:"#1e3a5f",color:"#fff",borderRadius:14,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:800,marginBottom:10},
+  appName:{fontSize:20,fontWeight:800,color:"#1e3a5f",margin:"0 0 4px"},
+  appSub:{fontSize:12,color:"#6b7280",margin:0},
+  fGroup:{marginBottom:14},
+  label:{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:5},
+  input:{width:"100%",padding:"10px 14px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,outline:"none",boxSizing:"border-box"},
+  btn:{width:"100%",padding:"11px",background:"#1e40af",color:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"},
+  errBox:{background:"#fef2f2",border:"1px solid #fca5a5",color:"#dc2626",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:12},
+  appWrap:{width:"100%",maxWidth:700,background:"#fff",borderRadius:20,boxShadow:"0 24px 60px rgba(0,0,0,.45)",overflow:"hidden"},
+  header:{background:"#1e3a5f",color:"#fff",padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"},
+  headerName:{fontSize:16,fontWeight:700},
+  headerSub:{fontSize:11,color:"#93c5fd",marginTop:2},
+  logoutBtn:{padding:"5px 12px",borderRadius:8,border:"1px solid #e5e7eb",background:"#fff",color:"#374151",cursor:"pointer",fontSize:12,fontWeight:600},
+  tabBar:{display:"flex",borderBottom:"1px solid #e5e7eb"},
+  tab:{flex:1,padding:"11px 4px",border:"none",background:"transparent",fontSize:13,fontWeight:600,color:"#6b7280",cursor:"pointer"},
+  tabOn:{color:"#1e40af",borderBottom:"2.5px solid #1e40af"},
+  scroll:{padding:14,overflowY:"auto",maxHeight:"calc(100vh - 200px)"},
+  card:{border:"1px solid #e5e7eb",borderRadius:12,marginBottom:10,overflow:"hidden"},
+  cardHead:{padding:"11px 14px",display:"flex",alignItems:"flex-start",cursor:"pointer",gap:8},
+  cardTitle:{fontWeight:700,color:"#1e3a5f",fontSize:14,marginTop:4},
+  cardDate:{fontSize:11,color:"#6b7280",marginTop:2},
+  cardBody:{padding:"0 14px 14px",borderTop:"1px solid #f3f4f6"},
+  sBlock:{marginBottom:14},
+  sLabel:{fontSize:12,fontWeight:600,color:"#374151",marginBottom:6,display:"flex",alignItems:"center",gap:6},
+  stepNum:{display:"inline-flex",alignItems:"center",justifyContent:"center",width:18,height:18,borderRadius:"50%",background:"#1e3a5f",color:"#fff",fontSize:10,fontWeight:700,flexShrink:0},
+  watchBtn:{width:"100%",padding:"10px",background:"#1e40af",color:"#fff",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer"},
+  actionBtn:{padding:"8px 20px",background:"#16a34a",color:"#fff",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer"},
+  reqBadge:{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#fef2f2",color:"#dc2626"},
+  extBadge:{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#fef9c3",color:"#854d0e"},
+  sCard:{minWidth:150,background:"#f8fafc",borderRadius:12,padding:"12px 14px",border:"1px solid #e2e8f0",flexShrink:0},
+  qrBtn:{padding:"5px 12px",borderRadius:8,border:"1px solid #bfdbfe",background:"#eff6ff",color:"#1e40af",cursor:"pointer",fontSize:12,fontWeight:600},
+  delBtn:{padding:"6px 12px",borderRadius:8,border:"1px solid #fca5a5",background:"#fef2f2",color:"#dc2626",cursor:"pointer",fontSize:12},
+  th:{padding:"10px 12px",textAlign:"left",fontWeight:600,fontSize:12,whiteSpace:"nowrap"},
+  td:{padding:"8px 12px",borderBottom:"1px solid #f3f4f6",verticalAlign:"middle",fontSize:12},
+  overlay:{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16},
+  modal:{background:"#fff",borderRadius:20,padding:24,width:"100%",maxWidth:360,boxShadow:"0 20px 60px rgba(0,0,0,.4)"},
+  toast:{position:"fixed",top:20,left:"50%",transform:"translateX(-50%)",background:"#1e3a5f",color:"#fff",padding:"10px 20px",borderRadius:20,fontSize:13,fontWeight:600,zIndex:2000,boxShadow:"0 4px 20px rgba(0,0,0,.3)"},
+  empty:{textAlign:"center",color:"#9ca3af",fontSize:14,padding:"40px 0"},
+  formBox:{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:12,padding:16,marginBottom:16},
+  profileSection:{marginBottom:16,paddingBottom:14,borderBottom:"1px solid #f3f4f6"},
+  profileLabel:{fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:6},
+  profileValue:{fontSize:15,fontWeight:600,color:"#1e3a5f"},
+  qBadge:{fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:20,background:"#dbeafe",color:"#1e40af",border:"1px solid #bfdbfe"},
+};
