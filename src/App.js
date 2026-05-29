@@ -377,7 +377,10 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
             <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{})}} onClick={()=>setTab(k)}>{l}</button>
           ))}
         </div>
-        <div style={S.scroll}>
+        <div style={{textAlign:"center",padding:"12px 0 8px",borderTop:"1px solid #F0D9B0"}}>
+  <img src={LOGO_B64} alt="ロゴ" style={{height:36,objectFit:"contain",opacity:0.7}}/>
+</div>
+
           {tab==="score"&&(
             <div style={{display:"flex",flexDirection:"column",gap:16}}>
               <PointCard count={count} fiscalYear={viewFY}/>
@@ -460,7 +463,10 @@ function ManagerScreen({dept,employees,internals,getIS,setIS,externals,getXS,set
             <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{})}} onClick={()=>setTab(k)}>{l}</button>
           ))}
         </div>
-        <div style={{...S.scroll,maxHeight:"calc(100vh - 185px)"}}>
+        <div style={{textAlign:"center",padding:"12px 0 8px",borderTop:"1px solid #F0D9B0"}}>
+  <img src={LOGO_B64} alt="ロゴ" style={{height:36,objectFit:"contain",opacity:0.7}}/>
+</div>
+          <div style={{...S.scroll,maxHeight:"calc(100vh - 185px)"}}>
           {tab==="iProgress"&&(
             <div>
               <div style={{fontSize:12,color:"#A07840",fontWeight:600,marginBottom:12,padding:"8px 12px",background:"#FDF6EC",borderRadius:8}}>
