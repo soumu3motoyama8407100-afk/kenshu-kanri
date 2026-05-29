@@ -433,9 +433,6 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
               getStatus={t=>getIS(emp.id,t.id)} readonly={!isCurrentFY}/>
           )}
         </div>
-      　<div style={{textAlign:"center",padding:"10px 0 6px",borderTop:"1px solid #F0D9B0",background:"#fff"}}>
-        <img src={LOGO_B64} alt="ロゴ" style={{height:32,objectFit:"contain",opacity:0.6}}/>
-      </div>
     </div>
   );
 }
@@ -541,6 +538,8 @@ function ManagerScreen({dept,employees,internals,getIS,setIS,externals,getXS,set
             </div>
           )}
         </div>
+       <div style={{textAlign:"center",padding:"10px 0 8px",borderTop:"1px solid #F0D9B0",background:"#fff"}}>
+        <img src={LOGO_B64} alt="ロゴ" style={{height:32,objectFit:"contain",opacity:0.7}}/>
       </div>
     </div>
   );
@@ -739,7 +738,6 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
       <div style={{...S.appWrap,maxWidth:960}}>
         <div style={S.header}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <img src={LOGO_B64} alt="ロゴ" style={{height:40,objectFit:"contain"}}/>
             <div><div style={S.headerName}>🛡 管理者ダッシュボード</div><div style={S.headerSub}>{ORG_NAME}</div></div>
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -762,7 +760,10 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
           {tab==="xProgress" &&<ExternalProgressTab employees={employees} externals={externals} getXS={getXS} setXS={setXS} fiscalYear={fiscalYear}/>}
           {tab==="xManage"   &&<ExternalManageTab employees={employees} externals={externals} setExternals={setExternals} deleteExternal={deleteExternal}/>}
           {tab==="empManage" &&<EmployeeManageTab employees={employees} setEmployees={setEmployees} internals={internals} getIS={getIS} getXS={getXS} externals={externals} fiscalYear={fiscalYear}/>}
-        </div>
+       </div>
+      <div style={{textAlign:"center",padding:"10px 0 8px",borderTop:"1px solid #F0D9B0",background:"#fff"}}>
+        <img src={LOGO_B64} alt="ロゴ" style={{height:32,objectFit:"contain",opacity:0.7}}/>
+      </div>
       </div>
     </div>
   );
