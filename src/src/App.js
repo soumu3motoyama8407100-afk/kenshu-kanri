@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 // ─── SUPABASE 接続 ─────────────────────────────────────────────
 const supabase = createClient(
-  "nncousuugjntzovtmkvt",
+  "https://nncousuugjntzovtmkvt.supabase.co",
   "sb_publishable_vtuNEJnmkkZ3N5xTKbghEQ_RekJsS6m"
 );
 
