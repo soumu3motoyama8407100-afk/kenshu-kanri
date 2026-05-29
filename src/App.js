@@ -9,11 +9,11 @@ const supabase = createClient(
 
 // ─── MASTER DATA ───────────────────────────────────────────────
 const EMPLOYEES = [
-  { id:"E001", password:"pass001", name:"山田 太郎",   dept:"総務部" },
-  { id:"E002", password:"pass002", name:"鈴木 花子",   dept:"営業部" },
-  { id:"E003", password:"pass003", name:"田中 一郎",   dept:"技術部" },
-  { id:"E004", password:"pass004", name:"佐藤 美咲",   dept:"人事部" },
-  { id:"E005", password:"pass005", name:"伊藤 健二",   dept:"総務部" },
+  { id:"E001", password:"pass001", name:"今宮　晴久",   dept:"総務部" },
+  { id:"E002", password:"pass002", name:"山崎　あずさ",   dept:"総務部" },
+  { id:"E003", password:"pass003", name:"本山　将也",   dept:"総務部" },
+  { id:"E004", password:"pass004", name:"植村　美紀",   dept:"総務部" },
+  { id:"E005", password:"pass005", name:"槇山　綾華",   dept:"総務部" },
   { id:"E006", password:"pass006", name:"渡辺 さくら", dept:"営業部" },
   { id:"E007", password:"pass007", name:"小林 達也",   dept:"技術部" },
   { id:"E008", password:"pass008", name:"加藤 あかり", dept:"人事部" },
