@@ -963,4 +963,23 @@ function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear}){
             <thead><tr style={{background:"#1e3a5f",color:"#fff"}}><th style={S.th}>従業員</th><th style={S.th}>部署</th><th style={S.th}>進捗</th><th style={S.th}>受講</th><th style={S.th}>復命書</th><th style={S.th}>管理者確認</th></tr></thead>
             <tbody>{targets.map((emp,i)=>{const s=getXS(emp.id,x.id);return(
               <tr key={emp.id} style={{background:i%2===0?"#fff":"#f8fafc"}}>
-                <td style={S.td}>{emp.name}</td><td style={S.td}>{emp.dept}</td>
+                <td style={S.td}>{emp.name}</td><td style={S.td}>{emp.dept}</td><td style={S.td}>{s.attended?"✅":"○"}</td>
+                <td style={S.td}>{s.reportSubmitted?"📄":"─"}</td>
+                <td style={S.td}>{s.reportConfirmed?<span style={{color:"#15803d",fontWeight:600}}>✅確認済</span>
+                  :s.reportSubmitted?<button style={{...S.qrBtn,fontSize:11}} onClick={()=>setXS(emp.id,x.id,{reportConfirmed:true})}>確認済にする</button>
+                  :<span style={{color:"#9ca3af"}}>─</span>}</td>
+              </tr>
+            );})}
+            </tbody>
+          </table>
+        </div>
+      );})}
+    </div>
+  );
+}
+
+function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
+  const [showAdd,setShowAdd]=useState(false);
+  const [newX,setNewX]=useState({title:"",date:"",organizer:"",location:"",targetEmpIds:[],pdfData:null,pdfName:null});
+  const toggleEmp=id=>setNewX(p=>({...p,targetEmpIds:p.targetEmpIds.includes(id)?p.targetEmpIds.filter(x=>x!==id):[...p.targetEmpIds,id]}));
+  const handlePdf=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r
