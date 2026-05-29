@@ -538,10 +538,6 @@ function ManagerScreen({dept,employees,internals,getIS,setIS,externals,getXS,set
             </div>
           )}
         </div>
-       <div style={{textAlign:"center",padding:"10px 0 8px",borderTop:"1px solid #F0D9B0",background:"#fff"}}>
-        <img src={LOGO_B64} alt="ロゴ" style={{height:32,objectFit:"contain",opacity:0.7}}/>
-      </div>
-    </div>
   );
 }
 
