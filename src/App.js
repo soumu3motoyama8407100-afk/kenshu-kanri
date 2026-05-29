@@ -1,19 +1,17 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// ─── SUPABASE 接続 ─────────────────────────────────────────────
 const supabase = createClient(
   "https://nncousuugjntzovtmkvt.supabase.co",
   "sb_publishable_vtuNEJnmkkZ3N5xTKbghEQ_RekJsS6m"
 );
 
-// ─── MASTER DATA ───────────────────────────────────────────────
 const EMPLOYEES = [
-  { id:"E001", password:"pass001", name:"今宮　晴久",   dept:"総務部" },
-  { id:"E002", password:"pass002", name:"山崎　あずさ",   dept:"総務部" },
-  { id:"E003", password:"pass003", name:"本山　将也",   dept:"総務部" },
-  { id:"E004", password:"pass004", name:"植村　美紀",   dept:"総務部" },
-  { id:"E005", password:"pass005", name:"槇山　綾華",   dept:"総務部" },
+  { id:"E001", password:"pass001", name:"山田 太郎",   dept:"総務部" },
+  { id:"E002", password:"pass002", name:"鈴木 花子",   dept:"営業部" },
+  { id:"E003", password:"pass003", name:"田中 一郎",   dept:"技術部" },
+  { id:"E004", password:"pass004", name:"佐藤 美咲",   dept:"人事部" },
+  { id:"E005", password:"pass005", name:"伊藤 健二",   dept:"総務部" },
   { id:"E006", password:"pass006", name:"渡辺 さくら", dept:"営業部" },
   { id:"E007", password:"pass007", name:"小林 達也",   dept:"技術部" },
   { id:"E008", password:"pass008", name:"加藤 あかり", dept:"人事部" },
@@ -60,7 +58,6 @@ const isPast = ds => { if(!ds)return false; const t=new Date();t.setHours(0,0,0,
 const calcYears = jd => { if(!jd)return ""; const j=new Date(jd),n=new Date();let y=n.getFullYear()-j.getFullYear(),m=n.getMonth()-j.getMonth();if(m<0){y--;m+=12;}return `${y}年${m}ヶ月`; };
 const makeAttendUrl = tid => `${window.location.href.split("?")[0]}?attend=${tid}`;
 
-// ─── SUPABASE HELPERS ──────────────────────────────────────────
 const db = {
   async getIStatuses() {
     const {data} = await supabase.from("i_statuses").select("*");
@@ -117,7 +114,6 @@ const db = {
   async deleteExternal(id) { await supabase.from("externals").delete().eq("id",id); },
 };
 
-// ─── ROOT ──────────────────────────────────────────────────────
 export default function App() {
   const [internals,setInternals] = useState(INIT_INTERNAL);
   const [externals,setExternals] = useState(INIT_EXTERNAL);
@@ -140,7 +136,6 @@ export default function App() {
     })();
   },[]);
 
-  // 翌日以降: 自動未参加確定
   useEffect(()=>{
     if(loading)return;
     internals.forEach(t=>{
@@ -216,7 +211,6 @@ export default function App() {
   );
 }
 
-// ─── LOGIN ─────────────────────────────────────────────────────
 function LoginScreen({pendingAttend,internals,onLogin}){
   const [id,setId]=useState(""); const [pw,setPw]=useState(""); const [err,setErr]=useState("");
   const training=internals.find(t=>t.id===pendingAttend);
@@ -312,16 +306,18 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,profile
   const isCurrentFY=viewFY===fiscalYear;
   const fyInternals=internals.filter(t=>inFiscalYear(t.date,viewFY));
   const fyExternals=externals.filter(x=>x.targetEmpIds.includes(emp.id)&&inFiscalYear(x.date,viewFY));
+
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(null),2500);};
- const count=getCount(emp.id,viewFY);
-  const myExt=externals.filter(x=>x.targetEmpIds.includes(emp.id));
+  const count=getCount(emp.id,viewFY);
+
   const monthCounts=Array.from({length:12},(_,i)=>{
-    const month=(i+4)%12||12; const year=i<9?fiscalYear:fiscalYear+1;
+    const month=(i+4)%12||12; const year=i<9?viewFY:viewFY+1;
     const iC=internals.filter(t=>{const d=new Date(t.date);return d.getFullYear()===year&&d.getMonth()+1===month&&getIS(emp.id,t.id).report==="提出済";}).length;
     const xC=externals.filter(x=>{const d=new Date(x.date);return d.getFullYear()===year&&d.getMonth()+1===month&&x.targetEmpIds.includes(emp.id)&&getXS(emp.id,x.id).reportSubmitted;}).length;
     return{label:`${month}月`,count:iC+xC};
   });
   const maxM=Math.max(...monthCounts.map(m=>m.count),1);
+
   return(
     <div style={S.page}>
       {toast&&<div style={S.toast}>{toast}</div>}
@@ -330,22 +326,36 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,profile
       <div style={S.appWrap}>
         <div style={S.header}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <button onClick={()=>setShowProfile(true)} style={{width:38,height:38,borderRadius:"50%",background:"rgba(255,255,255,.15)",border:"1.5px solid rgba(255,255,255,.3)",color:"#fff",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}} title="個人情報">👤</button>
+            <button onClick={()=>setShowProfile(true)} style={{width:38,height:38,borderRadius:"50%",background:"rgba(255,255,255,.15)",border:"1.5px solid rgba(255,255,255,.3)",color:"#fff",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>👤</button>
             <div><div style={S.headerName}>{emp.name}</div><div style={S.headerSub}>{emp.dept} · {emp.id}</div></div>
           </div>
           <button style={S.logoutBtn} onClick={onLogout}>ログアウト</button>
         </div>
+
+        {/* 年度切替 */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"8px 16px",background:"#f8fafc",borderBottom:"1px solid #e5e7eb"}}>
+          <span style={{fontSize:12,color:"#6b7280",fontWeight:600}}>📅 年度</span>
+          <select value={viewFY} onChange={e=>setViewFY(Number(e.target.value))}
+            style={{padding:"4px 10px",borderRadius:8,border:"1px solid #e5e7eb",fontSize:13,fontWeight:600,color:"#1e3a5f",cursor:"pointer"}}>
+            {[fiscalYear-2,fiscalYear-1,fiscalYear].map(y=>(
+              <option key={y} value={y}>{y}年度{y===fiscalYear?"（今年度）":""}</option>
+            ))}
+          </select>
+          {!isCurrentFY&&<span style={{fontSize:11,color:"#d97706",fontWeight:600,background:"#fef3c7",padding:"2px 8px",borderRadius:20}}>過去年度閲覧中</span>}
+        </div>
+
         <div style={S.tabBar}>
           {[["score","🏅 実績"],["internal","🏢 内部研修"],["external","🌐 外部研修"],["video","▶ 動画"]].map(([k,l])=>(
             <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{})}} onClick={()=>setTab(k)}>{l}</button>
           ))}
         </div>
+
         <div style={S.scroll}>
           {tab==="score"&&(
             <div style={{display:"flex",flexDirection:"column",gap:16}}>
-              <PointCard count={count} fiscalYear={fiscalYear}/>
+              <PointCard count={count} fiscalYear={viewFY}/>
               <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:16}}>
-                <div style={{fontWeight:700,fontSize:14,color:"#1e3a5f",marginBottom:12}}>📊 月別復命書提出状況（{fiscalYear}年度）</div>
+                <div style={{fontWeight:700,fontSize:14,color:"#1e3a5f",marginBottom:12}}>📊 月別復命書提出状況（{viewFY}年度）</div>
                 <div style={{display:"flex",gap:4,alignItems:"flex-end",height:80}}>
                   {monthCounts.map((m,i)=>(
                     <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
@@ -357,10 +367,10 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,profile
                 </div>
               </div>
               <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,padding:16}}>
-                <div style={{fontWeight:700,fontSize:14,color:"#1e3a5f",marginBottom:12}}>📋 今年度の内訳（復命書ベース）</div>
+                <div style={{fontWeight:700,fontSize:14,color:"#1e3a5f",marginBottom:12}}>📋 {viewFY}年度の内訳</div>
                 {[
-                  {label:"内部研修（提出済）",count:internals.filter(t=>inFiscalYear(t.date,fiscalYear)&&getIS(emp.id,t.id).report==="提出済").length,color:"#2563eb"},
-                  {label:"外部研修（提出済）",count:myExt.filter(x=>inFiscalYear(x.date,fiscalYear)&&getXS(emp.id,x.id).reportSubmitted).length,color:"#d97706"},
+                  {label:"内部研修（提出済）",count:fyInternals.filter(t=>getIS(emp.id,t.id).report==="提出済").length,color:"#2563eb"},
+                  {label:"外部研修（提出済）",count:fyExternals.filter(x=>getXS(emp.id,x.id).reportSubmitted).length,color:"#d97706"},
                 ].map(row=>(
                   <div key={row.label} style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
                     <div style={{width:140,fontSize:12,color:"#374151"}}>{row.label}</div>
@@ -385,29 +395,44 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,profile
               </div>
             </div>
           )}
-          {tab==="internal"&&(fyInternals.length===0
-            ?<div style={S.empty}>{viewFY}年度の内部研修はありません</div>
-            :fyInternals.map(t=>(
-            <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)}
-              onReport={v=>{setIS(emp.id,t.id,"report",v);showToast(v==="提出済"?"復命書を提出済にしました":"未提出に戻しました");}}
-              onVideo={v=>{setIS(emp.id,t.id,"video",v);showToast(v==="視聴済"?"動画を視聴済":"未視聴に戻しました");}}
-              onWatchVideo={()=>{setVideoT(t);setTab("video");}}/>
-            ))
+
+          {tab==="internal"&&(
+            fyInternals.length===0
+              ?<div style={S.empty}>{viewFY}年度の内部研修はありません</div>
+              :fyInternals.map(t=>(
+                <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)} readonly={!isCurrentFY}
+                  onReport={v=>{ if(isCurrentFY){setIS(emp.id,t.id,"report",v);showToast(v==="提出済"?"復命書を提出済にしました":"未提出に戻しました");} }}
+                  onVideo={v=>{ if(isCurrentFY){setIS(emp.id,t.id,"video",v);showToast(v==="視聴済"?"動画を視聴済":"未視聴に戻しました");} }}
+                  onWatchVideo={()=>{setVideoT(t);setTab("video");}}/>
+              ))
           )}
-          ))}
-         {tab==="external"&&(fyExternals.length===0
-            ?<div style={S.empty}>{viewFY}年度の外部研修はありません</div>
-            :fyExternals.map(x=><ExternalCard key={x.id} ext={x} status={getXS(emp.id,x.id)}
-              onAttend={()=>{if(isCurrentFY){setXS(emp.id,x.id,{attended:true});showToast("受講済にしました");}}}
-              onReport={()=>{if(isCurrentFY){setXS(emp.id,x.id,{reportSubmitted:true});showToast("復命書を提出しました");}}}
-              onViewPdf={()=>setPdfExt(x)}/>)
+
+          {tab==="external"&&(
+            fyExternals.length===0
+              ?<div style={S.empty}>{viewFY}年度の外部研修はありません</div>
+              :fyExternals.map(x=>(
+                <ExternalCard key={x.id} ext={x} status={getXS(emp.id,x.id)} readonly={!isCurrentFY}
+                  onAttend={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{attended:true});showToast("受講済にしました");} }}
+                  onReport={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{reportSubmitted:true});showToast("復命書を提出しました");} }}
+                  onViewPdf={()=>setPdfExt(x)}/>
+              ))
           )}
-          {tab==="video"&&<VideoTab trainings={internals} {tab==="video"&&<VideoTab trainings={fyInternals} selected={videoT||fyInternals[0]}
-            onSelect={t=>setVideoT(t)}
-            onMarkWatched={(t,val)=>{
-              if(isCurrentFY){setIS(emp.id,t.id,"video",val);showToast(val==="視聴済"?"「視聴済」にしました":"未視聴に戻しました");}
-            }}
-            getStatus={t=>getIS(emp.id,t.id)}/>}
+
+          {tab==="video"&&(
+            <VideoTab
+              trainings={fyInternals.filter(t=>t.videoUrl)}
+              selected={videoT||fyInternals.find(t=>t.videoUrl)}
+              onSelect={t=>setVideoT(t)}
+              onMarkWatched={(t,val)=>{
+                if(isCurrentFY){
+                  setIS(emp.id,t.id,"video",val);
+                  showToast(val==="視聴済"?"「視聴済」にしました":"未視聴に戻しました");
+                }
+              }}
+              getStatus={t=>getIS(emp.id,t.id)}
+              readonly={!isCurrentFY}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -461,13 +486,18 @@ function ExternalProgress({status}){
   );
 }
 
-function InternalCard({training,status,onReport,onVideo,onWatchVideo}){
+function InternalCard({training,status,onReport,onVideo,onWatchVideo,readonly}){
   const [open,setOpen]=useState(false);
   const attended=status.attendance==="参加済"; const absentFix=status.attendance==="未参加（確定）"; const showVideo=!attended;
   return(
     <div style={S.card}>
       <div style={S.cardHead} onClick={()=>setOpen(!open)}>
-        <div style={{flex:1}}>{training.required&&<span style={S.reqBadge}>必須</span>}<div style={S.cardTitle}>{training.title}</div><div style={S.cardDate}>📅 {training.date}</div></div>
+        <div style={{flex:1}}>
+          {training.required&&<span style={S.reqBadge}>必須</span>}
+          {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
+          <div style={S.cardTitle}>{training.title}</div>
+          <div style={S.cardDate}>📅 {training.date}</div>
+        </div>
         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}><InternalProgress status={status}/><span style={{color:"#d1d5db",fontSize:14}}>{open?"▲":"▼"}</span></div>
       </div>
       {open&&(
@@ -478,7 +508,7 @@ function InternalCard({training,status,onReport,onVideo,onWatchVideo}){
             {attended?<SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 参加済（QR認証済）</SPill>
               :absentFix?<SPill color="#dc2626" bg="#fef2f2" border="#fca5a5">❌ 未参加（確定）</SPill>
               :<SPill color="#6b7280" bg="#f9fafb" border="#e5e7eb">🔲 未参加 ─ 当日QRをスキャン</SPill>}
-            {showVideo&&(
+            {showVideo&&!readonly&&(
               <div style={{marginTop:10}}>
                 <div style={{fontSize:11,color:"#6b7280",marginBottom:6}}>{absentFix?"参加できなかった場合は動画でフォローできます：":"または研修動画を視聴:"}</div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -487,10 +517,13 @@ function InternalCard({training,status,onReport,onVideo,onWatchVideo}){
                 {training.videoUrl&&<button style={{...S.watchBtn,marginTop:8}} onClick={onWatchVideo}>▶ 動画を視聴する</button>}
               </div>
             )}
+            {showVideo&&readonly&&status.video==="視聴済"&&<div style={{marginTop:8}}><SPill color="#7c3aed" bg="#ede9fe" border="#c4b5fd">▶ 視聴済</SPill></div>}
           </div>
           <div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書提出</div>
-            <div style={{display:"flex",gap:8}}>{["提出済","未提出"].map(v=><ToggleChip key={v} label={v} active={status.report===v} color={v==="提出済"?"#2563eb":"#f59e0b"} onClick={()=>onReport(v)}/>)}</div>
+            {readonly
+              ?<SPill color={status.report==="提出済"?"#2563eb":"#9ca3af"} bg={status.report==="提出済"?"#dbeafe":"#f9fafb"} border={status.report==="提出済"?"#bfdbfe":"#e5e7eb"}>{status.report==="提出済"?"✅ 提出済":"未提出"}</SPill>
+              :<div style={{display:"flex",gap:8}}>{["提出済","未提出"].map(v=><ToggleChip key={v} label={v} active={status.report===v} color={v==="提出済"?"#2563eb":"#f59e0b"} onClick={()=>onReport(v)}/>)}</div>}
           </div>
           <div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>3</span> 管理者確認</div>
@@ -502,41 +535,51 @@ function InternalCard({training,status,onReport,onVideo,onWatchVideo}){
   );
 }
 
-function ExternalCard({ext,status,onAttend,onReport,onViewPdf}){
+function ExternalCard({ext,status,onAttend,onReport,onViewPdf,readonly}){
   const [open,setOpen]=useState(false);
   const {attended,reportSubmitted,reportConfirmed}=status;
   return(
     <div style={S.card}>
       <div style={S.cardHead} onClick={()=>setOpen(!open)}>
-        <div style={{flex:1}}><span style={S.extBadge}>外部</span><div style={S.cardTitle}>{ext.title}</div><div style={S.cardDate}>📅 {ext.date} ｜ 🏢 {ext.organizer} ｜ 📍 {ext.location}</div></div>
+        <div style={{flex:1}}>
+          <span style={S.extBadge}>外部</span>
+          {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
+          <div style={S.cardTitle}>{ext.title}</div>
+          <div style={S.cardDate}>📅 {ext.date} ｜ 🏢 {ext.organizer} ｜ 📍 {ext.location}</div>
+        </div>
         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}><ExternalProgress status={status}/><span style={{color:"#d1d5db",fontSize:14}}>{open?"▲":"▼"}</span></div>
       </div>
       {open&&(
         <div style={S.cardBody}>
           {ext.pdfData?<button style={{...S.watchBtn,background:"#dc2626",marginBottom:12}} onClick={e=>{e.stopPropagation();onViewPdf();}}>📄 研修要綱PDFを見る</button>
             :<div style={{padding:"8px 12px",background:"#f9fafb",borderRadius:8,fontSize:12,color:"#9ca3af",marginBottom:12}}>📄 研修要綱PDFは未添付です</div>}
-          <div style={S.sBlock}><div style={S.sLabel}><span style={S.stepNum}>1</span> 受講状況</div>
-            {attended?<SPill color="#16a34a" bg="#f0fdf4" border="#86efac">✅ 受講済</SPill>:<button style={S.actionBtn} onClick={onAttend}>受講済にする</button>}</div>
-          {attended&&<div style={S.sBlock}><div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書</div>
+          <div style={S.sBlock}>
+            <div style={S.sLabel}><span style={S.stepNum}>1</span> 受講状況</div>
+            {attended?<SPill color="#16a34a" bg="#f0fdf4" border="#86efac">✅ 受講済</SPill>
+              :readonly?<SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">未受講</SPill>
+              :<button style={S.actionBtn} onClick={onAttend}>受講済にする</button>}
+          </div>
+          {attended&&<div style={S.sBlock}>
+            <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書</div>
             {reportConfirmed?<SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 提出済（管理者確認済）</SPill>
               :reportSubmitted?<SPill color="#92400e" bg="#fffbeb" border="#fcd34d">⏳ 提出済 ─ 管理者確認待ち</SPill>
-              :<button style={{...S.actionBtn,background:"#2563eb"}} onClick={onReport}>復命書を提出する</button>}</div>}
+              :readonly?<SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">未提出</SPill>
+              :<button style={{...S.actionBtn,background:"#2563eb"}} onClick={onReport}>復命書を提出する</button>}
+          </div>}
         </div>
       )}
     </div>
   );
 }
 
-function SPill({color,bg,border,children}){return <div style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 14px",borderRadius:20,background:bg,color,fontSize:13,fontWeight:600,border:`1.5px solid ${border}`}}>{children}</div>;}
-function ToggleChip({label,active,color,onClick}){return <button onClick={onClick} style={{padding:"5px 14px",borderRadius:20,border:"1.5px solid",borderColor:active?color:"#e5e7eb",background:active?color:"#fff",color:active?"#fff":"#6b7280",fontSize:12,fontWeight:active?700:400,cursor:"pointer"}}>{label}</button>;}
-
-function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus}){
+function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus,readonly}){
   const cur=selected||trainings[0];
   const s=cur?getStatus(cur):null;
   return(
     <div>
+      {(!trainings||trainings.length===0)&&<div style={S.empty}>この年度に動画付きの研修はありません</div>}
       <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:10,marginBottom:12}}>
-        {trainings.filter(t=>t.videoUrl).map(t=>{
+        {(trainings||[]).map(t=>{
           const st=getStatus(t); const active=cur?.id===t.id;
           return <button key={t.id} onClick={()=>onSelect(t)} style={{minWidth:130,padding:"8px 12px",borderRadius:10,
             border:"1.5px solid",borderColor:active?"#1e40af":"#e5e7eb",
@@ -555,21 +598,25 @@ function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus}){
         </div>
         <div style={{marginTop:12}}>
           {s?.video==="視聴済"
-            ?<div style={{padding:"10px 14px",background:"#f0fdf4",borderRadius:10,color:"#15803d",fontSize:13,fontWeight:600,textAlign:"center"}}>
+            ?<div style={{padding:"10px 14px",background:"#f0fdf4",borderRadius:10,color:"#15803d",fontSize:13,fontWeight:600,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
               ✅ 視聴済み
-              <button onClick={()=>onMarkWatched(cur,"未視聴")} style={{marginLeft:12,fontSize:11,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"3px 10px",cursor:"pointer"}}>
-                未視聴に戻す
-              </button>
+              {!readonly&&<button onClick={()=>onMarkWatched(cur,"未視聴")} style={{fontSize:11,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"3px 10px",cursor:"pointer"}}>未視聴に戻す</button>}
             </div>
-            :<button onClick={()=>onMarkWatched(cur,"視聴済")} style={{width:"100%",padding:"12px",background:"#16a34a",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>
-              ✅ 視聴完了！　視聴済みにする
-            </button>
+            :readonly
+              ?<div style={{padding:"10px 14px",background:"#f9fafb",borderRadius:10,color:"#9ca3af",fontSize:13,textAlign:"center"}}>○ 未視聴</div>
+              :<button onClick={()=>onMarkWatched(cur,"視聴済")} style={{width:"100%",padding:"12px",background:"#16a34a",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>
+                ✅ 視聴完了！　視聴済みにする
+              </button>
           }
         </div>
       </>}
     </div>
   );
 }
+
+function SPill({color,bg,border,children}){return <div style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 14px",borderRadius:20,background:bg,color,fontSize:13,fontWeight:600,border:`1.5px solid ${border}`}}>{children}</div>;}
+function ToggleChip({label,active,color,onClick}){return <button onClick={onClick} style={{padding:"5px 14px",borderRadius:20,border:"1.5px solid",borderColor:active?color:"#e5e7eb",background:active?color:"#fff",color:active?"#fff":"#6b7280",fontSize:12,fontWeight:active?700:400,cursor:"pointer"}}>{label}</button>;}
+
 function PdfModal({ext,onClose}){
   return(
     <div style={S.overlay} onClick={onClose}>
@@ -603,21 +650,9 @@ function AdminScreen({employees,internals,setInternals,externals,setExternals,de
               {[currentFY()-1,currentFY(),currentFY()+1].map(y=><option key={y} value={y}>{y}年度</option>)}
             </select>
             <button style={{...S.logoutBtn,background:"#1e40af",color:"#fff",borderColor:"#1e40af"}} onClick={()=>window.print()}>🖨 印刷</button>
-           <button style={S.logoutBtn} onClick={onLogout}>ログアウト</button>
+            <button style={S.logoutBtn} onClick={onLogout}>ログアウト</button>
+          </div>
         </div>
-
-        {/* 年度切替 */}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"8px 16px",background:"#f8fafc",borderBottom:"1px solid #e5e7eb"}}>
-          <span style={{fontSize:12,color:"#6b7280",fontWeight:600}}>📅 年度</span>
-          <select value={viewFY} onChange={e=>setViewFY(Number(e.target.value))}
-            style={{padding:"4px 10px",borderRadius:8,border:"1px solid #e5e7eb",fontSize:13,fontWeight:600,color:"#1e3a5f",cursor:"pointer"}}>
-            {[fiscalYear-2,fiscalYear-1,fiscalYear].map(y=>(
-              <option key={y} value={y}>{y}年度{y===fiscalYear?"（今年度）":""}</option>
-            ))}
-          </select>
-          {!isCurrentFY&&<span style={{fontSize:11,color:"#d97706",fontWeight:600,background:"#fef3c7",padding:"2px 8px",borderRadius:20}}>過去年度閲覧中</span>}
-        </div>
-
         <div style={S.tabBar}>
           {[["ranking","🏅 ランキング"],["iProgress","📊 内部 進捗"],["iManage","📚 内部 管理"],["xProgress","🌐 外部 進捗"],["xManage","✏️ 外部 管理"],["profiles","👤 個人情報"]].map(([k,l])=>(
             <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{}),fontSize:11,padding:"10px 2px"}} onClick={()=>setTab(k)}>{l}</button>
@@ -625,9 +660,9 @@ function AdminScreen({employees,internals,setInternals,externals,setExternals,de
         </div>
         <div style={{...S.scroll,maxHeight:"calc(100vh - 185px)"}}>
           {tab==="ranking"   &&<RankingTab employees={employees} fiscalYear={fiscalYear} getCount={getCount}/>}
-          {tab==="iProgress" &&<InternalProgressTab employees={employees} internals={internals} getIS={getIS} setIS={setIS} onQR={setQrT}/>}
+          {tab==="iProgress" &&<InternalProgressTab employees={employees} internals={internals} getIS={getIS} setIS={setIS} onQR={setQrT} fiscalYear={fiscalYear}/>}
           {tab==="iManage"   &&<InternalManageTab internals={internals} setInternals={setInternals} deleteInternal={deleteInternal}/>}
-          {tab==="xProgress" &&<ExternalProgressTab employees={employees} externals={externals} getXS={getXS} setXS={setXS}/>}
+          {tab==="xProgress" &&<ExternalProgressTab employees={employees} externals={externals} getXS={getXS} setXS={setXS} fiscalYear={fiscalYear}/>}
           {tab==="xManage"   &&<ExternalManageTab employees={employees} externals={externals} setExternals={setExternals} deleteExternal={deleteExternal}/>}
           {tab==="profiles"  &&<ProfilesTab employees={employees} profiles={profiles} onEdit={setProfileEmp}/>}
         </div>
@@ -729,11 +764,12 @@ function RankingTab({employees,fiscalYear,getCount}){
   );
 }
 
-function InternalProgressTab({employees,internals,getIS,setIS,onQR}){
+function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
+  const fyInternals=internals.filter(t=>inFiscalYear(t.date,fiscalYear));
   return(
     <div>
       <div style={{display:"flex",gap:10,overflowX:"auto",padding:"12px 0 16px"}}>
-        {internals.map(t=>{
+        {fyInternals.map(t=>{
           const n=employees.length;
           const s1=employees.filter(e=>{const s=getIS(e.id,t.id);return s.attendance==="参加済"||s.video==="視聴済";}).length;
           const s2=employees.filter(e=>getIS(e.id,t.id).report==="提出済").length;
@@ -750,16 +786,17 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR}){
           );
         })}
       </div>
+      {fyInternals.length===0&&<div style={S.empty}>{fiscalYear}年度の内部研修はありません</div>}
       <div style={{overflowX:"auto"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
           <thead><tr style={{background:"#1e3a5f",color:"#fff"}}>
             <th style={S.th}>従業員</th><th style={S.th}>部署</th>
-            {internals.map(t=><th key={t.id} style={{...S.th,minWidth:140}}>{t.required?"【必】":""}{t.title}</th>)}
+            {fyInternals.map(t=><th key={t.id} style={{...S.th,minWidth:140}}>{t.required?"【必】":""}{t.title}</th>)}
           </tr></thead>
           <tbody>{employees.map((emp,i)=>(
             <tr key={emp.id} style={{background:i%2===0?"#fff":"#f8fafc"}}>
               <td style={S.td}>{emp.name}</td><td style={S.td}>{emp.dept}</td>
-              {internals.map(t=>{
+              {fyInternals.map(t=>{
                 const s=getIS(emp.id,t.id); const [d1,d2,d3]=internalStepsDone(s);
                 const done=[d1,d2,d3].filter(Boolean).length; const bc=done===3?"#16a34a":done===0?"#e5e7eb":"#f59e0b";
                 return(
@@ -818,11 +855,12 @@ function InternalManageTab({internals,setInternals,deleteInternal}){
   );
 }
 
-function ExternalProgressTab({employees,externals,getXS,setXS}){
+function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear}){
+  const fyExternals=externals.filter(x=>inFiscalYear(x.date,fiscalYear));
   return(
     <div>
-      {externals.length===0&&<div style={S.empty}>外部研修はまだ登録されていません</div>}
-      {externals.map(x=>{const targets=employees.filter(e=>x.targetEmpIds.includes(e.id));return(
+      {fyExternals.length===0&&<div style={S.empty}>{fiscalYear}年度の外部研修はありません</div>}
+      {fyExternals.map(x=>{const targets=employees.filter(e=>x.targetEmpIds.includes(e.id));return(
         <div key={x.id} style={{marginBottom:24}}>
           <div style={{fontWeight:700,color:"#1e3a5f",fontSize:14,marginBottom:4}}><span style={S.extBadge}>外部</span> {x.title}</div>
           <div style={{fontSize:12,color:"#6b7280",marginBottom:10}}>📅 {x.date} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}</div>
