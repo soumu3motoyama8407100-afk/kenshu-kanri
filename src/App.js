@@ -304,8 +304,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,profile
   const [showProfile,setShowProfile]=useState(false);
   const [viewFY,setViewFY]=useState(fiscalYear);
   const isCurrentFY=viewFY===fiscalYear;
-  const fyInternals=internals.filter(t=>inFiscalYear(t.date,viewFY));
-  const fyExternals=externals.filter(x=>x.targetEmpIds.includes(emp.id)&&inFiscalYear(x.date,viewFY));
+  const fyInternals=internals.filter(t=>inFiscalYear(t.date,viewFY)).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const fyExternals=externals.filter(x=>x.targetEmpIds.includes(emp.id)&&inFiscalYear(x.date,viewFY)).sort((a,b)=>new Date(b.date)-new Date(a.date));
 
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(null),2500);};
   const count=getCount(emp.id,viewFY);
