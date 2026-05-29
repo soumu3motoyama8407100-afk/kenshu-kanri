@@ -8,7 +8,7 @@ const supabase = createClient(
 
 const ADMIN = { id:"ADMIN", password:"admin123" };
 const ORG_NAME = "社会福祉法人　ザ・ハート・クラブ";
-const LOGO_B64 = "/title.gif";
+const LOGO_B64 = "/title-_2_-removebg-preview.png";
 
 const INIT_INTERNAL = [
   { id:"T001", title:"新入社員オリエンテーション", date:"2026-04-01", required:true,  videoUrl:"https://www.youtube.com/embed/dQw4w9WgXcQ", description:"会社の基本方針・規則・業務フローを学ぶ研修" },
