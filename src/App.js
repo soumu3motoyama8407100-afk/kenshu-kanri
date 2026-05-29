@@ -270,6 +270,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
   const [toast,setToast]=useState(null);
   const [pdfExt,setPdfExt]=useState(null);
   const [showProfile,setShowProfile]=useState(false);
+  const [showQRScan,setShowQRScan]=useState(false);
   const [viewFY,setViewFY]=useState(fiscalYear);
   const isCurrentFY=viewFY===fiscalYear;
   const fyInternals=internals.filter(t=>inFiscalYear(t.date,viewFY)).sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -288,13 +289,17 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
       {toast&&<div style={S.toast}>{toast}</div>}
       {pdfExt&&<PdfModal ext={pdfExt} onClose={()=>setPdfExt(null)}/>}
       {showProfile&&<ProfileModal emp={emp} onClose={()=>setShowProfile(false)}/>}
+        {showQRScan&&<QRScanModal onScan={tid=>{setIS(emp.id,tid,"attendance","参加済");setShowQRScan(false);showToast("✅ 参加済に登録しました！");}} onClose={()=>setShowQRScan(false)}/>}
       <div style={S.appWrap}>
         <div style={S.header}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <button onClick={()=>setShowProfile(true)} style={{width:38,height:38,borderRadius:"50%",background:"rgba(255,255,255,.15)",border:"1.5px solid rgba(255,255,255,.3)",color:"#fff",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>👤</button>
             <div><div style={S.headerName}>{emp.name}</div><div style={S.headerSub}>{emp.dept} · {emp.id}</div></div>
           </div>
-          <button style={S.logoutBtn} onClick={onLogout}>ログアウト</button>
+         <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <button onClick={()=>setShowQRScan(true)} style={{padding:"6px 12px",borderRadius:8,background:"#16a34a",color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:600}}>📷 QR読取</button>
+            <button style={S.logoutBtn} onClick={onLogout}>ログアウト</button>
+          </div>
         </div>
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"8px 16px",background:"#f8fafc",borderBottom:"1px solid #e5e7eb"}}>
           <span style={{fontSize:12,color:"#6b7280",fontWeight:600}}>📅 年度</span>
@@ -513,6 +518,98 @@ function ExternalCard({ext,status,onAttend,onReport,onViewPdf,readonly}){
   );
 }
 
+function QRScanModal({onScan,onClose}){
+  const videoRef=React.useRef(null);
+  const [error,setError]=useState("");
+  const [scanning,setScanning]=useState(false);
+
+  useEffect(()=>{
+    let stream=null;
+    let animFrame=null;
+    const canvas=document.createElement("canvas");
+    const ctx=canvas.getContext("2d");
+
+    const startCamera=async()=>{
+      try{
+        stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+        if(videoRef.current){
+          videoRef.current.srcObject=stream;
+          videoRef.current.play();
+          setScanning(true);
+          scanLoop();
+        }
+      }catch(e){
+        setError("カメラへのアクセスが拒否されました。ブラウザの設定でカメラを許可してください。");
+      }
+    };
+
+    const scanLoop=()=>{
+      if(!videoRef.current)return;
+      const v=videoRef.current;
+      if(v.readyState===v.HAVE_ENOUGH_DATA){
+        canvas.width=v.videoWidth;
+        canvas.height=v.videoHeight;
+        ctx.drawImage(v,0,0);
+        const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
+        if(window.jsQR){
+          const code=window.jsQR(imageData.data,imageData.width,imageData.height);
+          if(code){
+            const url=code.data;
+            const p=new URLSearchParams(url.split("?")[1]||"");
+            const tid=p.get("attend");
+            if(tid){
+              if(stream)stream.getTracks().forEach(t=>t.stop());
+              onScan(tid);
+              return;
+            }
+          }
+        }
+      }
+      animFrame=requestAnimationFrame(scanLoop);
+    };
+
+    // jsQRライブラリを読み込んでからカメラ起動
+    if(window.jsQR){
+      startCamera();
+    } else {
+      const s=document.createElement("script");
+      s.src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js";
+      s.onload=startCamera;
+      document.head.appendChild(s);
+    }
+
+    return()=>{
+      if(stream)stream.getTracks().forEach(t=>t.stop());
+      if(animFrame)cancelAnimationFrame(animFrame);
+    };
+  },[]);// eslint-disable-line
+
+  return(
+    <div style={S.overlay} onClick={onClose}>
+      <div style={{...S.modal,maxWidth:400}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div style={{fontWeight:800,fontSize:16,color:"#1e3a5f"}}>📷 QRコードをスキャン</div>
+          <button style={S.logoutBtn} onClick={onClose}>✕</button>
+        </div>
+        {error
+          ?<div style={{padding:"16px",background:"#fef2f2",borderRadius:10,color:"#dc2626",fontSize:13,textAlign:"center"}}>{error}</div>
+          :<div>
+            <div style={{position:"relative",borderRadius:12,overflow:"hidden",background:"#000",aspectRatio:"1"}}>
+              <video ref={videoRef} style={{width:"100%",height:"100%",objectFit:"cover"}} playsInline muted/>
+              {scanning&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
+                <div style={{width:200,height:200,border:"2px solid #fff",borderRadius:8,boxShadow:"0 0 0 9999px rgba(0,0,0,.4)"}}/>
+              </div>}
+            </div>
+            <div style={{marginTop:12,fontSize:13,color:"#6b7280",textAlign:"center"}}>
+              {scanning?"QRコードを枠内に合わせてください":"カメラを起動中..."}
+            </div>
+          </div>
+        }
+        <button style={{...S.btn,marginTop:12,background:"#6b7280"}} onClick={onClose}>キャンセル</button>
+      </div>
+    </div>
+  );
+}
 function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus,readonly}){
   const cur=selected||trainings[0]; const s=cur?getStatus(cur):null;
   return(
