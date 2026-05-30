@@ -181,8 +181,8 @@ export default function App() {
     await db.setXStatus(empId,xid,next);
   };
   const getCount = (empId,fy) => {
-    const iC=internals.filter(t=>inFiscalYear(t.date,fy)&&getIS(empId,t.id).report==="提出済").length;
-    const xC=externals.filter(x=>inFiscalYear(x.date,fy)&&x.targetEmpIds.includes(empId)&&getXS(empId,x.id).reportSubmitted).length;
+    const iC=internals.filter(t=>inFiscalYear(t.date,fy)&&getIS(empId,t.id).reportConfirmed===true).length;
+    const xC=externals.filter(x=>inFiscalYear(x.date,fy)&&x.targetEmpIds.includes(empId)&&getXS(empId,x.id).reportConfirmed).length;
     return iC+xC;
   };
 
@@ -587,7 +587,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
   const count=getCount(emp.id,viewFY);
   const monthCounts=Array.from({length:12},(_,i)=>{
     const month=(i+4)%12||12; const year=i<9?viewFY:viewFY+1;
-    const iC=internals.filter(t=>{const d=new Date(t.date);return d.getFullYear()===year&&d.getMonth()+1===month&&getIS(emp.id,t.id).report==="提出済";}).length;
+    const iC=internals.filter(t=>{const d=new Date(t.date);return d.getFullYear()===year&&d.getMonth()+1===month&&getIS(emp.id,t.id).reportConfirmed===true;}).length;
     const xC=externals.filter(x=>{const d=new Date(x.date);return d.getFullYear()===year&&d.getMonth()+1===month&&x.targetEmpIds.includes(emp.id)&&getXS(emp.id,x.id).reportSubmitted;}).length;
     return{label:`${month}月`,count:iC+xC};
   });
@@ -654,7 +654,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
           {tab==="internal"&&(fyInternals.length===0?<div style={S.empty}>{viewFY}年度の内部研修はありません</div>
             :fyInternals.map(t=>(
               <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)} readonly={!isCurrentFY}
-                onReport={v=>{ if(isCurrentFY){setIS(emp.id,t.id,"report",v);showToast(v==="提出済"?"復命書を提出済にしました":"未提出に戻しました");} }}
+                onReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","提出済");showToast("復命書を提出しました");} }}
                 onVideo={v=>{ if(isCurrentFY){setIS(emp.id,t.id,"video",v);} }}
                 onWatchVideo={()=>{setVideoT(t);setTab("video");}}/>
             ))
@@ -871,14 +871,14 @@ function InternalCard({training,status,onReport,onVideo,onWatchVideo,readonly}){
             <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書提出</div>
             {!canAccessReport
               ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">🔒 参加または動画視聴後に提出できます</SPill>
-              : readonly
-                ? <SPill color={status.report==="提出済"?"#2563eb":"#9ca3af"} bg={status.report==="提出済"?"#dbeafe":"#f9fafb"} border={status.report==="提出済"?"#bfdbfe":"#e5e7eb"}>{status.report==="提出済"?"✅ 提出済":"未提出"}</SPill>
-                : <div style={{display:"flex",gap:8}}>{["提出済","未提出"].map(v=><ToggleChip key={v} label={v} active={status.report===v} color={v==="提出済"?"#2563eb":"#C89A55"} onClick={()=>onReport(v)}/>)}</div>
+              : status.reportConfirmed
+                ? <SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 提出済（管理者確認済）</SPill>
+                : status.report==="提出済"
+                  ? <SPill color="#92400e" bg="#fffbeb" border="#fcd34d">⏳ 提出済 ─ 管理者確認待ち</SPill>
+                  : readonly
+                    ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">未提出</SPill>
+                    : <button style={{...S.actionBtn,background:"#2563eb"}} onClick={onReport}>復命書を提出する</button>
             }
-          </div>
-          <div style={S.sBlock}>
-            <div style={S.sLabel}><span style={S.stepNum}>3</span> 管理者確認</div>
-            {status.reportConfirmed?<SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 確認済み</SPill>:<SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">⏳ 管理者確認待ち</SPill>}
           </div>
         </div>
       )}
