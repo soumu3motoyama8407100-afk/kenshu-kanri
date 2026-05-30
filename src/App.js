@@ -1464,8 +1464,26 @@ function RankingTab({employees,fiscalYear,getCount}){
 
 function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
   const fyInternals=internals.filter(t=>inFiscalYear(t.date,fiscalYear)).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const [selT,setSelT]=useState(null);
+  const [filterPending,setFilterPending]=useState(true);
+  const curT=selT||fyInternals[0]||null;
+
+  const isReportRequired=(emp,t)=>{ const s=getIS(emp.id,t.id); return t.required||s.attendance==="参加済"; };
+  const getEmpStatus=(emp,t)=>{ const s=getIS(emp.id,t.id); if(s.reportConfirmed) return "done"; if(s.report==="提出済") return "waitConfirm"; if(isReportRequired(emp,t)) return "pending"; return "noReq"; };
+  const unreportedCount=t=>employees.filter(e=>{ const s=getIS(e.id,t.id); return isReportRequired(e,t)&&s.report!=="提出済"&&!s.reportConfirmed; }).length;
+  const avatarColor=i=>[["#E6F1FB","#185FA5"],["#EAF3DE","#3B6D11"],["#FAEEDA","#854F0B"],["#FCEBEB","#A32D2D"],["#F1EFE8","#5F5E5A"]][i%5];
+  const initials=name=>name?name.charAt(0):"?";
+
+  const reqCount=curT?employees.filter(e=>isReportRequired(e,curT)).length:0;
+  const unreported=curT?employees.filter(e=>isReportRequired(e,curT)&&getIS(e.id,curT.id).report!=="提出済"&&!getIS(e.id,curT.id).reportConfirmed).length:0;
+  const waitConfirm=curT?employees.filter(e=>{ const s=getIS(e.id,curT.id); return s.report==="提出済"&&!s.reportConfirmed; }).length:0;
+
+  const empList=curT?[...employees].sort((a,b)=>{ const o={pending:0,waitConfirm:1,noReq:2,done:3}; return o[getEmpStatus(a,curT)]-o[getEmpStatus(b,curT)]; }):[];
+  const displayList=filterPending&&curT?empList.filter(e=>getEmpStatus(e,curT)!=="done"):empList;
+
   return(
     <div>
+      {/* 上部サマリーカード（既存のまま） */}
       <div style={{display:"flex",gap:10,overflowX:"auto",padding:"12px 0 16px"}}>
         {fyInternals.map(t=>{
           const n=employees.length;
@@ -1486,34 +1504,79 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
         })}
       </div>
       {fyInternals.length===0&&<div style={S.empty}>{fiscalYear}年度の内部研修はありません</div>}
-      <div style={{overflowX:"auto"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-          <thead><tr style={{background:"#C89A55",color:"#fff"}}>
-            <th style={S.th}>従業員</th><th style={S.th}>部署</th>
-            {fyInternals.map(t=><th key={t.id} style={{...S.th,minWidth:140}}>{t.required?"【復命書必須】":""}{t.title}<div style={{fontSize:9,fontWeight:400,opacity:.8}}>📅{t.date}</div></th>)}
-          </tr></thead>
-          <tbody>{employees.map((emp,i)=>(
-            <tr key={emp.id} style={{background:i%2===0?"#fff":"#FDF6EC"}}>
-              <td style={S.td}>{emp.name}</td><td style={S.td}>{emp.dept}</td>
-              {fyInternals.map(t=>{
-                const s=getIS(emp.id,t.id); const [d1,d2,d3]=internalStepsDone(s);
-                const done=[d1,d2,d3].filter(Boolean).length; const bc=done===3?"#16a34a":done===0?"#e5e7eb":"#C89A55";
-                return(
-                  <td key={t.id} style={{...S.td,minWidth:140}}>
-                    <div style={{height:4,background:"#e5e7eb",borderRadius:2,overflow:"hidden",marginBottom:4}}><div style={{height:"100%",width:`${Math.round(done/3*100)}%`,background:bc,borderRadius:2}}/></div>
-                    <div style={{display:"flex",gap:3,alignItems:"center"}}>
-                      {[["参/動",d1,"#16a34a"],["復命書",d2,"#2563eb"],["確認",d3,"#7c3aed"]].map(([l,ok,c])=>(
-                        <span key={l} style={{fontSize:9,padding:"1px 4px",borderRadius:4,background:ok?c:"#f3f4f6",color:ok?"#fff":"#9ca3af",fontWeight:ok?700:400}}>{l}</span>
-                      ))}
-                      {d2&&!d3&&<button style={{fontSize:9,padding:"2px 6px",borderRadius:4,border:"1px solid #C89A55",background:"#FDF6EC",color:"#A07840",cursor:"pointer",marginLeft:2,fontWeight:600}} onClick={()=>setIS(emp.id,t.id,"reportConfirmed",true)}>確認✓</button>}
-                    </div>
-                  </td>
-                );
-              })}
-            </tr>
-          ))}</tbody>
-        </table>
-      </div>
+
+      {/* 下部：カード形式の職員一覧 */}
+      {fyInternals.length>0&&curT&&<>
+        {/* 研修セレクター */}
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+          {fyInternals.map(t=>{
+            const cnt=unreportedCount(t);
+            const isActive=curT.id===t.id;
+            return(
+              <div key={t.id} style={{position:"relative",display:"inline-block"}}>
+                <button onClick={()=>setSelT(t)} style={{padding:"6px 12px",borderRadius:20,border:"none",cursor:"pointer",fontWeight:600,fontSize:12,background:isActive?"#4A3020":"#f3f4f6",color:isActive?"#fff":"#374151",whiteSpace:"nowrap"}}>
+                  {t.title}
+                </button>
+                {cnt>0&&<span style={{position:"absolute",top:-5,right:-5,minWidth:16,height:16,borderRadius:8,background:"#E24B4A",color:"#fff",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px",border:"1.5px solid #fff"}}>{cnt}</span>}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* サマリー */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+          <div style={{padding:"10px 12px",background:"#fef2f2",borderRadius:12,textAlign:"center",border:"1px solid #fca5a5"}}>
+            <div style={{fontSize:11,color:"#9ca3af",marginBottom:2}}>復命書 未提出</div>
+            <div style={{fontSize:22,fontWeight:700,color:"#dc2626"}}>{unreported}<span style={{fontSize:12,fontWeight:400,color:"#9ca3af"}}>/{reqCount}名</span></div>
+          </div>
+          <div style={{padding:"10px 12px",background:"#fffbeb",borderRadius:12,textAlign:"center",border:"1px solid #fcd34d"}}>
+            <div style={{fontSize:11,color:"#9ca3af",marginBottom:2}}>確認待ち</div>
+            <div style={{fontSize:22,fontWeight:700,color:"#d97706"}}>{waitConfirm}<span style={{fontSize:12,fontWeight:400,color:"#9ca3af"}}>名</span></div>
+          </div>
+        </div>
+
+        {/* フィルター */}
+        <div style={{display:"flex",gap:6,marginBottom:10}}>
+          {[["要対応のみ",true],["全員",false]].map(([l,v])=>(
+            <button key={l} onClick={()=>setFilterPending(v)} style={{padding:"4px 14px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:filterPending===v?"#374151":"#f3f4f6",color:filterPending===v?"#fff":"#6b7280"}}>{l}</button>
+          ))}
+        </div>
+
+        {/* 職員カードリスト */}
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {displayList.length===0&&<div style={{textAlign:"center",padding:20,color:"#9ca3af",fontSize:13}}>全員対応済みです ✅</div>}
+          {displayList.map((emp,i)=>{
+            const s=getIS(emp.id,curT.id);
+            const status=getEmpStatus(emp,curT);
+            const req=isReportRequired(emp,curT);
+            const [bg,fg]=avatarColor(i);
+            const isDone=status==="done";
+            return(
+              <div key={emp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:isDone?"#f9fafb":"#fff",borderRadius:12,border:`1px solid ${isDone?"#e5e7eb":"#E8D5B0"}`,opacity:isDone?0.6:1}}>
+                <div style={{width:32,height:32,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:600,flexShrink:0,background:bg,color:fg}}>{initials(emp.name)}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                    <span style={{fontSize:14,fontWeight:600,color:"#4A3020"}}>{emp.name}</span>
+                    <span style={{fontSize:11,color:"#9ca3af"}}>{emp.dept}</span>
+                  </div>
+                  <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
+                    {s.attendance==="参加済"?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>参加済</span>
+                      :<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#f3f4f6",color:"#6b7280",fontWeight:600}}>欠席</span>}
+                    {req&&(isDone?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>確認済</span>
+                      :status==="waitConfirm"?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#fef3c7",color:"#92400e",fontWeight:600}}>提出済</span>
+                      :<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#fee2e2",color:"#dc2626",fontWeight:600}}>未提出</span>)}
+                    {!req&&<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#f3f4f6",color:"#9ca3af"}}>必須外</span>}
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:5,flexShrink:0}}>
+                  {s.attendance!=="参加済"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #16a34a",background:"#f0fdf4",color:"#15803d",cursor:"pointer",fontWeight:600}} onClick={()=>setIS(emp.id,curT.id,"attendance","参加済")}>参加✓</button>}
+                  {status==="waitConfirm"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #d97706",background:"#fef3c7",color:"#92400e",cursor:"pointer",fontWeight:600}} onClick={()=>setIS(emp.id,curT.id,"reportConfirmed",true)}>確認✓</button>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </>}
     </div>
   );
 }
