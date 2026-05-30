@@ -534,9 +534,6 @@ function ManagerScreen({dept,employees,internals,getIS,setIS,externals,getXS,set
           )}
         </div>
       </div>
-      <div style={{textAlign:"center",padding:"8px 0 6px",borderTop:"1px solid #F0D9B0",background:"#fff"}}>
-        <img src={LOGO_B64} alt="ロゴ" style={{height:28,objectFit:"contain",opacity:0.65}}/>
-      </div>
     </div>
   );
 }
@@ -757,9 +754,6 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
           {tab==="xManage"   &&<ExternalManageTab employees={employees} externals={externals} setExternals={setExternals} deleteExternal={deleteExternal}/>}
           {tab==="empManage" &&<EmployeeManageTab employees={employees} setEmployees={setEmployees} internals={internals} getIS={getIS} getXS={getXS} externals={externals} fiscalYear={fiscalYear}/>}
         </div>
-      </div>
-      <div style={{textAlign:"center",padding:"8px 0 6px",borderTop:"1px solid #F0D9B0",background:"#fff"}}>
-        <img src={LOGO_B64} alt="ロゴ" style={{height:28,objectFit:"contain",opacity:0.65}}/>
       </div>
     </div>
   );
