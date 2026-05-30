@@ -26,9 +26,11 @@ const inFiscalYear = (dateStr,fy) => { if(!dateStr)return false; const d=new Dat
 const currentFY = () => { const n=new Date(); return n.getMonth()>=3?n.getFullYear():n.getFullYear()-1; };
 const calcPoints = c => c>=10?2:c>=5?1:0;
 const BADGES = [
-  {id:"b1",min:1,max:4,icon:"🌱",label:"スタート",color:"#6b7280",bg:"#f9fafb"},
-  {id:"b2",min:5,max:9,icon:"⭐",label:"5件達成",color:"#d97706",bg:"#fef3c7"},
-  {id:"b3",min:10,max:99,icon:"🏆",label:"10件達成",color:"#7c3aed",bg:"#ede9fe"},
+  {id:"b1",min:1, max:4, icon:"🌱",label:"5件まで",  color:"#6b7280",bg:"#f9fafb"},
+  {id:"b2",min:5, max:9, icon:"⭐",label:"5件達成",  color:"#d97706",bg:"#fef3c7"},
+  {id:"b3",min:10,max:14,icon:"🏆",label:"10件達成", color:"#7c3aed",bg:"#ede9fe"},
+  {id:"b4",min:15,max:19,icon:"💎",label:"15件達成", color:"#0369a1",bg:"#e0f2fe"},
+  {id:"b5",min:20,max:99,icon:"👑",label:"20件達成", color:"#b45309",bg:"#fef3c7"},
 ];
 const getBadge = c => c===0?null:BADGES.find(b=>c>=b.min&&c<=b.max)||BADGES[BADGES.length-1];
 const rankStyle = r => r===1?{icon:"🥇",color:"#d97706"}:r===2?{icon:"🥈",color:"#6b7280"}:r===3?{icon:"🥉",color:"#b45309"}:{icon:`${r}`,color:"#374151"};
@@ -471,7 +473,7 @@ function ManualScreen({session,employees,onLogout}){
 
 function PointCard({count,fiscalYear}){
   const points=calcPoints(count); const badge=getBadge(count);
-  const pct=Math.min(count/10*100,100); const bc=count>=10?"#7c3aed":count>=5?"#d97706":"#C89A55";
+  const pct=Math.min(count/20*100,100); const bc=count>=20?"#b45309":count>=15?"#0369a1":count>=10?"#7c3aed":count>=5?"#d97706":"#C89A55";
   return(
     <div style={{background:"linear-gradient(135deg,#C89A55,#A07840)",borderRadius:18,padding:"20px 22px",color:"#fff",position:"relative",overflow:"hidden"}}>
       <div style={{position:"absolute",right:-20,top:-20,width:100,height:100,borderRadius:"50%",background:"rgba(255,255,255,.08)"}}/>
@@ -484,14 +486,14 @@ function PointCard({count,fiscalYear}){
         </div>
       </div>
       <div style={{marginBottom:8}}>
-        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"rgba(255,255,255,.8)",marginBottom:4}}><span>今年度の復命書提出状況</span><span>{count}/10件</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"rgba(255,255,255,.8)",marginBottom:4}}><span>今年度の復命書提出状況</span><span>{count}/20件</span></div>
         <div style={{position:"relative",height:10,background:"rgba(255,255,255,.25)",borderRadius:5,overflow:"visible"}}>
           <div style={{height:"100%",width:`${pct}%`,background:"#fff",borderRadius:5,transition:"width .5s"}}/>
           <div style={{position:"absolute",left:"50%",top:-3,width:2,height:16,background:"rgba(255,255,255,.6)",borderRadius:1}}/>
         </div>
       </div>
       <div style={{marginTop:16,padding:"8px 12px",background:"rgba(255,255,255,.15)",borderRadius:10,fontSize:12}}>
-        {count>=10?"🎉 10件達成！人事考課 +2点獲得おめでとうございます！":count>=5?`⭐ +1点獲得中！あと${10-count}件で +2点`:`🌱 あと${5-count}件で +1点、${10-count}件で +2点`}
+        {count>=20?"👑 20件達成！すばらしい学習意欲です！":count>=15?`💎 15件達成！あと${20-count}件で👑`:count>=10?`🏆 +2点獲得中！あと${15-count}件で💎`:count>=5?`⭐ +1点獲得中！あと${10-count}件で🏆 +2点`:`🌱 あと${5-count}件で⭐ +1点、${10-count}件で🏆 +2点`}
       </div>
       {badge&&<div style={{display:"flex",alignItems:"center",gap:8,marginTop:10}}><span style={{fontSize:18}}>{badge.icon}</span><span style={{fontSize:12,color:"rgba(255,255,255,.8)"}}>{badge.label} バッジ獲得中</span></div>}
     </div>
@@ -1202,12 +1204,12 @@ function RankingTab({employees,fiscalYear,getCount}){
   return(
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10}}>
-        {[{label:"全体平均",value:`${avg}件`,color:"#C89A55",sub:"提出/人"},{label:"平均加点",value:`+${ranked.length>0?(ranked.reduce((s,r)=>s+r.points,0)/ranked.length).toFixed(1):0}点`,color:"#7c3aed",sub:"人事考課"},{label:"+1点以上",value:`${reach5}名`,color:"#d97706",sub:"5件達成"},{label:"+2点達成",value:`${reach10}名`,color:"#16a34a",sub:"10件達成"}]
+        {[{label:"全体平均",value:`${avg}件`,color:"#C89A55",sub:"提出/人"},{label:"平均加点",value:`+${ranked.length>0?(ranked.reduce((s,r)=>s+r.points,0)/ranked.length).toFixed(1):0}点`,color:"#7c3aed",sub:"人事考課"},{label:"⭐5件以上",value:`${reach5}名`,color:"#d97706",sub:"+1点達成"},{label:"🏆10件以上",value:`${reach10}名`,color:"#16a34a",sub:"+2点達成"}]
           .map(c=><div key={c.label} style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:12,padding:"12px 10px",textAlign:"center"}}><div style={{fontSize:10,color:"#6b7280",marginBottom:4}}>{c.label}</div><div style={{fontSize:20,fontWeight:800,color:c.color}}>{c.value}</div><div style={{fontSize:10,color:"#9ca3af",marginTop:2}}>{c.sub}</div></div>)}
       </div>
       <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,overflow:"hidden"}}>
         <div style={{background:"#C89A55",color:"#fff",padding:"12px 16px",fontWeight:700,fontSize:14}}>🏅 {fiscalYear}年度 復命書提出ランキング</div>
-        {ranked.map((emp,i)=>{const rank=i+1;const rs=rankStyle(rank);const badge=getBadge(emp.count);const bc=emp.count>=10?"#7c3aed":emp.count>=5?"#d97706":"#C89A55";
+        {ranked.map((emp,i)=>{const rank=i+1;const rs=rankStyle(rank);const badge=getBadge(emp.count);const bc=emp.count>=20?"#b45309":emp.count>=15?"#0369a1":emp.count>=10?"#7c3aed":emp.count>=5?"#d97706":"#C89A55";
           return(
             <div key={emp.id} style={{padding:"12px 16px",borderBottom:"1px solid #f3f4f6",background:rank===1?"#fffbeb":rank<=3?"#fdf6ec":"#fff"}}>
               <div style={{display:"flex",alignItems:"center",gap:12}}>
