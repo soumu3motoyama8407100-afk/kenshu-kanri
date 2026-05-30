@@ -18,8 +18,8 @@ const INIT_INTERNAL = [
   { id:"T004", title:"リーダーシップ研修",         date:"2026-05-20", required:false, videoUrl:"https://www.youtube.com/embed/dQw4w9WgXcQ", description:"チームマネジメントとリーダーシップスキルの向上" },
 ];
 const INIT_EXTERNAL = [
-  { id:"X001", title:"自治体向けDX推進セミナー",     date:"2026-06-10", organizer:"総務省",         location:"東京",      targetEmpIds:["E001","E003"], pdfData:null, pdfName:null },
-  { id:"X002", title:"メンタルヘルスマネジメント検定", date:"2026-07-01", organizer:"大阪商工会議所", location:"オンライン", targetEmpIds:["E002","E004"], pdfData:null, pdfName:null },
+  { id:"X001", title:"自治体向けDX推進セミナー",     date:"2026-06-10", organizer:"総務省",         location:"東京",      targetEmpIds:["E001","E003"], pdfUrl:null, pdfPath:null, pdfName:null },
+  { id:"X002", title:"メンタルヘルスマネジメント検定", date:"2026-07-01", organizer:"大阪商工会議所", location:"オンライン", targetEmpIds:["E002","E004"], pdfUrl:null, pdfPath:null, pdfName:null },
 ];
 
 const inFiscalYear = (dateStr,fy) => { if(!dateStr)return false; const d=new Date(dateStr),s=new Date(fy,3,1),e=new Date(fy+1,2,31,23,59,59); return d>=s&&d<=e; };
@@ -81,18 +81,42 @@ const db = {
   async getExternals() {
     const {data} = await supabase.from("externals").select("*").order("date");
     if(!data||data.length===0){await db.seedExternals();return INIT_EXTERNAL;}
-    return data.map(r=>({id:r.id,title:r.title,date:r.date,organizer:r.organizer,location:r.location,targetEmpIds:r.target_emp_ids||[],pdfData:r.pdf_data,pdfName:r.pdf_name}));
+    const oneYearAgo=new Date(Date.now()-365*24*60*60*1000);
+    for(const r of data){
+      if(r.file_path && r.date && new Date(r.date)<oneYearAgo){
+        await supabase.storage.from("training-files").remove([r.file_path]);
+        await supabase.from("externals").update({file_url:null,file_path:null,pdf_name:null}).eq("id",r.id);
+        r.file_url=null; r.file_path=null; r.pdf_name=null;
+      }
+    }
+    return data.map(r=>({id:r.id,title:r.title,date:r.date,organizer:r.organizer,location:r.location,targetEmpIds:r.target_emp_ids||[],pdfUrl:r.file_url||null,pdfPath:r.file_path||null,pdfName:r.pdf_name}));
   },
   async seedExternals() {
-    for(const x of INIT_EXTERNAL) await supabase.from("externals").upsert({id:x.id,title:x.title,date:x.date,organizer:x.organizer,location:x.location,target_emp_ids:x.targetEmpIds,pdf_data:x.pdfData,pdf_name:x.pdfName},{onConflict:"id"});
+    for(const x of INIT_EXTERNAL) await supabase.from("externals").upsert({id:x.id,title:x.title,date:x.date,organizer:x.organizer,location:x.location,target_emp_ids:x.targetEmpIds,pdf_name:x.pdfName,file_url:x.pdfUrl,file_path:x.pdfPath},{onConflict:"id"});
   },
-  async upsertExternal(x) { await supabase.from("externals").upsert({id:x.id,title:x.title,date:x.date,organizer:x.organizer,location:x.location,target_emp_ids:x.targetEmpIds,pdf_data:x.pdfData,pdf_name:x.pdfName},{onConflict:"id"}); },
-  async deleteExternal(id) { await supabase.from("externals").delete().eq("id",id); },
+  async upsertExternal(x) { await supabase.from("externals").upsert({id:x.id,title:x.title,date:x.date,organizer:x.organizer,location:x.location,target_emp_ids:x.targetEmpIds,pdf_name:x.pdfName,file_url:x.pdfUrl,file_path:x.pdfPath},{onConflict:"id"}); },
+  async uploadExternalPdf(xId,file) {
+    const MAX=20*1024*1024;
+    if(file.size>MAX)throw new Error("20MBを超えるファイルはアップロードできません");
+    const path=`${xId}_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._\-]/g,"_")}`;
+    const {error:upErr} = await supabase.storage.from("training-files").upload(path,file,{upsert:true});
+    if(upErr)throw upErr;
+    const {data:{publicUrl}} = supabase.storage.from("training-files").getPublicUrl(path);
+    await supabase.from("externals").update({file_url:publicUrl,file_path:path,pdf_name:file.name}).eq("id",xId);
+    return {pdfUrl:publicUrl,pdfPath:path,pdfName:file.name};
+  },
+  async deleteExternalPdf(filePath) { await supabase.storage.from("training-files").remove([filePath]); },
+  async deleteExternal(id,filePath) {
+    if(filePath) await supabase.storage.from("training-files").remove([filePath]);
+    await supabase.from("externals").delete().eq("id",id);
+  },
   async getManuals() {
     const {data} = await supabase.from("manuals").select("*").order("created_at",{ascending:false});
     return data||[];
   },
   async uploadManual(file,category,title) {
+    const MAX=20*1024*1024;
+    if(file.size>MAX)throw new Error("20MBを超えるファイルはアップロードできません");
     const safeName=file.name.replace(/[^a-zA-Z0-9._\-぀-ヿ一-鿿]/g,"_");
     const path=`${Date.now()}_${safeName}`;
     const {error:upErr} = await supabase.storage.from("manuals").upload(path,file);
@@ -187,7 +211,7 @@ export default function App() {
       internals={internals} setInternals={async fn=>{ const n=typeof fn==="function"?fn(internals):fn; setInternals(n); for(const t of n) await db.upsertInternal(t); }}
       externals={externals} setExternals={async fn=>{ const n=typeof fn==="function"?fn(externals):fn; setExternals(n); for(const x of n) await db.upsertExternal(x); }}
       deleteInternal={async id=>{ setInternals(p=>p.filter(t=>t.id!==id)); await db.deleteInternal(id); }}
-      deleteExternal={async id=>{ setExternals(p=>p.filter(x=>x.id!==id)); await db.deleteExternal(id); }}
+      deleteExternal={async id=>{ const x=externals.find(ex=>ex.id===id); setExternals(p=>p.filter(x=>x.id!==id)); await db.deleteExternal(id,x?.pdfPath||null); }}
       getIS={getIS} setIS={setIS} getXS={getXS} setXS={setXS}
       fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}
       getCount={getCount} onLogout={handleLogout}/>
@@ -868,7 +892,7 @@ function ExternalCard({ext,status,onAttend,onReport,onViewPdf,readonly}){
       </div>
       {open&&(
         <div style={S.cardBody}>
-          {ext.pdfData?<button style={{...S.watchBtn,background:"#dc2626",marginBottom:12}} onClick={e=>{e.stopPropagation();onViewPdf();}}>📄 研修要綱PDFを見る</button>
+          {ext.pdfUrl?<button style={{...S.watchBtn,background:"#dc2626",marginBottom:12}} onClick={e=>{e.stopPropagation();onViewPdf();}}>📄 研修要綱PDFを見る</button>
             :<div style={{padding:"8px 12px",background:"#f9fafb",borderRadius:8,fontSize:12,color:"#9ca3af",marginBottom:12}}>📄 研修要綱PDFは未添付です</div>}
           <div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>1</span> 受講状況</div>
@@ -935,7 +959,7 @@ function PdfModal({ext,onClose}){
           <button style={S.logoutBtn} onClick={onClose}>✕ 閉じる</button>
         </div>
         <div style={{flex:1,borderRadius:10,overflow:"hidden",border:"1px solid #e5e7eb"}}>
-          <iframe src={`data:application/pdf;base64,${ext.pdfData}`} style={{width:"100%",height:"100%",border:"none"}} title="PDF"/>
+          <iframe src={ext.pdfUrl} style={{width:"100%",height:"100%",border:"none"}} title="PDF"/>
         </div>
       </div>
     </div>
@@ -1319,15 +1343,31 @@ function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear}){
 
 function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
   const [showAdd,setShowAdd]=useState(false);
-  const [newX,setNewX]=useState({title:"",date:"",organizer:"",location:"",targetEmpIds:[],pdfData:null,pdfName:null});
+  const [newX,setNewX]=useState({title:"",date:"",organizer:"",location:"",targetEmpIds:[],pdfUrl:null,pdfPath:null,pdfName:null});
   const toggleEmp=id=>setNewX(p=>({...p,targetEmpIds:p.targetEmpIds.includes(id)?p.targetEmpIds.filter(x=>x!==id):[...p.targetEmpIds,id]}));
-  const handlePdf=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setNewX(p=>({...p,pdfData:ev.target.result.split(",")[1],pdfName:f.name}));r.readAsDataURL(f);};
-  const handleExistPdf=(xId,e)=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setExternals(p=>p.map(x=>x.id===xId?{...x,pdfData:ev.target.result.split(",")[1],pdfName:f.name}:x));r.readAsDataURL(f);};
+  const handlePdf=e=>{const f=e.target.files[0];if(!f)return;if(f.size>20*1024*1024){alert("20MBを超えるファイルはアップロードできません");return;}setNewX(p=>({...p,_pendingFile:f,pdfName:f.name}));};
+  const handleExistPdf=async(xId,e)=>{
+    const f=e.target.files[0];if(!f)return;
+    if(f.size>20*1024*1024){alert("20MBを超えるファイルはアップロードできません");return;}
+    try{
+      const result=await db.uploadExternalPdf(xId,f);
+      setExternals(p=>p.map(x=>x.id===xId?{...x,...result}:x));
+    }catch(err){alert("アップロードに失敗しました: "+err.message);}
+  };
   const add=async()=>{
     if(!newX.title||!newX.date||newX.targetEmpIds.length===0)return;
-    const x={...newX,id:"X"+String(Date.now()).slice(-6)};
+    const xId="X"+String(Date.now()).slice(-6);
+    let pdfUrl=null,pdfPath=null,pdfName=newX.pdfName||null;
+    // まず研修をDBに保存してからPDFをアップロード
+    const x={...newX,id:xId,pdfUrl,pdfPath,pdfName};
     await setExternals(p=>[...p,x]);
-    setNewX({title:"",date:"",organizer:"",location:"",targetEmpIds:[],pdfData:null,pdfName:null});setShowAdd(false);
+    if(newX._pendingFile){
+      try{
+        const result=await db.uploadExternalPdf(xId,newX._pendingFile);
+        setExternals(p=>p.map(ex=>ex.id===xId?{...ex,...result}:ex));
+      }catch(err){alert("PDF アップロードに失敗しました: "+err.message);}
+    }
+    setNewX({title:"",date:"",organizer:"",location:"",targetEmpIds:[],pdfUrl:null,pdfPath:null,pdfName:null});setShowAdd(false);
   };
   return(
     <div style={{padding:4}}>
@@ -1367,7 +1407,7 @@ function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
               <div style={S.cardDate}>📅 {x.date} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}</div>
               <div style={{marginTop:6,fontSize:12,color:"#6b7280"}}>対象: {targets.map(e=>e.name).join("、")}</div>
               <div style={{marginTop:8}}>
-                {x.pdfData?<div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:12,color:"#15803d",fontWeight:600}}>📄 {x.pdfName}</span>
+                {x.pdfUrl?<div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:12,color:"#15803d",fontWeight:600}}>📄 {x.pdfName}</span>
                   <label style={{fontSize:11,color:"#A07840",cursor:"pointer",textDecoration:"underline"}}><input type="file" accept="application/pdf" style={{display:"none"}} onChange={e=>handleExistPdf(x.id,e)}/>差し替え</label></div>
                 :<label style={{fontSize:12,color:"#A07840",cursor:"pointer",textDecoration:"underline"}}><input type="file" accept="application/pdf" style={{display:"none"}} onChange={e=>handleExistPdf(x.id,e)}/>📄 PDFをアップロード</label>}
               </div>
