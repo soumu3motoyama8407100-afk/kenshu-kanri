@@ -41,14 +41,14 @@ const makeAttendUrl = tid => `${window.location.href.split("?")[0]}?attend=${tid
 const db = {
   async getEmployees() {
     const {data} = await supabase.from("employees").select("*").order("sort_order").order("id");
-    return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept,joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false,isActive:r.is_active!==false}));
+    return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept,joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false,isActive:r.is_active!==false,managedDepts:r.managed_depts||[]}));
   },
   async upsertEmployee(emp) {
     await supabase.from("employees").upsert({
       id:emp.id,password:emp.password,name:emp.name,dept:emp.dept,
       join_date:emp.joinDate||null,qualifications:emp.qualifications||[],
       cert_trainings:emp.certTrainings||[],is_manager:emp.isManager||false,
-      is_active:emp.isActive!==false,
+      is_active:emp.isActive!==false,managed_depts:emp.managedDepts||[],
       updated_at:new Date().toISOString()
     },{onConflict:"id"});
   },
@@ -226,6 +226,7 @@ export default function App() {
   if(session.isManager){
     const mgr=employees.find(e=>e.id===session.empId);
     if(!mgr){handleLogout();return null;}
+    const managedDepts=mgr.managedDepts&&mgr.managedDepts.length>0?mgr.managedDepts:[session.dept];
     return(
       <EmployeeScreen emp={mgr}
         internals={internals} getIS={getIS} setIS={setIS}
@@ -233,8 +234,8 @@ export default function App() {
         fiscalYear={fiscalYear} getCount={getCount}
         onLogout={handleLogout}
         isManager={true}
-        deptEmployees={employees.filter(e=>e.dept===session.dept)}
-        allInternals={internals} allExternals={externals}
+        deptEmployees={employees.filter(e=>managedDepts.includes(e.dept))}
+        managedDepts={managedDepts}
         setFiscalYear={setFiscalYear}/>
     );
   }
@@ -587,7 +588,7 @@ function QRScanModal({onScan,onClose}){
   );
 }
 
-function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalYear,getCount,onLogout,isManager,deptEmployees,setFiscalYear}){
+function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalYear,getCount,onLogout,isManager,deptEmployees,managedDepts,setFiscalYear}){
   const [tab,setTab]=useState("score");
   const [videoT,setVideoT]=useState(null);
   const [toast,setToast]=useState(null);
@@ -691,11 +692,12 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
           )}
           {tab==="mgr"&&isManager&&deptEmployees&&(
             <ManagerTabContent
-              dept={emp.dept}
+              dept={(managedDepts&&managedDepts.length>1)?managedDepts.join("・"):emp.dept}
               employees={deptEmployees}
               internals={internals} getIS={getIS} setIS={setIS}
               externals={externals} getXS={getXS} setXS={setXS}
-              fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}/>
+              fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}
+              managedDepts={managedDepts||[emp.dept]}/>
           )}
         </div>
       </div>
@@ -1098,8 +1100,8 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
   };
 
   const downloadCSV=()=>{
-    const header="職員ID,パスワード,氏名,部署,入社年月日,保有資格,受講済み認定研修,部署長(1=YES)\n";
-    const rows=employees.map(e=>`${e.id},${e.password},${e.name},${e.dept},${e.joinDate||""},${(e.qualifications||[]).join("|")},${(e.certTrainings||[]).join("|")},${e.isManager?1:0}`).join("\n");
+    const header="職員ID,パスワード,氏名,部署,入社年月日,保有資格,受講済み認定研修,部署長(1=YES),管理部署(|区切り)\n";
+    const rows=employees.map(e=>`${e.id},${e.password},${e.name},${e.dept},${e.joinDate||""},${(e.qualifications||[]).join("|")},${(e.certTrainings||[]).join("|")},${e.isManager?1:0},${(e.managedDepts||[]).join("|")}`).join("\n");
     const blob=new Blob(["\uFEFF"+header+rows],{type:"text/csv;charset=utf-8;"});
     const url=URL.createObjectURL(blob);
     const a=document.createElement("a");a.href=url;a.download="職員名簿.csv";a.click();
@@ -1171,6 +1173,26 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
           🏢 この職員を部署長にする（自部署の進捗確認・復命書確認が可能）
         </label>
       </div>
+      {data.isManager&&(
+        <div style={{marginBottom:14,padding:"12px",background:"#fffbeb",borderRadius:10,border:"1px solid #fcd34d"}}>
+          <div style={{fontSize:12,fontWeight:600,color:"#92400e",marginBottom:8}}>📋 管理対象部署（複数選択可・未選択は自部署のみ）</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {[...new Set(employees.map(e=>e.dept).filter(Boolean))].sort().map(dept=>{
+              const selected=(data.managedDepts||[]).includes(dept);
+              return(
+                <button key={dept} type="button"
+                  onClick={()=>{const cur=data.managedDepts||[];onChange({...data,managedDepts:selected?cur.filter(d=>d!==dept):[...cur,dept]});}}
+                  style={{padding:"4px 12px",borderRadius:16,border:"1.5px solid",borderColor:selected?"#d97706":"#e5e7eb",background:selected?"#fef3c7":"#fff",color:selected?"#92400e":"#374151",fontSize:12,fontWeight:selected?700:400,cursor:"pointer"}}>
+                  {dept}
+                </button>
+              );
+            })}
+          </div>
+          {(data.managedDepts||[]).length>0&&(
+            <div style={{marginTop:8,fontSize:11,color:"#92400e"}}>選択中: {(data.managedDepts||[]).join("・")}</div>
+          )}
+        </div>
+      )}
       <div style={{display:"flex",gap:8}}>
         <button style={{...S.btn,flex:1}} onClick={()=>onSave(data)}>保存する</button>
         <button style={{...S.btn,flex:1,background:"#6b7280"}} onClick={onCancel}>キャンセル</button>
