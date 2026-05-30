@@ -571,10 +571,23 @@ function QRScanModal({onScan,onClose}){
     };
     const startCamera=async()=>{
       try{
-        stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment",width:{ideal:1280},height:{ideal:720}}});
-        if(videoRef.current){videoRef.current.srcObject=stream;await videoRef.current.play();setScanning(true);scanLoop();}
+        // まず背面カメラで試みる
+        try{ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}}); }
+        catch{ stream=await navigator.mediaDevices.getUserMedia({video:true}); }
+        if(videoRef.current){
+          videoRef.current.srcObject=stream;
+          videoRef.current.play().catch(()=>{});
+          setScanning(true);
+          scanLoop();
+        }
       }catch(e){
-        setError("カメラへのアクセスが拒否されました。ブラウザの設定でカメラを許可してください。");
+        if(e.name==="NotAllowedError"||e.name==="PermissionDeniedError"){
+          setError("カメラが許可されていません。ブラウザのアドレスバー左のアイコンからカメラを許可してください。");
+        }else if(e.name==="NotFoundError"){
+          setError("カメラが見つかりません。端末にカメラが搭載されているか確認してください。");
+        }else{
+          setError(`カメラを起動できませんでした。(${e.name})`);
+        }
       }
     };
     startCamera();
