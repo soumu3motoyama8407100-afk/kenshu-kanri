@@ -140,21 +140,21 @@ export default function App() {
   useEffect(()=>{
     const style=document.createElement("style");
     style.textContent=`
-      body{margin:0;padding:0;}
-      /* PC幅（769px以上）でのレイアウト */
-      @media(min-width:769px){
-        .app-page{padding:24px !important;}
-        .app-wrap{border-radius:16px !important;}
-        .app-scroll{max-height:calc(100vh - 160px) !important;}
-        .app-tabbar{font-size:14px !important;}
-        .app-tab{padding:13px 16px !important;font-size:14px !important;}
-        .app-content-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-        .app-content-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
-      }
+      *{box-sizing:border-box;}
+      body{margin:0;padding:0;overflow-x:hidden;}
       /* スマホ（768px以下） */
       @media(max-width:768px){
-        .app-page{padding:0 !important;}
-        .app-wrap{border-radius:0 !important;box-shadow:none !important;border:none !important;}
+        .rsp-page{padding:0 !important;}
+        .rsp-wrap{border-radius:0 !important;box-shadow:none !important;border:none !important;min-height:100vh;}
+        .app-content-grid{display:block !important;}
+        table{font-size:11px !important;}
+        td,th{padding:4px 6px !important;}
+      }
+      /* PC（769px以上） */
+      @media(min-width:769px){
+        .rsp-page{padding:24px 32px !important;align-items:flex-start;}
+        .rsp-wrap{border-radius:16px !important;box-shadow:0 24px 60px rgba(200,154,85,.2) !important;border:1px solid #E8D5B0 !important;margin-top:16px;}
+        .app-content-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
       }
     `;
     document.head.appendChild(style);
@@ -661,12 +661,12 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
   });
   const maxM=Math.max(...monthCounts.map(m=>m.count),1);
   return(
-    <div style={S.page}>
+    <div className="rsp-page" style={S.page}>
       {toast&&<div style={S.toast}>{toast}</div>}
       {pdfExt&&<PdfModal ext={pdfExt} onClose={()=>setPdfExt(null)}/>}
       {showProfile&&<ProfileModal emp={emp} onClose={()=>setShowProfile(false)}/>}
       {showQRScan&&<QRScanModal onScan={tid=>{setIS(emp.id,tid,"attendance","参加済");setShowQRScan(false);showToast("✅ 参加済に登録しました！");}} onClose={()=>setShowQRScan(false)}/>}
-      <div style={S.appWrap}>
+      <div className="rsp-wrap" style={S.appWrap}>
         <div style={S.header}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <button onClick={()=>setShowProfile(true)} style={{width:38,height:38,borderRadius:"50%",background:"rgba(255,255,255,.25)",border:"1.5px solid rgba(255,255,255,.4)",color:"#4A3020",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>👤</button>
@@ -871,7 +871,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
 // ── 後方互換のためManagerScreenは残す（現在は未使用）─────────────
 function ManagerScreen({dept,employees,internals,getIS,setIS,externals,getXS,setXS,fiscalYear,setFiscalYear,onLogout}){
   return(
-    <div style={S.page}><div style={{...S.appWrap,maxWidth:1200}}>
+    <div className="rsp-page" style={S.page}><div style={{...S.appWrap,maxWidth:1200}}>
       <div style={S.header}>
         <div><div style={S.headerName}>🏢 {dept}</div><div style={S.headerSub}>{ORG_NAME}</div></div>
         <button style={S.logoutBtn} onClick={onLogout}>ログアウト</button>
@@ -1082,7 +1082,7 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
   const [tab,setTab]=useState("ranking");
   const [qrT,setQrT]=useState(null);
   return(
-    <div style={S.page}>
+    <div className="rsp-page" style={S.page}>
       {qrT&&<QRModal training={qrT} onClose={()=>setQrT(null)}/>}
       <div style={{...S.appWrap,maxWidth:1200}}>
         <div style={S.header}>
@@ -1703,8 +1703,8 @@ function QRModal({training,onClose}){
 }
 
 const S={
-  page:{minHeight:"100vh",background:"linear-gradient(135deg,#F5EDD8 0%,#FDF6EC 60%,#F5EDD8 100%)",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"clamp(0px,2vw,32px)",fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif"},
-  appWrap:{width:"100%",maxWidth:1200,background:"#fff",borderRadius:20,boxShadow:"0 24px 60px rgba(200,154,85,.2)",overflow:"hidden",border:"1px solid #E8D5B0"},
+  page:{minHeight:"100vh",background:"linear-gradient(135deg,#F5EDD8 0%,#FDF6EC 60%,#F5EDD8 100%)",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:0,fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif"},
+  appWrap:{width:"100%",maxWidth:1200,background:"#fff",borderRadius:0,boxShadow:"none",overflow:"hidden",border:"none"},
   header:{background:"#C89A55",color:"#fff",padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"},
   headerName:{fontSize:16,fontWeight:700,color:"#fff"},
   headerSub:{fontSize:11,color:"rgba(255,255,255,.8)",marginTop:2},
