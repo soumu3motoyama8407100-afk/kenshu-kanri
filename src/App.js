@@ -1394,7 +1394,15 @@ function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear}){
 function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
   const [showAdd,setShowAdd]=useState(false);
   const [newX,setNewX]=useState({title:"",date:"",organizer:"",location:"",targetEmpIds:[],pdfUrl:null,pdfPath:null,pdfName:null});
+  const [selDept,setSelDept]=useState("すべて");
+  const depts=["すべて",...Array.from(new Set(employees.map(e=>e.dept).filter(Boolean))).sort()];
+  const filteredEmps=selDept==="すべて"?employees:employees.filter(e=>e.dept===selDept);
   const toggleEmp=id=>setNewX(p=>({...p,targetEmpIds:p.targetEmpIds.includes(id)?p.targetEmpIds.filter(x=>x!==id):[...p.targetEmpIds,id]}));
+  const toggleDeptAll=()=>{
+    const ids=filteredEmps.map(e=>e.id);
+    const allSelected=ids.every(id=>newX.targetEmpIds.includes(id));
+    setNewX(p=>({...p,targetEmpIds:allSelected?p.targetEmpIds.filter(id=>!ids.includes(id)):[...new Set([...p.targetEmpIds,...ids])]}));
+  };
   const handlePdf=e=>{const f=e.target.files[0];if(!f)return;if(f.size>20*1024*1024){alert("20MBを超えるファイルはアップロードできません");return;}setNewX(p=>({...p,_pendingFile:f,pdfName:f.name}));};
   const handleExistPdf=async(xId,e)=>{
     const f=e.target.files[0];if(!f)return;
@@ -1436,13 +1444,29 @@ function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
             </label>
           </div>
           <div style={{marginBottom:14}}>
-            <label style={S.label}>対象者を選択</label>
-            <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-              {employees.map(e=>(
+            <label style={S.label}>対象者を選択（{newX.targetEmpIds.length}名選択中）</label>
+            {/* 部署フィルター */}
+            <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
+              {depts.map(d=>(
+                <button key={d} onClick={()=>setSelDept(d)} style={{padding:"4px 12px",borderRadius:16,border:"1.5px solid",borderColor:selDept===d?"#C89A55":"#e5e7eb",background:selDept===d?"#FDF6EC":"#fff",color:selDept===d?"#A07840":"#374151",fontSize:12,fontWeight:selDept===d?700:400,cursor:"pointer"}}>
+                  {d}
+                </button>
+              ))}
+            </div>
+            {/* 一括選択ボタン */}
+            <div style={{marginBottom:8}}>
+              <button onClick={toggleDeptAll} style={{fontSize:12,color:"#A07840",background:"#FDF6EC",border:"1px solid #E8D5B0",borderRadius:8,padding:"4px 12px",cursor:"pointer"}}>
+                {filteredEmps.every(e=>newX.targetEmpIds.includes(e.id))?"✓ "+selDept+"の選択を解除":"＋ "+selDept+"を全員選択"}
+              </button>
+            </div>
+            {/* 職員一覧 */}
+            <div style={{display:"flex",flexWrap:"wrap",gap:8,maxHeight:200,overflowY:"auto",padding:"8px",background:"#f9fafb",borderRadius:10,border:"1px solid #e5e7eb"}}>
+              {filteredEmps.map(e=>(
                 <label key={e.id} style={{display:"flex",alignItems:"center",gap:5,fontSize:13,cursor:"pointer",padding:"4px 10px",borderRadius:20,border:"1.5px solid",borderColor:newX.targetEmpIds.includes(e.id)?"#C89A55":"#e5e7eb",background:newX.targetEmpIds.includes(e.id)?"#FDF6EC":"#fff",color:newX.targetEmpIds.includes(e.id)?"#A07840":"#374151"}}>
                   <input type="checkbox" checked={newX.targetEmpIds.includes(e.id)} onChange={()=>toggleEmp(e.id)} style={{display:"none"}}/>{e.name}
                 </label>
               ))}
+              {filteredEmps.length===0&&<div style={{fontSize:12,color:"#9ca3af",padding:"8px"}}>この部署の職員はいません</div>}
             </div>
             {newX.targetEmpIds.length===0&&<div style={{fontSize:11,color:"#dc2626",marginTop:6}}>※ 1名以上選択してください</div>}
           </div>
