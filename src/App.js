@@ -1229,22 +1229,28 @@ function RankingTab({employees,fiscalYear,getCount}){
 }
 
 function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
-  const fyInternals=internals.filter(t=>inFiscalYear(t.date,fiscalYear));
+  const fyInternals=internals.filter(t=>inFiscalYear(t.date,fiscalYear)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   return(
     <div>
       <div style={{display:"flex",gap:10,overflowX:"auto",padding:"12px 0 16px"}}>
         {fyInternals.map(t=>{
           const n=employees.length;
-          const s1=employees.filter(e=>{const s=getIS(e.id,t.id);return s.attendance==="参加済"||s.video==="視聴済";}).length;
-          const s2=employees.filter(e=>getIS(e.id,t.id).report==="提出済").length;
-          const s3=employees.filter(e=>getIS(e.id,t.id).reportConfirmed===true).length;
+          const attended=employees.filter(e=>getIS(e.id,t.id).attendance==="参加済").length;
+          const watched=employees.filter(e=>getIS(e.id,t.id).video==="視聴済").length;
+          const confirmed=employees.filter(e=>getIS(e.id,t.id).reportConfirmed===true).length;
           return(
             <div key={t.id} style={S.sCard}>
               {t.required&&<span style={S.reqBadge}>必須</span>}
-              <div style={{fontSize:11,fontWeight:700,color:"#4A3020",margin:"4px 0 6px",lineHeight:1.3}}>{t.title}</div>
-              <MiniBar label="参加/動画" v={s1} n={n} color="#16a34a"/>
-              <MiniBar label="復命書" v={s2} n={n} color="#C89A55"/>
-              <MiniBar label="確認済" v={s3} n={n} color="#7c3aed"/>
+              <div style={{fontSize:11,fontWeight:700,color:"#4A3020",margin:"4px 0 2px",lineHeight:1.3}}>{t.title}</div>
+              <div style={{fontSize:10,color:"#9ca3af",marginBottom:8}}>📅 {t.date}</div>
+              <MiniBar label="当日参加" v={attended} n={n} color="#16a34a"/>
+              <MiniBar label="動画視聴" v={watched} n={n} color="#7c3aed"/>
+              <MiniBar label="確認済" v={confirmed} n={n} color="#C89A55"/>
+              <div style={{marginTop:8,padding:"6px 8px",background:"#f9fafb",borderRadius:8,fontSize:10,color:"#6b7280",display:"flex",flexDirection:"column",gap:2}}>
+                <div>👥 当日参加: <b style={{color:"#16a34a"}}>{attended}</b>/{n}人</div>
+                <div>▶ 動画視聴: <b style={{color:"#7c3aed"}}>{watched}</b>/{n}人</div>
+                <div>✅ 確認済: <b style={{color:"#C89A55"}}>{confirmed}</b>/{n}人</div>
+              </div>
               <button style={{...S.qrBtn,marginTop:8,width:"100%"}} onClick={()=>onQR(t)}>QR生成</button>
             </div>
           );
@@ -1255,7 +1261,7 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
           <thead><tr style={{background:"#C89A55",color:"#fff"}}>
             <th style={S.th}>従業員</th><th style={S.th}>部署</th>
-            {fyInternals.map(t=><th key={t.id} style={{...S.th,minWidth:140}}>{t.required?"【必】":""}{t.title}</th>)}
+            {fyInternals.map(t=><th key={t.id} style={{...S.th,minWidth:140}}>{t.required?"【復命書必須】":""}{t.title}<div style={{fontSize:9,fontWeight:400,opacity:.8}}>📅{t.date}</div></th>)}
           </tr></thead>
           <tbody>{employees.map((emp,i)=>(
             <tr key={emp.id} style={{background:i%2===0?"#fff":"#FDF6EC"}}>
