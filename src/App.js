@@ -857,13 +857,14 @@ function InternalCard({training,status,onReport,onVideo,onWatchVideo,readonly}){
           <div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>1</span> 研修参加 または 動画視聴</div>
             {attended?<SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 参加済（QR認証済）</SPill>
+              :absentFix&&status.video==="視聴済"?<SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 動画視聴済み</SPill>
               :absentFix?<SPill color="#7c6a00" bg="#fefce8" border="#fde68a">📹 当日欠席 ─ 動画でフォローできます</SPill>
               :<SPill color="#6b7280" bg="#f9fafb" border="#e5e7eb">🔲 未参加 ─ 当日QRをスキャン</SPill>}
             {showVideo&&!readonly&&(
               <div style={{marginTop:10}}>
                 <div style={{fontSize:11,color:"#6b7280",marginBottom:6}}>{absentFix?"研修動画を視聴して内容をフォローしましょう：":"または研修動画を視聴:"}</div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                  {["視聴済","未視聴"].map(v=><ToggleChip key={v} label={v} active={status.video===v} color={v==="視聴済"?"#7c3aed":"#6b7280"} onClick={()=>onVideo(v)}/>)}
+                  {["視聴済","未視聴"].map(v=><ToggleChip key={v} label={v} active={status.video===v} color={v==="視聴済"?"#16a34a":"#6b7280"} onClick={()=>onVideo(v)}/>)}
                 </div>
                 {training.videoUrl&&<button style={{...S.watchBtn,marginTop:8}} onClick={onWatchVideo}>▶ 動画を視聴する</button>}
               </div>
