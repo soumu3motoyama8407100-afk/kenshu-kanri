@@ -41,14 +41,14 @@ const makeAttendUrl = tid => `${window.location.href.split("?")[0]}?attend=${tid
 const db = {
   async getEmployees() {
     const {data} = await supabase.from("employees").select("*").order("sort_order").order("id");
-    return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept,joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false,isActive:r.is_active!==false,managedDepts:r.managed_depts||[]}));
+    return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept,joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false,isActive:r.is_active!==false,managedDepts:r.managed_depts||[],roleTitle:r.role_title||""}));
   },
   async upsertEmployee(emp) {
     await supabase.from("employees").upsert({
       id:emp.id,password:emp.password,name:emp.name,dept:emp.dept,
       join_date:emp.joinDate||null,qualifications:emp.qualifications||[],
       cert_trainings:emp.certTrainings||[],is_manager:emp.isManager||false,
-      is_active:emp.isActive!==false,managed_depts:emp.managedDepts||[],
+      is_active:emp.isActive!==false,managed_depts:emp.managedDepts||[],role_title:emp.roleTitle||"",
       updated_at:new Date().toISOString()
     },{onConflict:"id"});
   },
@@ -618,7 +618,13 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
         <div style={S.header}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <button onClick={()=>setShowProfile(true)} style={{width:38,height:38,borderRadius:"50%",background:"rgba(255,255,255,.25)",border:"1.5px solid rgba(255,255,255,.4)",color:"#4A3020",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>👤</button>
-            <div><div style={S.headerName}>{emp.name}</div><div style={S.headerSub}>{emp.dept} · {emp.id}</div></div>
+            <div>
+              <div style={S.headerName}>{emp.name}</div>
+              <div style={S.headerSub}>
+                {emp.dept} · {emp.id}
+                {isManager&&emp.roleTitle&&<span style={{marginLeft:8,background:"rgba(255,255,255,.25)",borderRadius:10,padding:"1px 8px",fontSize:11,fontWeight:700}}>{emp.roleTitle}</span>}
+              </div>
+            </div>
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
             <button onClick={()=>setShowQRScan(true)} style={{padding:"6px 12px",borderRadius:8,background:"#A07840",color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:600}}>📷 QR読取</button>
@@ -1087,6 +1093,9 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
           qualifications:cols[5]?cols[5].split("|").map(s=>s.trim()).filter(Boolean):[],
           certTrainings:cols[6]?cols[6].split("|").map(s=>s.trim()).filter(Boolean):[],
           isManager:cols[7]==="1"||cols[7]==="true",
+          managedDepts:cols[8]?cols[8].split("|").map(s=>s.trim()).filter(Boolean):[],
+          isActive:cols[9]!=="0"&&cols[9]!=="退職",
+          roleTitle:cols[10]||"",
         };
         await db.upsertEmployee(emp);
         setEmployees(p=>{const idx=p.findIndex(x=>x.id===emp.id);return idx>=0?p.map(x=>x.id===emp.id?emp:x):[...p,emp];});
@@ -1100,8 +1109,8 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
   };
 
   const downloadCSV=()=>{
-    const header="職員ID,パスワード,氏名,部署,入社年月日,保有資格,受講済み認定研修,部署長(1=YES),管理部署(|区切り)\n";
-    const rows=employees.map(e=>`${e.id},${e.password},${e.name},${e.dept},${e.joinDate||""},${(e.qualifications||[]).join("|")},${(e.certTrainings||[]).join("|")},${e.isManager?1:0},${(e.managedDepts||[]).join("|")}`).join("\n");
+    const header="職員ID,パスワード,氏名,部署,入社年月日,保有資格,受講済み認定研修,部署長(1=YES),管理部署(|区切り),在籍状態(0=退職),役職\n";
+    const rows=employees.map(e=>`${e.id},${e.password},${e.name},${e.dept},${e.joinDate||""},${(e.qualifications||[]).join("|")},${(e.certTrainings||[]).join("|")},${e.isManager?1:0},${(e.managedDepts||[]).join("|")},${e.isActive===false?0:1},${e.roleTitle||""}`).join("\n");
     const blob=new Blob(["\uFEFF"+header+rows],{type:"text/csv;charset=utf-8;"});
     const url=URL.createObjectURL(blob);
     const a=document.createElement("a");a.href=url;a.download="職員名簿.csv";a.click();
@@ -1173,6 +1182,12 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
           🏢 この職員を部署長にする（自部署の進捗確認・復命書確認が可能）
         </label>
       </div>
+      {data.isManager&&(
+        <div style={{marginBottom:10}}>
+          <label style={S.label}>役職名（例：副主任・管理者・主任）</label>
+          <input style={S.input} placeholder="例: 副主任" value={data.roleTitle||""} onChange={e=>onChange({...data,roleTitle:e.target.value})}/>
+        </div>
+      )}
       {data.isManager&&(
         <div style={{marginBottom:14,padding:"12px",background:"#fffbeb",borderRadius:10,border:"1px solid #fcd34d"}}>
           <div style={{fontSize:12,fontWeight:600,color:"#92400e",marginBottom:8}}>📋 管理対象部署（複数選択可・未選択は自部署のみ）</div>
