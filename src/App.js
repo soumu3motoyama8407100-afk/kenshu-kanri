@@ -1121,12 +1121,15 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
       qualifications:(emp.qualifications||"").split(",").map(s=>s.trim()).filter(Boolean),
       certTrainings:(emp.certTrainings||"").split(",").map(s=>s.trim()).filter(Boolean),
       isManager:emp.isManager||false,
+      roleTitle:emp.roleTitle||"",
+      managedDepts:emp.managedDepts||[],
+      isActive:emp.isActive!==false,
     };
     if(!e.id||!e.password||!e.name||!e.dept)return;
     await db.upsertEmployee(e);
     setEmployees(p=>{const idx=p.findIndex(x=>x.id===e.id);return idx>=0?p.map(x=>x.id===e.id?e:x):[...p,e];});
     setShowAdd(false); setEditEmp(null);
-    setNewE({id:"",password:"",name:"",dept:"",joinDate:"",qualifications:"",certTrainings:"",isManager:false});
+    setNewE({id:"",password:"",name:"",dept:"",joinDate:"",qualifications:"",certTrainings:"",isManager:false,roleTitle:"",managedDepts:[],isActive:true});
   };
 
   const delEmp=async(id)=>{
