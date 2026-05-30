@@ -87,6 +87,22 @@ const db = {
   },
   async upsertExternal(x) { await supabase.from("externals").upsert({id:x.id,title:x.title,date:x.date,organizer:x.organizer,location:x.location,target_emp_ids:x.targetEmpIds,pdf_data:x.pdfData,pdf_name:x.pdfName},{onConflict:"id"}); },
   async deleteExternal(id) { await supabase.from("externals").delete().eq("id",id); },
+  async getManuals() {
+    const {data} = await supabase.from("manuals").select("*").order("created_at",{ascending:false});
+    return data||[];
+  },
+  async uploadManual(file,category,title) {
+    const safeName=file.name.replace(/[^a-zA-Z0-9._\-぀-ヿ一-鿿]/g,"_");
+    const path=`${Date.now()}_${safeName}`;
+    const {error:upErr} = await supabase.storage.from("manuals").upload(path,file);
+    if(upErr)throw upErr;
+    const {data:{publicUrl}} = supabase.storage.from("manuals").getPublicUrl(path);
+    await supabase.from("manuals").insert({title,category,file_name:file.name,file_path:path,file_url:publicUrl,file_type:file.name.split(".").pop().toLowerCase()});
+  },
+  async deleteManual(id,filePath) {
+    await supabase.storage.from("manuals").remove([filePath]);
+    await supabase.from("manuals").delete().eq("id",id);
+  },
 };
 
 export default function App() {
@@ -96,8 +112,9 @@ export default function App() {
   const [iStatuses,setIStatuses] = useState({});
   const [xStatuses,setXStatuses] = useState({});
   const [fiscalYear,setFiscalYear] = useState(currentFY());
-  const [session,setSession]     = useState(null);
-  const [loading,setLoading]     = useState(true);
+  const [session,setSession]         = useState(null);
+  const [manualSession,setManualSession] = useState(null);
+  const [loading,setLoading]         = useState(true);
   const [pendingAttend,setPendingAttend] = useState(null);
 
   useEffect(()=>{ const p=new URLSearchParams(window.location.search);const a=p.get("attend");if(a)setPendingAttend(a); },[]);
@@ -160,7 +177,9 @@ export default function App() {
     </div>
   );
 
-  if(!session) return <LoginScreen pendingAttend={pendingAttend} internals={internals} employees={employees} onLogin={handleLogin}/>;
+  if(manualSession) return <ManualScreen session={manualSession} employees={employees} onLogout={()=>setManualSession(null)}/>;
+
+  if(!session) return <DualLoginScreen pendingAttend={pendingAttend} internals={internals} employees={employees} onLogin={handleLogin} onManualLogin={(empId,isAdmin)=>setManualSession({empId,isAdmin})}/>;
 
   if(session.isAdmin) return(
     <AdminScreen employees={employees} setEmployees={setEmployees}
@@ -194,32 +213,194 @@ export default function App() {
   );
 }
 
-function LoginScreen({pendingAttend,internals,employees,onLogin}){
+function LoginCard({title,icon,accentColor,pendingAttend,internals,employees,onLogin,isManual}){
   const [id,setId]=useState(""); const [pw,setPw]=useState(""); const [err,setErr]=useState("");
-  const training=internals.find(t=>t.id===pendingAttend);
+  const training=internals&&internals.find(t=>t.id===pendingAttend);
   const submit=()=>{
     setErr("");
-    if(id===ADMIN.id&&pw===ADMIN.password){onLogin(ADMIN.id,true,false,"");return;}
-    const emp=employees.find(e=>e.id===id&&e.password===pw);
-    if(emp){onLogin(emp.id,false,emp.isManager||false,emp.dept);return;}
+    if(id===ADMIN.id&&pw===ADMIN.password){onLogin(ADMIN.id,true);return;}
+    if(employees){
+      const emp=employees.find(e=>e.id===id&&e.password===pw);
+      if(emp){onLogin(emp.id,false,emp.isManager||false,emp.dept);return;}
+    }
     setErr("IDまたはパスワードが正しくありません");
   };
   return(
-    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#F5EDD8 0%,#FDF6EC 60%,#F5EDD8 100%)",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"16px 8px",fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif"}}>
-      <div style={{width:"100%",maxWidth:400,background:"#fff",borderRadius:20,padding:"28px 24px",boxShadow:"0 24px 60px rgba(200,154,85,.25)",marginTop:40,border:"1px solid #F0D9B0"}}>
-        {training&&<div style={{display:"flex",alignItems:"center",gap:10,background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:10,padding:"10px 14px",marginBottom:20}}><span style={{fontSize:20}}>📋</span><div><div style={{fontWeight:600,fontSize:14}}>研修QRを読み取りました</div><div style={{fontSize:13,color:"#15803d"}}>「{training.title}」の参加が自動登録されます</div></div></div>}
-        <div style={{textAlign:"center",marginBottom:24}}>
-          <img src={LOGO_B64} alt={ORG_NAME} style={{height:64,objectFit:"contain",marginBottom:12}}/>
-          <h1 style={{fontSize:20,fontWeight:800,color:"#4A3020",margin:"0 0 4px"}}>研修管理システム</h1>
-          <p style={{fontSize:12,color:"#C89A55",margin:0}}>ログインしてください</p>
+    <div style={{width:"100%",background:"#fff",borderRadius:20,padding:"24px",boxShadow:`0 12px 40px ${accentColor}33`,border:`1px solid ${accentColor}44`}}>
+      {training&&<div style={{display:"flex",alignItems:"center",gap:10,background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:10,padding:"10px 14px",marginBottom:16}}><span style={{fontSize:20}}>📋</span><div><div style={{fontWeight:600,fontSize:13}}>研修QRを読み取りました</div><div style={{fontSize:12,color:"#15803d"}}>「{training.title}」の参加が自動登録されます</div></div></div>}
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:18}}>
+        <span style={{fontSize:28}}>{icon}</span>
+        <div>
+          <div style={{fontSize:16,fontWeight:800,color:"#4A3020"}}>{title}</div>
+          <div style={{fontSize:11,color:accentColor}}>ログインしてください</div>
         </div>
-        <div style={{marginBottom:14}}><label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:5}}>従業員ID</label>
-          <input style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"1.5px solid #E8D5B0",fontSize:14,outline:"none",boxSizing:"border-box"}} placeholder="例: E001" value={id} onChange={e=>{setId(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&submit()}/></div>
-        <div style={{marginBottom:14}}><label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:5}}>パスワード</label>
-          <input style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"1.5px solid #E8D5B0",fontSize:14,outline:"none",boxSizing:"border-box"}} type="password" placeholder="パスワード" value={pw} onChange={e=>{setPw(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&submit()}/></div>
-        {err&&<div style={{background:"#fef2f2",border:"1px solid #fca5a5",color:"#dc2626",borderRadius:8,padding:"8px 12px",fontSize:13,marginBottom:12}}>{err}</div>}
-        <button style={{width:"100%",padding:"11px",background:"#C89A55",color:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}} onClick={submit}>ログイン</button>
-        <div style={{marginTop:12,fontSize:11,color:"#9ca3af",textAlign:"center"}}>管理者: ADMIN / admin123</div>
+      </div>
+      <div style={{marginBottom:12}}><label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>従業員ID</label>
+        <input style={{width:"100%",padding:"9px 12px",borderRadius:10,border:`1.5px solid ${accentColor}66`,fontSize:13,outline:"none",boxSizing:"border-box"}} placeholder="例: E001" value={id} onChange={e=>{setId(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&submit()}/></div>
+      <div style={{marginBottom:12}}><label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>パスワード</label>
+        <input style={{width:"100%",padding:"9px 12px",borderRadius:10,border:`1.5px solid ${accentColor}66`,fontSize:13,outline:"none",boxSizing:"border-box"}} type="password" placeholder="パスワード" value={pw} onChange={e=>{setPw(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&submit()}/></div>
+      {err&&<div style={{background:"#fef2f2",border:"1px solid #fca5a5",color:"#dc2626",borderRadius:8,padding:"7px 12px",fontSize:12,marginBottom:10}}>{err}</div>}
+      <button style={{width:"100%",padding:"10px",background:accentColor,color:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}} onClick={submit}>ログイン</button>
+    </div>
+  );
+}
+
+function DualLoginScreen({pendingAttend,internals,employees,onLogin,onManualLogin}){
+  return(
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#F5EDD8 0%,#FDF6EC 60%,#F5EDD8 100%)",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"16px 8px",fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif"}}>
+      <div style={{width:"100%",maxWidth:420,marginTop:32}}>
+        <div style={{textAlign:"center",marginBottom:24}}>
+          <img src={LOGO_B64} alt={ORG_NAME} style={{height:60,objectFit:"contain",marginBottom:10}}/>
+          <div style={{fontSize:13,color:"#9ca3af"}}>{ORG_NAME}</div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:16}}>
+          <LoginCard title="研修管理システム" icon="📚" accentColor="#C89A55"
+            pendingAttend={pendingAttend} internals={internals} employees={employees}
+            onLogin={(empId,isAdmin,isManager,dept)=>onLogin(empId,isAdmin,isManager||false,dept||"")}/>
+          <LoginCard title="マニュアル管理" icon="📋" accentColor="#2f6db5"
+            pendingAttend={null} internals={[]} employees={employees}
+            onLogin={(empId,isAdmin)=>onManualLogin(empId,isAdmin)} isManual/>
+        </div>
+        <div style={{marginTop:14,fontSize:11,color:"#9ca3af",textAlign:"center"}}>管理者: ADMIN / admin123</div>
+      </div>
+    </div>
+  );
+}
+
+const MANUAL_CATEGORIES = ["基本業務","感染対策","緊急時対応","倫理・人権","記録・報告","勤務ルール","その他"];
+
+function ManualScreen({session,employees,onLogout}){
+  const [manuals,setManuals]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [selCat,setSelCat]=useState("すべて");
+  const [uploading,setUploading]=useState(false);
+  const [upTitle,setUpTitle]=useState("");
+  const [upCat,setUpCat]=useState(MANUAL_CATEGORIES[0]);
+  const [upFile,setUpFile]=useState(null);
+  const [upErr,setUpErr]=useState("");
+  const [tab,setTab]=useState("list");
+
+  const emp=employees.find(e=>e.id===session.empId);
+  const dispName=session.isAdmin?"管理者":(emp?emp.name:session.empId);
+
+  useEffect(()=>{
+    (async()=>{ setLoading(true); const m=await db.getManuals(); setManuals(m); setLoading(false); })();
+  },[]);
+
+  const filtered=selCat==="すべて"?manuals:manuals.filter(m=>m.category===selCat);
+
+  const handleUpload=async()=>{
+    if(!upTitle.trim()||!upFile){setUpErr("タイトルとファイルを入力してください");return;}
+    setUpErr(""); setUploading(true);
+    try{
+      await db.uploadManual(upFile,upCat,upTitle.trim());
+      const m=await db.getManuals(); setManuals(m);
+      setUpTitle(""); setUpFile(null); setUpCat(MANUAL_CATEGORIES[0]); setTab("list");
+    }catch(e){setUpErr("アップロードに失敗しました: "+e.message);}
+    setUploading(false);
+  };
+
+  const handleDelete=async(id,filePath)=>{
+    if(!window.confirm("このマニュアルを削除しますか？"))return;
+    await db.deleteManual(id,filePath);
+    setManuals(p=>p.filter(m=>m.id!==id));
+  };
+
+  const fileIcon=ft=>ft==="pdf"?"📄":ft==="xlsx"||ft==="xls"?"📊":ft==="docx"||ft==="doc"?"📝":"📎";
+
+  return(
+    <div style={{minHeight:"100vh",background:"#f0f4fa",fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif"}}>
+      {/* ヘッダー */}
+      <div style={{background:"linear-gradient(135deg,#1e3a5f,#2f6db5)",padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"0 2px 12px rgba(0,0,0,.2)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:22}}>📋</span>
+          <div>
+            <div style={{color:"#fff",fontWeight:800,fontSize:16}}>マニュアル管理</div>
+            <div style={{color:"rgba(255,255,255,.7)",fontSize:11}}>{ORG_NAME}</div>
+          </div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <span style={{color:"rgba(255,255,255,.8)",fontSize:12}}>{dispName}</span>
+          <button onClick={onLogout} style={{background:"rgba(255,255,255,.2)",color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,cursor:"pointer"}}>ログアウト</button>
+        </div>
+      </div>
+
+      <div style={{maxWidth:700,margin:"0 auto",padding:"16px"}}>
+        {/* タブ（管理者のみアップロードタブ表示） */}
+        {session.isAdmin&&(
+          <div style={{display:"flex",gap:8,marginBottom:16}}>
+            {["list","upload"].map(t=>(
+              <button key={t} onClick={()=>setTab(t)} style={{padding:"8px 18px",borderRadius:20,border:"none",cursor:"pointer",fontWeight:600,fontSize:13,background:tab===t?"#2f6db5":"#fff",color:tab===t?"#fff":"#374151",boxShadow:tab===t?"0 2px 8px rgba(47,109,181,.3)":"0 1px 4px rgba(0,0,0,.1)"}}>
+                {t==="list"?"📋 マニュアル一覧":"📤 アップロード"}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* アップロード画面 */}
+        {tab==="upload"&&session.isAdmin&&(
+          <div style={{background:"#fff",borderRadius:16,padding:"20px",boxShadow:"0 2px 12px rgba(0,0,0,.08)",marginBottom:16}}>
+            <div style={{fontWeight:700,fontSize:15,marginBottom:16,color:"#1e3a5f"}}>📤 マニュアルをアップロード</div>
+            <div style={{marginBottom:12}}><label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:4}}>タイトル</label>
+              <input style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1.5px solid #ddd",fontSize:13,outline:"none",boxSizing:"border-box"}} placeholder="例: 感染対策マニュアル 2025年版" value={upTitle} onChange={e=>setUpTitle(e.target.value)}/></div>
+            <div style={{marginBottom:12}}><label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:4}}>カテゴリ</label>
+              <select style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1.5px solid #ddd",fontSize:13,outline:"none",boxSizing:"border-box"}} value={upCat} onChange={e=>setUpCat(e.target.value)}>
+                {MANUAL_CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}
+              </select></div>
+            <div style={{marginBottom:16}}><label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:4}}>ファイル（PDF・Excel・Word）</label>
+              <input type="file" accept=".pdf,.xlsx,.xls,.docx,.doc" onChange={e=>setUpFile(e.target.files[0]||null)} style={{width:"100%",fontSize:13}}/>
+              {upFile&&<div style={{marginTop:6,fontSize:12,color:"#6b7280"}}>選択: {upFile.name} ({(upFile.size/1024/1024).toFixed(1)}MB)</div>}
+            </div>
+            {upErr&&<div style={{background:"#fef2f2",border:"1px solid #fca5a5",color:"#dc2626",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:12}}>{upErr}</div>}
+            <button onClick={handleUpload} disabled={uploading} style={{width:"100%",padding:"11px",background:uploading?"#9ca3af":"#2f6db5",color:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:700,cursor:uploading?"not-allowed":"pointer"}}>
+              {uploading?"アップロード中...":"アップロードする"}
+            </button>
+          </div>
+        )}
+
+        {/* マニュアル一覧 */}
+        {tab==="list"&&(
+          <>
+            {/* カテゴリフィルター */}
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
+              {["すべて",...MANUAL_CATEGORIES].map(c=>(
+                <button key={c} onClick={()=>setSelCat(c)} style={{padding:"5px 12px",borderRadius:16,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:selCat===c?"#2f6db5":"#fff",color:selCat===c?"#fff":"#374151",boxShadow:"0 1px 4px rgba(0,0,0,.1)"}}>
+                  {c}
+                </button>
+              ))}
+            </div>
+
+            {loading?(
+              <div style={{textAlign:"center",padding:40,color:"#9ca3af"}}>読み込み中...</div>
+            ):filtered.length===0?(
+              <div style={{textAlign:"center",padding:40,color:"#9ca3af",background:"#fff",borderRadius:16}}>
+                <div style={{fontSize:32,marginBottom:8}}>📭</div>
+                <div>マニュアルがまだありません</div>
+                {session.isAdmin&&<div style={{fontSize:12,marginTop:4}}>「アップロード」タブからファイルを追加してください</div>}
+              </div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {filtered.map(m=>(
+                  <div key={m.id} style={{background:"#fff",borderRadius:14,padding:"14px 16px",boxShadow:"0 2px 8px rgba(0,0,0,.07)",display:"flex",alignItems:"center",gap:12}}>
+                    <span style={{fontSize:28,flexShrink:0}}>{fileIcon(m.file_type)}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:700,fontSize:14,color:"#1e3a5f",marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.title}</div>
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                        <span style={{background:"#e8f0fb",color:"#2f6db5",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:600}}>{m.category}</span>
+                        <span style={{fontSize:11,color:"#9ca3af"}}>{m.file_name}</span>
+                        <span style={{fontSize:11,color:"#9ca3af"}}>{new Date(m.created_at).toLocaleDateString("ja-JP")}</span>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:6,flexShrink:0}}>
+                      <a href={m.file_url} target="_blank" rel="noreferrer" style={{padding:"6px 14px",background:"#2f6db5",color:"#fff",borderRadius:8,fontSize:12,fontWeight:600,textDecoration:"none"}}>開く</a>
+                      {session.isAdmin&&<button onClick={()=>handleDelete(m.id,m.file_path)} style={{padding:"6px 10px",background:"#fef2f2",color:"#dc2626",border:"1px solid #fca5a5",borderRadius:8,fontSize:12,cursor:"pointer"}}>削除</button>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
