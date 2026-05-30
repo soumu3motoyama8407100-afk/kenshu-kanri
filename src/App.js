@@ -541,28 +541,43 @@ function QRScanModal({onScan,onClose}){
   const videoRef=require("react").useRef(null);
   const [error,setError]=useState("");
   const [scanning,setScanning]=useState(false);
+  const [jsqrReady,setJsqrReady]=useState(!!window.jsQR);
+  useEffect(()=>{
+    // jsQRを先に非同期で読み込む
+    if(!window.jsQR){
+      const s=document.createElement("script");
+      s.src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js";
+      s.onload=()=>setJsqrReady(true);
+      s.onerror=()=>setError("QRライブラリの読み込みに失敗しました。通信環境を確認してください。");
+      document.head.appendChild(s);
+    }
+  },[]);
   useEffect(()=>{
     let stream=null; let animFrame=null;
     const canvas=document.createElement("canvas"); const ctx=canvas.getContext("2d");
-    const startCamera=async()=>{
-      try{
-        stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
-        if(videoRef.current){videoRef.current.srcObject=stream;videoRef.current.play();setScanning(true);scanLoop();}
-      }catch(e){setError("カメラへのアクセスが拒否されました。ブラウザの設定でカメラを許可してください。");}
-    };
     const scanLoop=()=>{
       if(!videoRef.current)return;
       const v=videoRef.current;
       if(v.readyState===v.HAVE_ENOUGH_DATA){
         canvas.width=v.videoWidth;canvas.height=v.videoHeight;ctx.drawImage(v,0,0);
         const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
-        if(window.jsQR){const code=window.jsQR(imageData.data,imageData.width,imageData.height);
+        if(window.jsQR){
+          const code=window.jsQR(imageData.data,imageData.width,imageData.height);
           if(code){const p=new URLSearchParams(code.data.split("?")[1]||"");const tid=p.get("attend");
-            if(tid){if(stream)stream.getTracks().forEach(t=>t.stop());onScan(tid);return;}}}
+            if(tid){if(stream)stream.getTracks().forEach(t=>t.stop());onScan(tid);return;}}
+        }
       }
       animFrame=requestAnimationFrame(scanLoop);
     };
-    if(window.jsQR){startCamera();}else{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js";s.onload=startCamera;document.head.appendChild(s);}
+    const startCamera=async()=>{
+      try{
+        stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment",width:{ideal:1280},height:{ideal:720}}});
+        if(videoRef.current){videoRef.current.srcObject=stream;await videoRef.current.play();setScanning(true);scanLoop();}
+      }catch(e){
+        setError("カメラへのアクセスが拒否されました。ブラウザの設定でカメラを許可してください。");
+      }
+    };
+    startCamera();
     return()=>{if(stream)stream.getTracks().forEach(t=>t.stop());if(animFrame)cancelAnimationFrame(animFrame);};
   },[]);// eslint-disable-line
   return(
