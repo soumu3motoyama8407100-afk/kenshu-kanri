@@ -715,7 +715,7 @@ function ManagerScreen({dept,employees,internals,getIS,setIS,externals,getXS,set
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                   <thead><tr style={{background:"#C89A55",color:"#fff"}}>
                     <th style={S.th}>従業員</th>
-                    {fyInternals.map(t=><th key={t.id} style={{...S.th,minWidth:140}}>{t.required?"【必】":""}{t.title}</th>)}
+                    {fyInternals.map(t=><th key={t.id} style={{...S.th,minWidth:140}}>{t.required?"【復命書必須】":""}{t.title}</th>)}
                   </tr></thead>
                   <tbody>{employees.map((emp,i)=>(
                     <tr key={emp.id} style={{background:i%2===0?"#fff":"#FDF6EC"}}>
@@ -831,12 +831,18 @@ function ExternalProgress({status}){
 
 function InternalCard({training,status,onReport,onVideo,onWatchVideo,readonly}){
   const [open,setOpen]=useState(false);
-  const attended=status.attendance==="参加済"; const absentFix=status.attendance==="未参加（確定）"; const showVideo=!attended;
+  const attended=status.attendance==="参加済";
+  const absentFix=status.attendance==="未参加（確定）";
+  const showVideo=!attended;
+  // 復命書にアクセスできる条件：参加済み OR 動画視聴済み
+  const canAccessReport=attended||status.video==="視聴済";
+  // 復命書必須の表示条件：training.required=true OR 参加済み
+  const showReqBadge=training.required||attended;
   return(
     <div style={S.card}>
       <div style={S.cardHead} onClick={()=>setOpen(!open)}>
         <div style={{flex:1}}>
-          {training.required&&<span style={S.reqBadge}>必須</span>}
+          {showReqBadge&&<span style={S.reqBadge}>復命書必須</span>}
           {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
           <div style={S.cardTitle}>{training.title}</div>
           <div style={S.cardDate}>📅 {training.date}</div>
@@ -863,8 +869,12 @@ function InternalCard({training,status,onReport,onVideo,onWatchVideo,readonly}){
           </div>
           <div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書提出</div>
-            {readonly?<SPill color={status.report==="提出済"?"#2563eb":"#9ca3af"} bg={status.report==="提出済"?"#dbeafe":"#f9fafb"} border={status.report==="提出済"?"#bfdbfe":"#e5e7eb"}>{status.report==="提出済"?"✅ 提出済":"未提出"}</SPill>
-              :<div style={{display:"flex",gap:8}}>{["提出済","未提出"].map(v=><ToggleChip key={v} label={v} active={status.report===v} color={v==="提出済"?"#2563eb":"#C89A55"} onClick={()=>onReport(v)}/>)}</div>}
+            {!canAccessReport
+              ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">🔒 参加または動画視聴後に提出できます</SPill>
+              : readonly
+                ? <SPill color={status.report==="提出済"?"#2563eb":"#9ca3af"} bg={status.report==="提出済"?"#dbeafe":"#f9fafb"} border={status.report==="提出済"?"#bfdbfe":"#e5e7eb"}>{status.report==="提出済"?"✅ 提出済":"未提出"}</SPill>
+                : <div style={{display:"flex",gap:8}}>{["提出済","未提出"].map(v=><ToggleChip key={v} label={v} active={status.report===v} color={v==="提出済"?"#2563eb":"#C89A55"} onClick={()=>onReport(v)}/>)}</div>
+            }
           </div>
           <div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>3</span> 管理者確認</div>
@@ -1278,33 +1288,67 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
 
 function InternalManageTab({internals,setInternals,deleteInternal}){
   const [showAdd,setShowAdd]=useState(false);
+  const [editId,setEditId]=useState(null);
   const [newT,setNewT]=useState({title:"",date:"",required:true,videoUrl:"",description:""});
+  const [editT,setEditT]=useState(null);
+
   const add=async()=>{
     if(!newT.title||!newT.date)return;
     const t={...newT,id:"T"+String(Date.now()).slice(-6)};
     await setInternals(p=>[...p,t]);
     setNewT({title:"",date:"",required:true,videoUrl:"",description:""});setShowAdd(false);
   };
+  const startEdit=t=>{ setEditId(t.id); setEditT({...t}); };
+  const saveEdit=async()=>{
+    if(!editT.title||!editT.date)return;
+    await setInternals(p=>p.map(t=>t.id===editId?{...editT}:t));
+    setEditId(null); setEditT(null);
+  };
   const toggleReq=async id=>{ await setInternals(p=>p.map(t=>t.id===id?{...t,required:!t.required}:t)); };
+
+  const TrainingForm=({data,onChange,onSave,onCancel,title})=>(
+    <div style={S.formBox}>
+      <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>{title}</div>
+      {[{key:"title",label:"研修名",placeholder:"例：コンプライアンス研修"},{key:"date",label:"実施日",type:"date"},{key:"videoUrl",label:"動画URL（後から追加可）",placeholder:"https://www.youtube.com/embed/..."},{key:"description",label:"説明",placeholder:"研修の概要"}]
+        .map(f=><div key={f.key} style={{marginBottom:10}}><label style={S.label}>{f.label}</label><input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={data[f.key]||""} onChange={e=>onChange(p=>({...p,[f.key]:e.target.value}))}/></div>)}
+      <div style={{marginBottom:12}}><label style={{...S.label,display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+        <input type="checkbox" checked={data.required} onChange={e=>onChange(p=>({...p,required:e.target.checked}))} style={{width:16,height:16,accentColor:"#dc2626"}}/>
+        <span>全員に復命書必須にする <span style={{fontSize:11,color:"#6b7280",fontWeight:400}}>（OFFでも参加者には自動で必須になります）</span></span>
+      </label></div>
+      <div style={{display:"flex",gap:8}}>
+        <button style={S.btn} onClick={onSave}>保存する</button>
+        <button style={{...S.btn,background:"#f3f4f6",color:"#374151"}} onClick={onCancel}>キャンセル</button>
+      </div>
+    </div>
+  );
+
   return(
     <div style={{padding:4}}>
-      <button style={{...S.btn,marginBottom:16}} onClick={()=>setShowAdd(!showAdd)}>＋ 研修を追加</button>
-      {showAdd&&(
-        <div style={S.formBox}>
-          <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>新しい内部研修を登録</div>
-          {[{key:"title",label:"研修名",placeholder:"例：コンプライアンス研修"},{key:"date",label:"実施日",type:"date"},{key:"videoUrl",label:"YouTube URL",placeholder:"https://www.youtube.com/embed/..."},{key:"description",label:"説明",placeholder:"研修の概要"}]
-            .map(f=><div key={f.key} style={{marginBottom:10}}><label style={S.label}>{f.label}</label><input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={newT[f.key]} onChange={e=>setNewT(p=>({...p,[f.key]:e.target.value}))}/></div>)}
-          <div style={{marginBottom:12}}><label style={{...S.label,display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}><input type="checkbox" checked={newT.required} onChange={e=>setNewT(p=>({...p,required:e.target.checked}))} style={{width:16,height:16,accentColor:"#dc2626"}}/>全員必須の研修にする</label></div>
-          <button style={S.btn} onClick={add}>登録する</button>
-        </div>
-      )}
+      <button style={{...S.btn,marginBottom:16}} onClick={()=>{setShowAdd(!showAdd);setEditId(null);}}>＋ 研修を追加</button>
+      {showAdd&&<TrainingForm data={newT} onChange={setNewT} onSave={add} onCancel={()=>setShowAdd(false)} title="新しい内部研修を登録"/>}
       {internals.map(t=>(
-        <div key={t.id} style={{...S.card,padding:"12px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{flex:1}}>{t.required&&<span style={S.reqBadge}>必須</span>}<div style={S.cardTitle}>{t.title}</div><div style={S.cardDate}>📅 {t.date}</div></div>
-          <div style={{display:"flex",gap:8}}>
-            <button style={{...S.qrBtn,background:t.required?"#fef2f2":"#f9fafb",borderColor:t.required?"#fca5a5":"#e5e7eb",color:t.required?"#dc2626":"#6b7280"}} onClick={()=>toggleReq(t.id)}>{t.required?"必須ON":"必須OFF"}</button>
-            <button style={S.delBtn} onClick={()=>{if(window.confirm("削除しますか？"))deleteInternal(t.id);}}>削除</button>
+        <div key={t.id}>
+          <div style={{...S.card,padding:"12px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{flex:1}}>
+              {t.required&&<span style={S.reqBadge}>復命書必須（全員）</span>}
+              <div style={S.cardTitle}>{t.title}</div>
+              <div style={S.cardDate}>📅 {t.date}{t.videoUrl?<span style={{marginLeft:8,color:"#7c3aed",fontSize:11}}>▶ 動画あり</span>:<span style={{marginLeft:8,color:"#9ca3af",fontSize:11}}>動画未設定</span>}</div>
+            </div>
+            <div style={{display:"flex",gap:6,flexShrink:0}}>
+              <button style={{...S.qrBtn,background:"#eff6ff",borderColor:"#bfdbfe",color:"#2563eb"}} onClick={()=>editId===t.id?setEditId(null):startEdit(t)}>
+                {editId===t.id?"閉じる":"編集"}
+              </button>
+              <button style={{...S.qrBtn,background:t.required?"#fef2f2":"#f9fafb",borderColor:t.required?"#fca5a5":"#e5e7eb",color:t.required?"#dc2626":"#6b7280"}} onClick={()=>toggleReq(t.id)}>
+                {t.required?"復命書必須ON":"復命書必須OFF"}
+              </button>
+              <button style={S.delBtn} onClick={()=>{if(window.confirm("削除しますか？"))deleteInternal(t.id);}}>削除</button>
+            </div>
           </div>
+          {editId===t.id&&editT&&(
+            <div style={{marginTop:-8,marginBottom:8}}>
+              <TrainingForm data={editT} onChange={setEditT} onSave={saveEdit} onCancel={()=>{setEditId(null);setEditT(null);}} title="研修を編集"/>
+            </div>
+          )}
         </div>
       ))}
     </div>
