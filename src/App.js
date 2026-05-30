@@ -1451,6 +1451,19 @@ function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
           </div>
           <div style={{marginBottom:14}}>
             <label style={S.label}>対象者を選択（{newX.targetEmpIds.length}名選択中）</label>
+            {newX.targetEmpIds.length>0&&(
+              <div style={{marginBottom:8,padding:"8px 10px",background:"#FDF6EC",borderRadius:10,border:"1px solid #E8D5B0"}}>
+                <div style={{fontSize:11,color:"#A07840",fontWeight:600,marginBottom:4}}>選択中の職員：</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                  {newX.targetEmpIds.map(id=>{const emp=employees.find(e=>e.id===id);return emp?(
+                    <span key={id} style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:12,padding:"2px 8px",background:"#fff",border:"1px solid #C89A55",borderRadius:16,color:"#4A3020"}}>
+                      {emp.name}
+                      <button onClick={()=>toggleEmp(id)} style={{background:"none",border:"none",cursor:"pointer",color:"#9ca3af",fontSize:12,padding:0,lineHeight:1}}>×</button>
+                    </span>
+                  ):null;})}
+                </div>
+              </div>
+            )}
             {/* 部署フィルター */}
             <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
               {depts.map(d=>(
