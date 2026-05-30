@@ -943,17 +943,11 @@ function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus,readonly}
         <div style={{position:"relative",paddingBottom:"56.25%",borderRadius:12,overflow:"hidden",background:"#000"}}>
           <iframe style={{position:"absolute",inset:0,width:"100%",height:"100%",border:"none"}} src={cur.videoUrl} allowFullScreen title={cur.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"/>
         </div>
-        <div style={{marginTop:12}}>
-          {s?.video==="視聴済"
-            ?<div style={{padding:"10px 14px",background:"#f0fdf4",borderRadius:10,color:"#15803d",fontSize:13,fontWeight:600,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-              ✅ 視聴済み
-              {!readonly&&<button onClick={()=>onMarkWatched(cur,"未視聴")} style={{fontSize:11,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"3px 10px",cursor:"pointer"}}>未視聴に戻す</button>}
-            </div>
-            :readonly?<div style={{padding:"10px 14px",background:"#f9fafb",borderRadius:10,color:"#9ca3af",fontSize:13,textAlign:"center"}}>○ 未視聴</div>
-            :<button onClick={()=>onMarkWatched(cur,"視聴済")} style={{width:"100%",padding:"12px",background:"#16a34a",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>
-              ✅ 視聴完了！　視聴済みにする
-            </button>}
-        </div>
+        {s?.video==="視聴済"&&(
+          <div style={{marginTop:12,padding:"10px 14px",background:"#f0fdf4",borderRadius:10,color:"#15803d",fontSize:13,fontWeight:600,textAlign:"center"}}>
+            ✅ 視聴済み
+          </div>
+        )}
       </>}
     </div>
   );
