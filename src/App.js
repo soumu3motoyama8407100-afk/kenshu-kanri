@@ -151,6 +151,7 @@ export default function App() {
         td,th{padding:4px 6px !important;}
         .btn-col-sp{flex-direction:column !important;align-items:flex-end !important;}
         .btn-col-sp button{width:100% !important;text-align:center !important;}
+        input[type="date"]{-webkit-appearance:none;appearance:none;min-height:44px;padding:10px 14px !important;}
       }
       /* PC（769px以上） */
       @media(min-width:769px){
