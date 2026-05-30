@@ -627,7 +627,6 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
             </div>
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            <button onClick={()=>setShowQRScan(true)} style={{padding:"6px 12px",borderRadius:8,background:"#A07840",color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:600}}>📷 QR読取</button>
             <button style={S.logoutBtn} onClick={onLogout}>ログアウト</button>
           </div>
         </div>
@@ -1260,7 +1259,6 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
               <div style={{display:"flex",gap:6}}>
                 <button style={S.qrBtn} onClick={()=>setEditEmp({...emp,qualifications:(emp.qualifications||[]).join(","),certTrainings:(emp.certTrainings||[]).join(",")})}>編集</button>
                 <button style={{...S.qrBtn,background:"#fef3c7",borderColor:"#fcd34d",color:"#92400e"}} onClick={async()=>{if(window.confirm(`${emp.name}さんを退職者にしますか？ログインできなくなります。`)){await db.setEmployeeActive(emp.id,false);setEmployees(p=>p.map(e=>e.id===emp.id?{...e,isActive:false}:e));}}}>退職</button>
-                <button style={S.delBtn} onClick={()=>delEmp(emp.id)}>削除</button>
               </div>
             </div>
           ))}
