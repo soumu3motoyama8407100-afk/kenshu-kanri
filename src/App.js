@@ -769,104 +769,178 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
   );
 }
 
-// ── 部署長コンテンツ（EmployeeScreenのタブとしても使用）─────────
+// ── 部署長コンテンツ（ダッシュボード型）─────────────────────────
 function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS,setXS,fiscalYear,setFiscalYear}){
-  const [tab,setTab]=useState("iProgress");
-  const fyInternals=internals.filter(t=>inFiscalYear(t.date,fiscalYear));
-  const fyExternals=externals.filter(x=>inFiscalYear(x.date,fiscalYear));
+  const fyInternals=internals.filter(t=>inFiscalYear(t.date,fiscalYear)).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const fyExternals=externals.filter(x=>inFiscalYear(x.date,fiscalYear)&&x.targetEmpIds.some(id=>employees.map(e=>e.id).includes(id)));
+  const [selTraining,setSelTraining]=useState(null);
+  const [mode,setMode]=useState("i"); // "i"=内部 "x"=外部
+  const [filterPending,setFilterPending]=useState(true);
+
+  // 選択中の研修（初期値は最初の内部研修）
+  const curT=selTraining||fyInternals[0]||null;
+
+  // 復命書必須の職員かどうか判定
+  const isReportRequired=(emp,t)=>{
+    const s=getIS(emp.id,t.id);
+    return t.required||s.attendance==="参加済";
+  };
+
+  // 未提出バッジ数（復命書必須なのに未提出）
+  const unreportedCount=(t)=>employees.filter(e=>{
+    const s=getIS(e.id,t.id);
+    return isReportRequired(e,t)&&s.report!=="提出済"&&!s.reportConfirmed;
+  }).length;
+
+  // 対象職員の状態分類
+  const getEmpStatus=(emp,t)=>{
+    const s=getIS(emp.id,t.id);
+    const req=isReportRequired(emp,t);
+    if(s.reportConfirmed) return "done";
+    if(s.report==="提出済") return "waitConfirm";
+    if(req&&s.report!=="提出済") return "pending";
+    return "noReq";
+  };
+
+  const empList=curT?[...employees].sort((a,b)=>{
+    const order={pending:0,waitConfirm:1,noReq:2,done:3};
+    return order[getEmpStatus(a,curT)]-order[getEmpStatus(b,curT)];
+  }):[];
+
+  const displayList=filterPending&&curT?empList.filter(e=>getEmpStatus(e,curT)!=="done"):empList;
+
+  const reqCount=curT?employees.filter(e=>isReportRequired(e,curT)).length:0;
+  const unreported=curT?employees.filter(e=>isReportRequired(e,curT)&&getIS(e.id,curT.id).report!=="提出済"&&!getIS(e.id,curT.id).reportConfirmed).length:0;
+  const waitConfirm=curT?employees.filter(e=>{const s=getIS(e.id,curT.id);return s.report==="提出済"&&!s.reportConfirmed;}).length:0;
+
+  const initials=name=>name?name.charAt(0):"?";
+  const avatarColor=i=>[["#E6F1FB","#185FA5"],["#EAF3DE","#3B6D11"],["#FAEEDA","#854F0B"],["#FCEBEB","#A32D2D"],["#F1EFE8","#5F5E5A"]][i%5];
+
   return(
-    <div style={{padding:"4px 0"}}>
-      <div style={{fontSize:12,color:"#1e3a5f",fontWeight:700,marginBottom:8,padding:"6px 12px",background:"#e0f2fe",borderRadius:8}}>
-        🏢 {dept}の部署管理ダッシュボード
-      </div>
-      {setFiscalYear&&<div style={{marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
-        <span style={{fontSize:11,color:"#6b7280"}}>年度：</span>
-        <select value={fiscalYear} onChange={e=>setFiscalYear(Number(e.target.value))} style={{padding:"3px 8px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:12,cursor:"pointer"}}>
+    <div style={{padding:"8px 0"}}>
+      {/* ヘッダー */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,flexWrap:"wrap",gap:8}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#1e3a5f"}}>🏢 {dept}</div>
+        {setFiscalYear&&<select value={fiscalYear} onChange={e=>setFiscalYear(Number(e.target.value))} style={{padding:"3px 8px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:12,cursor:"pointer",background:"#fff"}}>
           {[currentFY()-1,currentFY(),currentFY()+1].map(y=><option key={y} value={y}>{y}年度</option>)}
-        </select>
-      </div>}
-      <div style={{...S.tabBar,marginBottom:8}}>
-        {[["iProgress","📊 内部研修"],["xProgress","🌐 外部研修"]].map(([k,l])=>(
-          <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{})}} onClick={()=>setTab(k)}>{l}</button>
+        </select>}
+      </div>
+
+      {/* 内部/外部切り替え */}
+      <div style={{display:"flex",gap:6,marginBottom:12}}>
+        {[["i","📊 内部研修"],["x","🌐 外部研修"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setMode(k)} style={{padding:"6px 16px",borderRadius:20,border:"none",cursor:"pointer",fontWeight:600,fontSize:12,background:mode===k?"#1e3a5f":"#f3f4f6",color:mode===k?"#fff":"#374151"}}>
+            {l}
+          </button>
         ))}
       </div>
-      <div>
-          {tab==="iProgress"&&(
-            <div>
-              <div style={{fontSize:12,color:"#A07840",fontWeight:600,marginBottom:12,padding:"8px 12px",background:"#FDF6EC",borderRadius:8}}>
-                📋 {dept}の内部研修進捗（{fiscalYear}年度）
-              </div>
-              {fyInternals.length===0&&<div style={S.empty}>{fiscalYear}年度の内部研修はありません</div>}
-              <div style={{overflowX:"auto"}}>
-                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-                  <thead><tr style={{background:"#C89A55",color:"#fff"}}>
-                    <th style={S.th}>従業員</th>
-                    {fyInternals.map(t=><th key={t.id} style={{...S.th,minWidth:140}}>{t.required?"【復命書必須】":""}{t.title}</th>)}
-                  </tr></thead>
-                  <tbody>{employees.map((emp,i)=>(
-                    <tr key={emp.id} style={{background:i%2===0?"#fff":"#FDF6EC"}}>
-                      <td style={S.td}><div style={{fontWeight:600}}>{emp.name}</div></td>
-                      {fyInternals.map(t=>{
-                        const s=getIS(emp.id,t.id);
-                        const [d1,d2,d3]=internalStepsDone(s);
-                        const done=[d1,d2,d3].filter(Boolean).length;
-                        const bc=done===3?"#16a34a":done===0?"#e5e7eb":"#f59e0b";
-                        return(
-                          <td key={t.id} style={{...S.td,minWidth:140}}>
-                            <div style={{height:4,background:"#e5e7eb",borderRadius:2,overflow:"hidden",marginBottom:4}}><div style={{height:"100%",width:`${Math.round(done/3*100)}%`,background:bc,borderRadius:2}}/></div>
-                            <div style={{display:"flex",gap:3,alignItems:"center",flexWrap:"wrap"}}>
-                              {[["参/動",d1,"#16a34a"],["復命書",d2,"#2563eb"],["確認",d3,"#7c3aed"]].map(([l,ok,c])=>(
-                                <span key={l} style={{fontSize:9,padding:"1px 4px",borderRadius:4,background:ok?c:"#f3f4f6",color:ok?"#fff":"#9ca3af",fontWeight:ok?700:400}}>{l}</span>
-                              ))}
-                              {!d1&&<button style={{fontSize:9,padding:"2px 6px",borderRadius:4,border:"1px solid #16a34a",background:"#f0fdf4",color:"#15803d",cursor:"pointer",marginLeft:2,fontWeight:600}}
-                                onClick={()=>setIS(emp.id,t.id,"attendance","参加済")}>参加✓</button>}
-                              {s.attendance==="参加済"&&<button style={{fontSize:9,padding:"2px 6px",borderRadius:4,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#9ca3af",cursor:"pointer",fontWeight:600}}
-                                onClick={()=>setIS(emp.id,t.id,"attendance","未参加")}>取消</button>}
-                              {d2&&!d3&&<button style={{fontSize:9,padding:"2px 6px",borderRadius:4,border:"1px solid #C89A55",background:"#FDF6EC",color:"#A07840",cursor:"pointer",marginLeft:2,fontWeight:600}}
-                                onClick={()=>setIS(emp.id,t.id,"reportConfirmed",true)}>確認✓</button>}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}</tbody>
-                </table>
-              </div>
-            </div>
-          )}
-          {tab==="xProgress"&&(
-            <div>
-              <div style={{fontSize:12,color:"#A07840",fontWeight:600,marginBottom:12,padding:"8px 12px",background:"#FDF6EC",borderRadius:8}}>
-                📋 {dept}の外部研修進捗（{fiscalYear}年度）
-              </div>
-              {fyExternals.filter(x=>x.targetEmpIds.some(id=>employees.map(e=>e.id).includes(id))).length===0
-                &&<div style={S.empty}>{fiscalYear}年度の外部研修はありません</div>}
-              {fyExternals.filter(x=>x.targetEmpIds.some(id=>employees.map(e=>e.id).includes(id))).map(x=>{
-                const targets=employees.filter(e=>x.targetEmpIds.includes(e.id));
+
+      {mode==="i"&&(
+        <>
+          {fyInternals.length===0?<div style={S.empty}>{fiscalYear}年度の内部研修はありません</div>:<>
+            {/* 研修セレクター */}
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+              {fyInternals.map(t=>{
+                const cnt=unreportedCount(t);
+                const isActive=(curT&&curT.id===t.id)||(!selTraining&&fyInternals[0]?.id===t.id);
                 return(
-                  <div key={x.id} style={{marginBottom:24}}>
-                    <div style={{fontWeight:700,color:"#4A3020",fontSize:14,marginBottom:4}}><span style={S.extBadge}>外部</span> {x.title}</div>
-                    <div style={{fontSize:12,color:"#6b7280",marginBottom:10}}>📅 {x.date} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}</div>
-                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-                      <thead><tr style={{background:"#C89A55",color:"#fff"}}><th style={S.th}>従業員</th><th style={S.th}>受講</th><th style={S.th}>復命書</th><th style={S.th}>管理者確認</th></tr></thead>
-                      <tbody>{targets.map((emp,i)=>{const s=getXS(emp.id,x.id);return(
-                        <tr key={emp.id} style={{background:i%2===0?"#fff":"#FDF6EC"}}>
-                          <td style={S.td}>{emp.name}</td>
-                          <td style={S.td}>{s.attended?"✅":"○"}</td>
-                          <td style={S.td}>{s.reportSubmitted?"📄":"─"}</td>
-                          <td style={S.td}>{s.reportConfirmed?<span style={{color:"#15803d",fontWeight:600}}>✅確認済</span>
-                            :s.reportSubmitted?<button style={{...S.qrBtn,fontSize:11,borderColor:"#C89A55",color:"#A07840",background:"#FDF6EC"}} onClick={()=>setXS(emp.id,x.id,{reportConfirmed:true})}>確認済にする</button>
-                            :<span style={{color:"#9ca3af"}}>─</span>}</td>
-                        </tr>
-                      );})}
-                      </tbody>
-                    </table>
+                  <div key={t.id} style={{position:"relative",display:"inline-block"}}>
+                    <button onClick={()=>setSelTraining(t)} style={{padding:"6px 12px",borderRadius:20,border:"none",cursor:"pointer",fontWeight:600,fontSize:12,background:isActive?"#1e3a5f":"#f3f4f6",color:isActive?"#fff":"#374151",whiteSpace:"nowrap"}}>
+                      {t.title}
+                    </button>
+                    {cnt>0&&<span style={{position:"absolute",top:-5,right:-5,minWidth:16,height:16,borderRadius:8,background:"#E24B4A",color:"#fff",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px",border:"1.5px solid #fff"}}>{cnt}</span>}
                   </div>
                 );
               })}
             </div>
-          )}
-      </div>
+
+            {curT&&<>
+              {/* サマリーカード */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+                <div style={{padding:"10px 12px",background:"#fef2f2",borderRadius:12,textAlign:"center",border:"1px solid #fca5a5"}}>
+                  <div style={{fontSize:11,color:"#9ca3af",marginBottom:2}}>復命書 未提出</div>
+                  <div style={{fontSize:22,fontWeight:700,color:"#dc2626"}}>{unreported}<span style={{fontSize:12,fontWeight:400,color:"#9ca3af"}}>/{reqCount}名</span></div>
+                </div>
+                <div style={{padding:"10px 12px",background:"#fffbeb",borderRadius:12,textAlign:"center",border:"1px solid #fcd34d"}}>
+                  <div style={{fontSize:11,color:"#9ca3af",marginBottom:2}}>確認待ち</div>
+                  <div style={{fontSize:22,fontWeight:700,color:"#d97706"}}>{waitConfirm}<span style={{fontSize:12,fontWeight:400,color:"#9ca3af"}}>名</span></div>
+                </div>
+              </div>
+
+              {/* フィルター */}
+              <div style={{display:"flex",gap:6,marginBottom:10}}>
+                {[["要対応のみ",true],["全員",false]].map(([l,v])=>(
+                  <button key={l} onClick={()=>setFilterPending(v)} style={{padding:"4px 14px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:filterPending===v?"#374151":"#f3f4f6",color:filterPending===v?"#fff":"#6b7280"}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+
+              {/* 職員リスト */}
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {displayList.length===0&&<div style={{textAlign:"center",padding:20,color:"#9ca3af",fontSize:13}}>全員対応済みです ✅</div>}
+                {displayList.map((emp,i)=>{
+                  const s=getIS(emp.id,curT.id);
+                  const status=getEmpStatus(emp,curT);
+                  const req=isReportRequired(emp,curT);
+                  const [bg,fg]=avatarColor(i);
+                  const isDone=status==="done";
+                  return(
+                    <div key={emp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:isDone?"#f9fafb":"#fff",borderRadius:12,border:`1px solid ${isDone?"#e5e7eb":"#E8D5B0"}`,opacity:isDone?0.6:1}}>
+                      <div style={{width:32,height:32,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:600,flexShrink:0,background:bg,color:fg}}>{initials(emp.name)}</div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:14,fontWeight:600,color:"#4A3020"}}>{emp.name}</div>
+                        <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
+                          {s.attendance==="参加済"?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>参加済</span>
+                            :<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#f3f4f6",color:"#6b7280",fontWeight:600}}>欠席</span>}
+                          {req&&(status==="done"?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>確認済</span>
+                            :status==="waitConfirm"?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#fef3c7",color:"#92400e",fontWeight:600}}>提出済</span>
+                            :<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#fee2e2",color:"#dc2626",fontWeight:600}}>未提出</span>)}
+                          {!req&&<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#f3f4f6",color:"#9ca3af"}}>必須外</span>}
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:5,flexShrink:0}}>
+                        {s.attendance!=="参加済"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #16a34a",background:"#f0fdf4",color:"#15803d",cursor:"pointer",fontWeight:600}} onClick={()=>setIS(emp.id,curT.id,"attendance","参加済")}>参加✓</button>}
+                        {s.attendance==="参加済"&&status!=="done"&&!s.report!=="提出済"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#9ca3af",cursor:"pointer"}} onClick={()=>setIS(emp.id,curT.id,"attendance","未参加")}>取消</button>}
+                        {status==="waitConfirm"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #d97706",background:"#fef3c7",color:"#92400e",cursor:"pointer",fontWeight:600}} onClick={()=>setIS(emp.id,curT.id,"reportConfirmed",true)}>確認✓</button>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>}
+          </>}
+        </>
+      )}
+
+      {mode==="x"&&(
+        <>
+          {fyExternals.length===0?<div style={S.empty}>{fiscalYear}年度の外部研修はありません</div>
+          :fyExternals.map(x=>{
+            const targets=employees.filter(e=>x.targetEmpIds.includes(e.id));
+            const waitX=targets.filter(e=>getXS(e.id,x.id).reportSubmitted&&!getXS(e.id,x.id).reportConfirmed).length;
+            return(
+              <div key={x.id} style={{marginBottom:16,background:"#fff",borderRadius:12,border:"1px solid #E8D5B0",overflow:"hidden"}}>
+                <div style={{padding:"10px 14px",background:"#FDF6EC",borderBottom:"1px solid #E8D5B0"}}>
+                  <div style={{fontWeight:700,fontSize:13,color:"#4A3020"}}>{x.title}</div>
+                  <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>📅 {x.date}　{waitX>0&&<span style={{color:"#d97706",fontWeight:600}}>確認待ち {waitX}名</span>}</div>
+                </div>
+                {targets.map((emp,i)=>{const s=getXS(emp.id,x.id);const [bg,fg]=avatarColor(i);return(
+                  <div key={emp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderBottom:"0.5px solid #f3f4f6"}}>
+                    <div style={{width:28,height:28,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:600,flexShrink:0,background:bg,color:fg}}>{initials(emp.name)}</div>
+                    <div style={{flex:1,fontSize:13,fontWeight:600,color:"#4A3020"}}>{emp.name}</div>
+                    <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                      {s.reportConfirmed?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>確認済</span>
+                        :s.reportSubmitted?<button style={{fontSize:11,padding:"4px 10px",borderRadius:20,border:"1px solid #d97706",background:"#fef3c7",color:"#92400e",cursor:"pointer",fontWeight:600}} onClick={()=>setXS(emp.id,x.id,{reportConfirmed:true})}>確認✓</button>
+                        :<span style={{fontSize:11,color:"#9ca3af"}}>未提出</span>}
+                    </div>
+                  </div>
+                );})}
+              </div>
+            );
+          })}
+        </>
+      )}
     </div>
   );
 }
