@@ -149,6 +149,8 @@ export default function App() {
         .app-content-grid{display:block !important;}
         table{font-size:11px !important;}
         td,th{padding:4px 6px !important;}
+        .btn-col-sp{flex-direction:column !important;align-items:flex-end !important;}
+        .btn-col-sp button{width:100% !important;text-align:center !important;}
       }
       /* PC（769px以上） */
       @media(min-width:769px){
@@ -1505,7 +1507,7 @@ function InternalManageTab({internals,setInternals,deleteInternal}){
               <div style={S.cardTitle}>{t.title}</div>
               <div style={S.cardDate}>📅 {t.date}{t.videoUrl?<span style={{marginLeft:8,color:"#7c3aed",fontSize:11}}>▶ 動画あり</span>:<span style={{marginLeft:8,color:"#9ca3af",fontSize:11}}>動画未設定</span>}</div>
             </div>
-            <div style={{display:"flex",gap:6,flexShrink:0}}>
+            <div className="btn-col-sp" style={{display:"flex",gap:6,flexShrink:0}}>
               <button style={{...S.qrBtn,background:"#eff6ff",borderColor:"#bfdbfe",color:"#2563eb"}} onClick={()=>editId===t.id?setEditId(null):startEdit(t)}>
                 {editId===t.id?"閉じる":"編集"}
               </button>
