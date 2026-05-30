@@ -1283,6 +1283,31 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
   );
 }
 
+function InternalTrainingForm({data,onChange,onSave,onCancel,title}){
+  return(
+    <div style={S.formBox}>
+      <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>{title}</div>
+      {[{key:"title",label:"研修名",placeholder:"例：コンプライアンス研修"},{key:"date",label:"実施日",type:"date"},{key:"videoUrl",label:"動画URL（後から追加可）",placeholder:"https://www.youtube.com/embed/..."},{key:"description",label:"説明",placeholder:"研修の概要"}]
+        .map(f=>(
+          <div key={f.key} style={{marginBottom:10}}>
+            <label style={S.label}>{f.label}</label>
+            <input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={data[f.key]||""} onChange={e=>onChange(p=>({...p,[f.key]:e.target.value}))}/>
+          </div>
+        ))}
+      <div style={{marginBottom:12}}>
+        <label style={{...S.label,display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+          <input type="checkbox" checked={data.required} onChange={e=>onChange(p=>({...p,required:e.target.checked}))} style={{width:16,height:16,accentColor:"#dc2626"}}/>
+          <span>全員に復命書必須にする <span style={{fontSize:11,color:"#6b7280",fontWeight:400}}>（OFFでも参加者には自動で必須になります）</span></span>
+        </label>
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <button style={S.btn} onClick={onSave}>保存する</button>
+        <button style={{...S.btn,background:"#f3f4f6",color:"#374151"}} onClick={onCancel}>キャンセル</button>
+      </div>
+    </div>
+  );
+}
+
 function InternalManageTab({internals,setInternals,deleteInternal}){
   const [showAdd,setShowAdd]=useState(false);
   const [editId,setEditId]=useState(null);
@@ -1303,26 +1328,10 @@ function InternalManageTab({internals,setInternals,deleteInternal}){
   };
   const toggleReq=async id=>{ await setInternals(p=>p.map(t=>t.id===id?{...t,required:!t.required}:t)); };
 
-  const TrainingForm=({data,onChange,onSave,onCancel,title})=>(
-    <div style={S.formBox}>
-      <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>{title}</div>
-      {[{key:"title",label:"研修名",placeholder:"例：コンプライアンス研修"},{key:"date",label:"実施日",type:"date"},{key:"videoUrl",label:"動画URL（後から追加可）",placeholder:"https://www.youtube.com/embed/..."},{key:"description",label:"説明",placeholder:"研修の概要"}]
-        .map(f=><div key={f.key} style={{marginBottom:10}}><label style={S.label}>{f.label}</label><input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={data[f.key]||""} onChange={e=>onChange(p=>({...p,[f.key]:e.target.value}))}/></div>)}
-      <div style={{marginBottom:12}}><label style={{...S.label,display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
-        <input type="checkbox" checked={data.required} onChange={e=>onChange(p=>({...p,required:e.target.checked}))} style={{width:16,height:16,accentColor:"#dc2626"}}/>
-        <span>全員に復命書必須にする <span style={{fontSize:11,color:"#6b7280",fontWeight:400}}>（OFFでも参加者には自動で必須になります）</span></span>
-      </label></div>
-      <div style={{display:"flex",gap:8}}>
-        <button style={S.btn} onClick={onSave}>保存する</button>
-        <button style={{...S.btn,background:"#f3f4f6",color:"#374151"}} onClick={onCancel}>キャンセル</button>
-      </div>
-    </div>
-  );
-
   return(
     <div style={{padding:4}}>
       <button style={{...S.btn,marginBottom:16}} onClick={()=>{setShowAdd(!showAdd);setEditId(null);}}>＋ 研修を追加</button>
-      {showAdd&&<TrainingForm data={newT} onChange={setNewT} onSave={add} onCancel={()=>setShowAdd(false)} title="新しい内部研修を登録"/>}
+      {showAdd&&<InternalTrainingForm data={newT} onChange={setNewT} onSave={add} onCancel={()=>setShowAdd(false)} title="新しい内部研修を登録"/>}
       {internals.map(t=>(
         <div key={t.id}>
           <div style={{...S.card,padding:"12px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -1343,7 +1352,7 @@ function InternalManageTab({internals,setInternals,deleteInternal}){
           </div>
           {editId===t.id&&editT&&(
             <div style={{marginTop:-8,marginBottom:8}}>
-              <TrainingForm data={editT} onChange={setEditT} onSave={saveEdit} onCancel={()=>{setEditId(null);setEditT(null);}} title="研修を編集"/>
+              <InternalTrainingForm data={editT} onChange={setEditT} onSave={saveEdit} onCancel={()=>{setEditId(null);setEditT(null);}} title="研修を編集"/>
             </div>
           )}
         </div>
