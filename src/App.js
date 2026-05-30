@@ -137,6 +137,30 @@ const db = {
 };
 
 export default function App() {
+  useEffect(()=>{
+    const style=document.createElement("style");
+    style.textContent=`
+      body{margin:0;padding:0;}
+      /* PC幅（769px以上）でのレイアウト */
+      @media(min-width:769px){
+        .app-page{padding:24px !important;}
+        .app-wrap{border-radius:16px !important;}
+        .app-scroll{max-height:calc(100vh - 160px) !important;}
+        .app-tabbar{font-size:14px !important;}
+        .app-tab{padding:13px 16px !important;font-size:14px !important;}
+        .app-content-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+        .app-content-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+      }
+      /* スマホ（768px以下） */
+      @media(max-width:768px){
+        .app-page{padding:0 !important;}
+        .app-wrap{border-radius:0 !important;box-shadow:none !important;border:none !important;}
+      }
+    `;
+    document.head.appendChild(style);
+    return()=>document.head.removeChild(style);
+  },[]);
+
   const [employees,setEmployees] = useState([]);
   const [internals,setInternals] = useState(INIT_INTERNAL);
   const [externals,setExternals] = useState(INIT_EXTERNAL);
@@ -702,13 +726,15 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
             </div>
           )}
           {tab==="internal"&&(fyInternals.length===0?<div style={S.empty}>{viewFY}年度の内部研修はありません</div>
-            :fyInternals.map(t=>(
+            :<div className="app-content-grid">
+            {fyInternals.map(t=>(
               <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)} readonly={!isCurrentFY}
                 onReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","提出済");showToast("復命書を提出しました");} }}
                 onCancelReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","未提出");showToast("提出を取り消しました");} }}
                 onVideo={v=>{ if(isCurrentFY){setIS(emp.id,t.id,"video",v);} }}
                 onWatchVideo={()=>{setVideoT(t);setTab("video");}}/>
-            ))
+            ))}
+            </div>
           )}
           {tab==="external"&&(fyExternals.length===0?<div style={S.empty}>{viewFY}年度の外部研修はありません</div>
             :fyExternals.map(x=>(
@@ -845,7 +871,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
 // ── 後方互換のためManagerScreenは残す（現在は未使用）─────────────
 function ManagerScreen({dept,employees,internals,getIS,setIS,externals,getXS,setXS,fiscalYear,setFiscalYear,onLogout}){
   return(
-    <div style={S.page}><div style={{...S.appWrap,maxWidth:960}}>
+    <div style={S.page}><div style={{...S.appWrap,maxWidth:1200}}>
       <div style={S.header}>
         <div><div style={S.headerName}>🏢 {dept}</div><div style={S.headerSub}>{ORG_NAME}</div></div>
         <button style={S.logoutBtn} onClick={onLogout}>ログアウト</button>
@@ -1058,7 +1084,7 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
   return(
     <div style={S.page}>
       {qrT&&<QRModal training={qrT} onClose={()=>setQrT(null)}/>}
-      <div style={{...S.appWrap,maxWidth:960}}>
+      <div style={{...S.appWrap,maxWidth:1200}}>
         <div style={S.header}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
             <div><div style={S.headerName}>🛡 管理者ダッシュボード</div><div style={S.headerSub}>{ORG_NAME}</div></div>
@@ -1677,16 +1703,16 @@ function QRModal({training,onClose}){
 }
 
 const S={
-  page:{minHeight:"100vh",background:"linear-gradient(135deg,#F5EDD8 0%,#FDF6EC 60%,#F5EDD8 100%)",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"16px 8px",fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif"},
-  appWrap:{width:"100%",maxWidth:700,background:"#fff",borderRadius:20,boxShadow:"0 24px 60px rgba(200,154,85,.2)",overflow:"hidden",border:"1px solid #E8D5B0"},
+  page:{minHeight:"100vh",background:"linear-gradient(135deg,#F5EDD8 0%,#FDF6EC 60%,#F5EDD8 100%)",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"clamp(0px,2vw,32px)",fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif"},
+  appWrap:{width:"100%",maxWidth:1200,background:"#fff",borderRadius:20,boxShadow:"0 24px 60px rgba(200,154,85,.2)",overflow:"hidden",border:"1px solid #E8D5B0"},
   header:{background:"#C89A55",color:"#fff",padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"},
   headerName:{fontSize:16,fontWeight:700,color:"#fff"},
   headerSub:{fontSize:11,color:"rgba(255,255,255,.8)",marginTop:2},
   logoutBtn:{padding:"5px 12px",borderRadius:8,border:"1px solid #E8D5B0",background:"#fff",color:"#4A3020",cursor:"pointer",fontSize:12,fontWeight:600},
   tabBar:{display:"flex",borderBottom:"1px solid #E8D5B0"},
-  tab:{flex:1,padding:"11px 4px",border:"none",background:"transparent",fontSize:13,fontWeight:600,color:"#A07840",cursor:"pointer"},
+  tab:{flex:1,padding:"11px 8px",border:"none",background:"transparent",fontSize:13,fontWeight:600,color:"#A07840",cursor:"pointer",whiteSpace:"nowrap"},
   tabOn:{color:"#C89A55",borderBottom:"2.5px solid #C89A55"},
-  scroll:{padding:14,overflowY:"auto",maxHeight:"calc(100vh - 200px)"},
+  scroll:{padding:"clamp(12px,2vw,24px)",overflowY:"auto",maxHeight:"calc(100vh - 180px)"},
   card:{border:"1px solid #E8D5B0",borderRadius:12,marginBottom:10,overflow:"hidden"},
   cardHead:{padding:"11px 14px",display:"flex",alignItems:"flex-start",cursor:"pointer",gap:8},
   cardTitle:{fontWeight:700,color:"#4A3020",fontSize:14,marginTop:4},
