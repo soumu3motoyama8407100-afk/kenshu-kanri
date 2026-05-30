@@ -636,6 +636,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
             {[fiscalYear-2,fiscalYear-1,fiscalYear].map(y=><option key={y} value={y}>{y}年度{y===fiscalYear?"（今年度）":""}</option>)}
           </select>
           {!isCurrentFY&&<span style={{fontSize:11,color:"#d97706",fontWeight:600,background:"#fef3c7",padding:"2px 8px",borderRadius:20}}>過去年度閲覧中</span>}
+          <button onClick={()=>setShowQRScan(true)} style={{padding:"4px 12px",borderRadius:8,background:"#A07840",color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:600}}>📷 QR読取</button>
         </div>
         <div style={S.tabBar}>
           {[["score","🏅 実績"],["internal","🏢 内部研修"],["external","🌐 外部研修"],["video","▶ 動画"],...(isManager?[["mgr","📋 部署管理"]]:[])]
