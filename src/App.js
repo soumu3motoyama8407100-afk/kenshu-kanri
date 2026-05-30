@@ -1312,21 +1312,14 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
             🏢 {dept}（{employees.filter(e=>e.dept===dept&&e.isActive!==false).length}名）
           </div>
           {employees.filter(e=>e.dept===dept&&e.isActive!==false).map(emp=>(
-            <div key={emp.id} style={{...S.card,padding:"10px 14px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div style={{flex:1}}>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <span style={{fontWeight:700,color:"#4A3020"}}>{emp.name}</span>
-                  {emp.isManager&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,background:"#fef3c7",color:"#92400e"}}>🏢 部署長</span>}
-                  <span style={{fontSize:11,color:"#6b7280"}}>{emp.id} / {emp.password}</span>
-                </div>
-                <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>
-                  {emp.joinDate&&`入社:${emp.joinDate}　`}
-                  {(emp.qualifications||[]).length>0&&`資格:${emp.qualifications.join("・")}`}
-                </div>
+            <div key={emp.id} style={{...S.card,padding:"8px 14px",marginBottom:4,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}>
+                <span style={{fontWeight:700,color:"#4A3020",fontSize:14}}>{emp.name}</span>
+                {emp.isManager&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,background:"#fef3c7",color:"#92400e",flexShrink:0}}>🏢 {emp.roleTitle||"部署長"}</span>}
               </div>
-              <div style={{display:"flex",gap:6}}>
+              <div style={{display:"flex",gap:6,flexShrink:0}}>
                 <button style={S.qrBtn} onClick={()=>setEditEmp({...emp,qualifications:(emp.qualifications||[]).join(","),certTrainings:(emp.certTrainings||[]).join(",")})}>編集</button>
-                <button style={{...S.qrBtn,background:"#fef3c7",borderColor:"#fcd34d",color:"#92400e"}} onClick={async()=>{if(window.confirm(`${emp.name}さんを退職者にしますか？ログインできなくなります。`)){await db.setEmployeeActive(emp.id,false);setEmployees(p=>p.map(e=>e.id===emp.id?{...e,isActive:false}:e));}}}>退職</button>
+                <button style={{...S.qrBtn,background:"#fef3c7",borderColor:"#fcd34d",color:"#92400e"}} onClick={async()=>{if(window.confirm(`${emp.name}さんを退職者にしますか？`)){await db.setEmployeeActive(emp.id,false);setEmployees(p=>p.map(e=>e.id===emp.id?{...e,isActive:false}:e));}}}>退職</button>
               </div>
             </div>
           ))}
