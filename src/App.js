@@ -41,15 +41,19 @@ const makeAttendUrl = tid => `${window.location.href.split("?")[0]}?attend=${tid
 const db = {
   async getEmployees() {
     const {data} = await supabase.from("employees").select("*").order("sort_order").order("id");
-    return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept,joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false}));
+    return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept,joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false,isActive:r.is_active!==false}));
   },
   async upsertEmployee(emp) {
     await supabase.from("employees").upsert({
       id:emp.id,password:emp.password,name:emp.name,dept:emp.dept,
       join_date:emp.joinDate||null,qualifications:emp.qualifications||[],
       cert_trainings:emp.certTrainings||[],is_manager:emp.isManager||false,
+      is_active:emp.isActive!==false,
       updated_at:new Date().toISOString()
     },{onConflict:"id"});
+  },
+  async setEmployeeActive(id,isActive) {
+    await supabase.from("employees").update({is_active:isActive,updated_at:new Date().toISOString()}).eq("id",id);
   },
   async deleteEmployee(id) { await supabase.from("employees").delete().eq("id",id); },
   async getIStatuses() {
@@ -248,7 +252,10 @@ function LoginCard({title,icon,accentColor,pendingAttend,internals,employees,onL
     if(id===ADMIN.id&&pw===ADMIN.password){onLogin(ADMIN.id,true);return;}
     if(employees){
       const emp=employees.find(e=>e.id===id&&e.password===pw);
-      if(emp){onLogin(emp.id,false,emp.isManager||false,emp.dept);return;}
+      if(emp){
+        if(emp.isActive===false){setErr("このアカウントは無効です。管理者にお問い合わせください。");return;}
+        onLogin(emp.id,false,emp.isManager||false,emp.dept);return;
+      }
     }
     setErr("IDまたはパスワードが正しくありません");
   };
@@ -1159,14 +1166,17 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
       {importMsg&&<div style={{padding:"8px 14px",background:"#f0fdf4",border:"1px solid #86efac",borderRadius:8,color:"#15803d",marginBottom:12,fontSize:13}}>{importMsg}</div>}
       {showAdd&&<EmpForm data={newE} onChange={setNewE} onSave={saveEmp} onCancel={()=>setShowAdd(false)} isEdit={false}/>}
       {editEmp&&<EmpForm data={editEmp} onChange={d=>setEditEmp(d)} onSave={saveEmp} onCancel={()=>setEditEmp(null)} isEdit={true}/>}
-      <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>登録済み職員：{employees.length}名　（うち部署長：{employees.filter(e=>e.isManager).length}名）</div>
-      {employees.length===0&&<div style={S.empty}>職員が登録されていません。CSVインポートまたは手動で追加してください。</div>}
-      {[...new Set(employees.map(e=>e.dept))].map(dept=>(
+      {/* 在籍職員 */}
+      {(()=>{const active=employees.filter(e=>e.isActive!==false);return(
+        <div style={{marginBottom:8,fontSize:12,color:"#6b7280"}}>在籍職員：{active.length}名　退職者：{employees.filter(e=>e.isActive===false).length}名</div>
+      );})()}
+      {employees.filter(e=>e.isActive!==false).length===0&&<div style={S.empty}>職員が登録されていません。CSVインポートまたは手動で追加してください。</div>}
+      {[...new Set(employees.filter(e=>e.isActive!==false).map(e=>e.dept))].map(dept=>(
         <div key={dept} style={{marginBottom:16}}>
           <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"6px 12px",background:"#FDF6EC",borderRadius:8,marginBottom:6,border:"1px solid #E8D5B0"}}>
-            🏢 {dept}（{employees.filter(e=>e.dept===dept).length}名）
+            🏢 {dept}（{employees.filter(e=>e.dept===dept&&e.isActive!==false).length}名）
           </div>
-          {employees.filter(e=>e.dept===dept).map(emp=>(
+          {employees.filter(e=>e.dept===dept&&e.isActive!==false).map(emp=>(
             <div key={emp.id} style={{...S.card,padding:"10px 14px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <div style={{flex:1}}>
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -1181,12 +1191,34 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
               </div>
               <div style={{display:"flex",gap:6}}>
                 <button style={S.qrBtn} onClick={()=>setEditEmp({...emp,qualifications:(emp.qualifications||[]).join(","),certTrainings:(emp.certTrainings||[]).join(",")})}>編集</button>
+                <button style={{...S.qrBtn,background:"#fef3c7",borderColor:"#fcd34d",color:"#92400e"}} onClick={async()=>{if(window.confirm(`${emp.name}さんを退職者にしますか？ログインできなくなります。`)){await db.setEmployeeActive(emp.id,false);setEmployees(p=>p.map(e=>e.id===emp.id?{...e,isActive:false}:e));}}}>退職</button>
                 <button style={S.delBtn} onClick={()=>delEmp(emp.id)}>削除</button>
               </div>
             </div>
           ))}
         </div>
       ))}
+      {/* 退職者セクション */}
+      {employees.some(e=>e.isActive===false)&&(
+        <div style={{marginTop:16}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#6b7280",padding:"6px 12px",background:"#f3f4f6",borderRadius:8,marginBottom:6,border:"1px solid #e5e7eb"}}>
+            🚪 退職者（{employees.filter(e=>e.isActive===false).length}名）─ ログイン不可
+          </div>
+          {employees.filter(e=>e.isActive===false).map(emp=>(
+            <div key={emp.id} style={{...S.card,padding:"10px 14px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center",opacity:0.6}}>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontWeight:700,color:"#6b7280",textDecoration:"line-through"}}>{emp.name}</span>
+                  <span style={{fontSize:11,background:"#f3f4f6",color:"#9ca3af",borderRadius:10,padding:"1px 8px"}}>退職</span>
+                  <span style={{fontSize:11,color:"#9ca3af"}}>{emp.id}</span>
+                </div>
+                <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>{emp.dept}</div>
+              </div>
+              <button style={{...S.qrBtn,fontSize:11}} onClick={async()=>{if(window.confirm(`${emp.name}さんを在籍に戻しますか？`)){await db.setEmployeeActive(emp.id,true);setEmployees(p=>p.map(e=>e.id===emp.id?{...e,isActive:true}:e));}}}>在籍に戻す</button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
