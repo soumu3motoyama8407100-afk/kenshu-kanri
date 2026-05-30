@@ -785,10 +785,14 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
                         return(
                           <td key={t.id} style={{...S.td,minWidth:140}}>
                             <div style={{height:4,background:"#e5e7eb",borderRadius:2,overflow:"hidden",marginBottom:4}}><div style={{height:"100%",width:`${Math.round(done/3*100)}%`,background:bc,borderRadius:2}}/></div>
-                            <div style={{display:"flex",gap:3,alignItems:"center"}}>
+                            <div style={{display:"flex",gap:3,alignItems:"center",flexWrap:"wrap"}}>
                               {[["参/動",d1,"#16a34a"],["復命書",d2,"#2563eb"],["確認",d3,"#7c3aed"]].map(([l,ok,c])=>(
                                 <span key={l} style={{fontSize:9,padding:"1px 4px",borderRadius:4,background:ok?c:"#f3f4f6",color:ok?"#fff":"#9ca3af",fontWeight:ok?700:400}}>{l}</span>
                               ))}
+                              {!d1&&<button style={{fontSize:9,padding:"2px 6px",borderRadius:4,border:"1px solid #16a34a",background:"#f0fdf4",color:"#15803d",cursor:"pointer",marginLeft:2,fontWeight:600}}
+                                onClick={()=>setIS(emp.id,t.id,"attendance","参加済")}>参加✓</button>}
+                              {s.attendance==="参加済"&&<button style={{fontSize:9,padding:"2px 6px",borderRadius:4,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#9ca3af",cursor:"pointer",fontWeight:600}}
+                                onClick={()=>setIS(emp.id,t.id,"attendance","未参加")}>取消</button>}
                               {d2&&!d3&&<button style={{fontSize:9,padding:"2px 6px",borderRadius:4,border:"1px solid #C89A55",background:"#FDF6EC",color:"#A07840",cursor:"pointer",marginLeft:2,fontWeight:600}}
                                 onClick={()=>setIS(emp.id,t.id,"reportConfirmed",true)}>確認✓</button>}
                             </div>
