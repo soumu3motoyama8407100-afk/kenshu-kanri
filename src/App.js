@@ -1050,6 +1050,64 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
   );
 }
 
+function EmpForm({data,onChange,onSave,onCancel,isEdit,allEmployees}){
+  return(
+    <div style={S.formBox}>
+      <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>{isEdit?"職員情報を編集":"新しい職員を追加"}</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+        {[{key:"id",label:"職員ID",ph:"E001"},{key:"password",label:"パスワード",ph:"pass001"},{key:"name",label:"氏名",ph:"山田 太郎"},{key:"dept",label:"部署",ph:"総務部"},{key:"joinDate",label:"入社年月日",type:"date"},{key:"qualifications",label:"保有資格（カンマ区切り）",ph:"社会福祉士,介護福祉士"}].map(f=>(
+          <div key={f.key}>
+            <label style={S.label}>{f.label}</label>
+            <input type={f.type||"text"} style={S.input} placeholder={f.ph||""} value={data[f.key]||""}
+              disabled={isEdit&&f.key==="id"}
+              onChange={e=>onChange({...data,[f.key]:e.target.value})}/>
+          </div>
+        ))}
+      </div>
+      <div style={{marginBottom:10}}>
+        <label style={S.label}>受講済み認定研修（カンマ区切り）</label>
+        <input style={S.input} placeholder="認知症ケア専門士,実務者研修修了" value={data.certTrainings||""} onChange={e=>onChange({...data,certTrainings:e.target.value})}/>
+      </div>
+      <div style={{marginBottom:14}}>
+        <label style={{...S.label,display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+          <input type="checkbox" checked={data.isManager||false} onChange={e=>onChange({...data,isManager:e.target.checked})} style={{width:16,height:16,accentColor:"#C89A55"}}/>
+          🏢 この職員を部署長にする（自部署の進捗確認・復命書確認が可能）
+        </label>
+      </div>
+      {data.isManager&&(
+        <div style={{marginBottom:10}}>
+          <label style={S.label}>役職名（例：副主任・管理者・主任）</label>
+          <input style={S.input} placeholder="例: 副主任" value={data.roleTitle||""} onChange={e=>onChange({...data,roleTitle:e.target.value})}/>
+        </div>
+      )}
+      {data.isManager&&(
+        <div style={{marginBottom:14,padding:"12px",background:"#fffbeb",borderRadius:10,border:"1px solid #fcd34d"}}>
+          <div style={{fontSize:12,fontWeight:600,color:"#92400e",marginBottom:8}}>📋 管理対象部署（複数選択可・未選択は自部署のみ）</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {[...new Set((allEmployees||[]).map(e=>e.dept).filter(Boolean))].sort().map(dept=>{
+              const selected=(data.managedDepts||[]).includes(dept);
+              return(
+                <button key={dept} type="button"
+                  onClick={()=>{const cur=data.managedDepts||[];onChange({...data,managedDepts:selected?cur.filter(d=>d!==dept):[...cur,dept]});}}
+                  style={{padding:"4px 12px",borderRadius:16,border:"1.5px solid",borderColor:selected?"#d97706":"#e5e7eb",background:selected?"#fef3c7":"#fff",color:selected?"#92400e":"#374151",fontSize:12,fontWeight:selected?700:400,cursor:"pointer"}}>
+                  {dept}
+                </button>
+              );
+            })}
+          </div>
+          {(data.managedDepts||[]).length>0&&(
+            <div style={{marginTop:8,fontSize:11,color:"#92400e"}}>選択中: {(data.managedDepts||[]).join("・")}</div>
+          )}
+        </div>
+      )}
+      <div style={{display:"flex",gap:8}}>
+        <button style={{...S.btn,flex:1}} onClick={()=>onSave(data)}>保存する</button>
+        <button style={{...S.btn,flex:1,background:"#6b7280"}} onClick={onCancel}>キャンセル</button>
+      </div>
+    </div>
+  );
+}
+
 function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externals,fiscalYear}){
   const [showAdd,setShowAdd]=useState(false);
   const [editEmp,setEditEmp]=useState(null);
@@ -1159,61 +1217,6 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
     URL.revokeObjectURL(url);
   };
 
-  const EmpForm=({data,onChange,onSave,onCancel,isEdit})=>(
-    <div style={S.formBox}>
-      <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>{isEdit?"職員情報を編集":"新しい職員を追加"}</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
-        {[{key:"id",label:"職員ID",ph:"E001"},{key:"password",label:"パスワード",ph:"pass001"},{key:"name",label:"氏名",ph:"山田 太郎"},{key:"dept",label:"部署",ph:"総務部"},{key:"joinDate",label:"入社年月日",type:"date"},{key:"qualifications",label:"保有資格（カンマ区切り）",ph:"社会福祉士,介護福祉士"}].map(f=>(
-          <div key={f.key}>
-            <label style={S.label}>{f.label}</label>
-            <input type={f.type||"text"} style={S.input} placeholder={f.ph||""} value={data[f.key]||""}
-              disabled={isEdit&&f.key==="id"}
-              onChange={e=>onChange({...data,[f.key]:e.target.value})}/>
-          </div>
-        ))}
-      </div>
-      <div style={{marginBottom:10}}>
-        <label style={S.label}>受講済み認定研修（カンマ区切り）</label>
-        <input style={S.input} placeholder="認知症ケア専門士,実務者研修修了" value={data.certTrainings||""} onChange={e=>onChange({...data,certTrainings:e.target.value})}/>
-      </div>
-      <div style={{marginBottom:14}}>
-        <label style={{...S.label,display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
-          <input type="checkbox" checked={data.isManager||false} onChange={e=>onChange({...data,isManager:e.target.checked})} style={{width:16,height:16,accentColor:"#C89A55"}}/>
-          🏢 この職員を部署長にする（自部署の進捗確認・復命書確認が可能）
-        </label>
-      </div>
-      {data.isManager&&(
-        <div style={{marginBottom:10}}>
-          <label style={S.label}>役職名（例：副主任・管理者・主任）</label>
-          <input style={S.input} placeholder="例: 副主任" value={data.roleTitle||""} onChange={e=>onChange({...data,roleTitle:e.target.value})}/>
-        </div>
-      )}
-      {data.isManager&&(
-        <div style={{marginBottom:14,padding:"12px",background:"#fffbeb",borderRadius:10,border:"1px solid #fcd34d"}}>
-          <div style={{fontSize:12,fontWeight:600,color:"#92400e",marginBottom:8}}>📋 管理対象部署（複数選択可・未選択は自部署のみ）</div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-            {[...new Set(employees.map(e=>e.dept).filter(Boolean))].sort().map(dept=>{
-              const selected=(data.managedDepts||[]).includes(dept);
-              return(
-                <button key={dept} type="button"
-                  onClick={()=>{const cur=data.managedDepts||[];onChange({...data,managedDepts:selected?cur.filter(d=>d!==dept):[...cur,dept]});}}
-                  style={{padding:"4px 12px",borderRadius:16,border:"1.5px solid",borderColor:selected?"#d97706":"#e5e7eb",background:selected?"#fef3c7":"#fff",color:selected?"#92400e":"#374151",fontSize:12,fontWeight:selected?700:400,cursor:"pointer"}}>
-                  {dept}
-                </button>
-              );
-            })}
-          </div>
-          {(data.managedDepts||[]).length>0&&(
-            <div style={{marginTop:8,fontSize:11,color:"#92400e"}}>選択中: {(data.managedDepts||[]).join("・")}</div>
-          )}
-        </div>
-      )}
-      <div style={{display:"flex",gap:8}}>
-        <button style={{...S.btn,flex:1}} onClick={()=>onSave(data)}>保存する</button>
-        <button style={{...S.btn,flex:1,background:"#6b7280"}} onClick={onCancel}>キャンセル</button>
-      </div>
-    </div>
-  );
 
   return(
     <div style={{padding:4}}>
@@ -1226,8 +1229,8 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
         <button style={{...S.btn,width:"auto",padding:"8px 16px",background:"#7c3aed"}} onClick={exportHTML}>📊 研修履歴出力</button>
       </div>
       {importMsg&&<div style={{padding:"8px 14px",background:"#f0fdf4",border:"1px solid #86efac",borderRadius:8,color:"#15803d",marginBottom:12,fontSize:13}}>{importMsg}</div>}
-      {showAdd&&<EmpForm data={newE} onChange={setNewE} onSave={saveEmp} onCancel={()=>setShowAdd(false)} isEdit={false}/>}
-      {editEmp&&<EmpForm data={editEmp} onChange={d=>setEditEmp(d)} onSave={saveEmp} onCancel={()=>setEditEmp(null)} isEdit={true}/>}
+      {showAdd&&<EmpForm data={newE} onChange={setNewE} onSave={saveEmp} onCancel={()=>setShowAdd(false)} isEdit={false} allEmployees={employees}/>}
+      {editEmp&&<EmpForm data={editEmp} onChange={d=>setEditEmp(d)} onSave={saveEmp} onCancel={()=>setEditEmp(null)} isEdit={true} allEmployees={employees}/>}
       {/* 在籍職員 */}
       {(()=>{const active=employees.filter(e=>e.isActive!==false);return(
         <div style={{marginBottom:8,fontSize:12,color:"#6b7280"}}>在籍職員：{active.length}名　退職者：{employees.filter(e=>e.isActive===false).length}名</div>
