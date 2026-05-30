@@ -223,15 +223,21 @@ export default function App() {
       getCount={getCount} onLogout={handleLogout}/>
   );
 
-  if(session.isManager) return(
-    <ManagerScreen
-      dept={session.dept}
-      employees={employees.filter(e=>e.dept===session.dept)}
-      internals={internals} getIS={getIS} setIS={setIS}
-      externals={externals} getXS={getXS} setXS={setXS}
-      fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}
-      onLogout={handleLogout}/>
-  );
+  if(session.isManager){
+    const mgr=employees.find(e=>e.id===session.empId);
+    if(!mgr){handleLogout();return null;}
+    return(
+      <EmployeeScreen emp={mgr}
+        internals={internals} getIS={getIS} setIS={setIS}
+        externals={externals} getXS={getXS} setXS={setXS}
+        fiscalYear={fiscalYear} getCount={getCount}
+        onLogout={handleLogout}
+        isManager={true}
+        deptEmployees={employees.filter(e=>e.dept===session.dept)}
+        allInternals={internals} allExternals={externals}
+        setFiscalYear={setFiscalYear}/>
+    );
+  }
 
   const emp=employees.find(e=>e.id===session.empId);
   if(!emp){ handleLogout(); return null; }
@@ -581,7 +587,7 @@ function QRScanModal({onScan,onClose}){
   );
 }
 
-function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalYear,getCount,onLogout}){
+function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalYear,getCount,onLogout,isManager,deptEmployees,setFiscalYear}){
   const [tab,setTab]=useState("score");
   const [videoT,setVideoT]=useState(null);
   const [toast,setToast]=useState(null);
@@ -626,9 +632,10 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
           {!isCurrentFY&&<span style={{fontSize:11,color:"#d97706",fontWeight:600,background:"#fef3c7",padding:"2px 8px",borderRadius:20}}>過去年度閲覧中</span>}
         </div>
         <div style={S.tabBar}>
-          {[["score","🏅 実績"],["internal","🏢 内部研修"],["external","🌐 外部研修"],["video","▶ 動画"]].map(([k,l])=>(
-            <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{})}} onClick={()=>setTab(k)}>{l}</button>
-          ))}
+          {[["score","🏅 実績"],["internal","🏢 内部研修"],["external","🌐 外部研修"],["video","▶ 動画"],...(isManager?[["mgr","📋 部署管理"]]:[])]
+            .map(([k,l])=>(
+              <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{}),...(k==="mgr"?{background:tab===k?"#1e3a5f":undefined,color:tab===k?"#fff":"#1e3a5f",borderColor:"#1e3a5f"}:{})}} onClick={()=>setTab(k)}>{l}</button>
+            ))}
         </div>
         <div style={S.scroll}>
           {tab==="score"&&(
@@ -682,38 +689,42 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
               onMarkWatched={(t,val)=>{ if(isCurrentFY){setIS(emp.id,t.id,"video",val);showToast(val==="視聴済"?"「視聴済」にしました":"未視聴に戻しました");} }}
               getStatus={t=>getIS(emp.id,t.id)} readonly={!isCurrentFY}/>
           )}
+          {tab==="mgr"&&isManager&&deptEmployees&&(
+            <ManagerTabContent
+              dept={emp.dept}
+              employees={deptEmployees}
+              internals={internals} getIS={getIS} setIS={setIS}
+              externals={externals} getXS={getXS} setXS={setXS}
+              fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}/>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-// ── 部署長画面 ─────────────────────────────────────────────────
-function ManagerScreen({dept,employees,internals,getIS,setIS,externals,getXS,setXS,fiscalYear,setFiscalYear,onLogout}){
+// ── 部署長コンテンツ（EmployeeScreenのタブとしても使用）─────────
+function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS,setXS,fiscalYear,setFiscalYear}){
   const [tab,setTab]=useState("iProgress");
   const fyInternals=internals.filter(t=>inFiscalYear(t.date,fiscalYear));
   const fyExternals=externals.filter(x=>inFiscalYear(x.date,fiscalYear));
   return(
-    <div style={S.page}>
-      <div style={{...S.appWrap,maxWidth:960}}>
-        <div style={S.header}>
-          <div>
-            <div style={S.headerName}>🏢 {dept} 部署長ダッシュボード</div>
-            <div style={S.headerSub}>{ORG_NAME}</div>
-          </div>
-          <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            <select value={fiscalYear} onChange={e=>setFiscalYear(Number(e.target.value))} style={{padding:"4px 8px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:12,cursor:"pointer",background:"#fff"}}>
-              {[currentFY()-1,currentFY(),currentFY()+1].map(y=><option key={y} value={y}>{y}年度</option>)}
-            </select>
-            <button style={S.logoutBtn} onClick={onLogout}>ログアウト</button>
-          </div>
-        </div>
-        <div style={S.tabBar}>
-          {[["iProgress","📊 内部研修 進捗"],["xProgress","🌐 外部研修 進捗"]].map(([k,l])=>(
-            <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{})}} onClick={()=>setTab(k)}>{l}</button>
-          ))}
-        </div>
-        <div style={{...S.scroll,maxHeight:"calc(100vh - 185px)"}}>
+    <div style={{padding:"4px 0"}}>
+      <div style={{fontSize:12,color:"#1e3a5f",fontWeight:700,marginBottom:8,padding:"6px 12px",background:"#e0f2fe",borderRadius:8}}>
+        🏢 {dept}の部署管理ダッシュボード
+      </div>
+      {setFiscalYear&&<div style={{marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
+        <span style={{fontSize:11,color:"#6b7280"}}>年度：</span>
+        <select value={fiscalYear} onChange={e=>setFiscalYear(Number(e.target.value))} style={{padding:"3px 8px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:12,cursor:"pointer"}}>
+          {[currentFY()-1,currentFY(),currentFY()+1].map(y=><option key={y} value={y}>{y}年度</option>)}
+        </select>
+      </div>}
+      <div style={{...S.tabBar,marginBottom:8}}>
+        {[["iProgress","📊 内部研修"],["xProgress","🌐 外部研修"]].map(([k,l])=>(
+          <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{})}} onClick={()=>setTab(k)}>{l}</button>
+        ))}
+      </div>
+      <div>
           {tab==="iProgress"&&(
             <div>
               <div style={{fontSize:12,color:"#A07840",fontWeight:600,marginBottom:12,padding:"8px 12px",background:"#FDF6EC",borderRadius:8}}>
@@ -785,9 +796,23 @@ function ManagerScreen({dept,employees,internals,getIS,setIS,externals,getXS,set
               })}
             </div>
           )}
-        </div>
       </div>
     </div>
+  );
+}
+
+// ── 後方互換のためManagerScreenは残す（現在は未使用）─────────────
+function ManagerScreen({dept,employees,internals,getIS,setIS,externals,getXS,setXS,fiscalYear,setFiscalYear,onLogout}){
+  return(
+    <div style={S.page}><div style={{...S.appWrap,maxWidth:960}}>
+      <div style={S.header}>
+        <div><div style={S.headerName}>🏢 {dept}</div><div style={S.headerSub}>{ORG_NAME}</div></div>
+        <button style={S.logoutBtn} onClick={onLogout}>ログアウト</button>
+      </div>
+      <div style={{padding:16}}>
+        <ManagerTabContent dept={dept} employees={employees} internals={internals} getIS={getIS} setIS={setIS} externals={externals} getXS={getXS} setXS={setXS} fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}/>
+      </div>
+    </div></div>
   );
 }
 
