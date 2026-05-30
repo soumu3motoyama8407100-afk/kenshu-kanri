@@ -194,7 +194,7 @@ export default function App() {
 
   const handleLogin=(empId,isAdmin,isManager,dept)=>{
     setSession({empId,isAdmin,isManager,dept});
-    if(pendingAttend&&!isAdmin&&!isManager){ setIS(empId,pendingAttend,"attendance","参加済"); setPendingAttend(null); }
+    if(pendingAttend&&!isAdmin){ setIS(empId,pendingAttend,"attendance","参加済"); setPendingAttend(null); }
   };
   const handleLogout=()=>setSession(null);
 
