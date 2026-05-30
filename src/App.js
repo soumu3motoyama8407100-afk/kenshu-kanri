@@ -705,6 +705,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
             :fyInternals.map(t=>(
               <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)} readonly={!isCurrentFY}
                 onReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","提出済");showToast("復命書を提出しました");} }}
+                onCancelReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","未提出");showToast("提出を取り消しました");} }}
                 onVideo={v=>{ if(isCurrentFY){setIS(emp.id,t.id,"video",v);} }}
                 onWatchVideo={()=>{setVideoT(t);setTab("video");}}/>
             ))
@@ -714,6 +715,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
               <ExternalCard key={x.id} ext={x} status={getXS(emp.id,x.id)} readonly={!isCurrentFY}
                 onAttend={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{attended:true});showToast("受講済にしました");} }}
                 onReport={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{reportSubmitted:true});showToast("復命書を提出しました");} }}
+                onCancelReport={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{reportSubmitted:false});showToast("提出を取り消しました");} }}
                 onViewPdf={()=>setPdfExt(x)}/>
             ))
           )}
@@ -898,7 +900,7 @@ function ExternalProgress({status}){
   );
 }
 
-function InternalCard({training,status,onReport,onVideo,onWatchVideo,readonly}){
+function InternalCard({training,status,onReport,onCancelReport,onVideo,onWatchVideo,readonly}){
   const [open,setOpen]=useState(false);
   const attended=status.attendance==="参加済";
   const absentFix=status.attendance==="未参加（確定）";
@@ -944,7 +946,10 @@ function InternalCard({training,status,onReport,onVideo,onWatchVideo,readonly}){
               : status.reportConfirmed
                 ? <SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 提出済（管理者確認済）</SPill>
                 : status.report==="提出済"
-                  ? <SPill color="#92400e" bg="#fffbeb" border="#fcd34d">⏳ 提出済 ─ 管理者確認待ち</SPill>
+                  ? <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                      <SPill color="#92400e" bg="#fffbeb" border="#fcd34d">⏳ 提出済 ─ 管理者確認待ち</SPill>
+                      {!readonly&&<button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"3px 10px",cursor:"pointer"}} onClick={onCancelReport}>取り消す</button>}
+                    </div>
                   : readonly
                     ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">未提出</SPill>
                     : <button style={{...S.actionBtn,background:"#2563eb"}} onClick={onReport}>復命書を提出する</button>
@@ -956,7 +961,7 @@ function InternalCard({training,status,onReport,onVideo,onWatchVideo,readonly}){
   );
 }
 
-function ExternalCard({ext,status,onAttend,onReport,onViewPdf,readonly}){
+function ExternalCard({ext,status,onAttend,onReport,onCancelReport,onViewPdf,readonly}){
   const [open,setOpen]=useState(false);
   const {attended,reportSubmitted,reportConfirmed}=status;
   return(
@@ -983,7 +988,10 @@ function ExternalCard({ext,status,onAttend,onReport,onViewPdf,readonly}){
           {attended&&<div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書</div>
             {reportConfirmed?<SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 提出済（管理者確認済）</SPill>
-              :reportSubmitted?<SPill color="#92400e" bg="#fffbeb" border="#fcd34d">⏳ 提出済 ─ 管理者確認待ち</SPill>
+              :reportSubmitted?<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                <SPill color="#92400e" bg="#fffbeb" border="#fcd34d">⏳ 提出済 ─ 管理者確認待ち</SPill>
+                {!readonly&&<button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"3px 10px",cursor:"pointer"}} onClick={onCancelReport}>取り消す</button>}
+              </div>
               :readonly?<SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">未提出</SPill>
               :<button style={{...S.actionBtn,background:"#2563eb"}} onClick={onReport}>復命書を提出する</button>}
           </div>}
