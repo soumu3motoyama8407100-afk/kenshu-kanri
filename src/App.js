@@ -9,6 +9,7 @@ const supabase = createClient(
 const ADMIN = { id:"ADMIN", password:"admin123" };
 const ORG_NAME = "社会福祉法人　ザ・ハート・クラブ";
 const LOGO_B64 = "/title-_2_-removebg-preview.png";
+const MANUAL_ENABLED = false; // trueにするとマニュアル管理が開放される
 
 const INIT_INTERNAL = [
   { id:"T001", title:"新入社員オリエンテーション", date:"2026-04-01", required:true,  videoUrl:"https://www.youtube.com/embed/dQw4w9WgXcQ", description:"会社の基本方針・規則・業務フローを学ぶ研修" },
@@ -257,9 +258,26 @@ function DualLoginScreen({pendingAttend,internals,employees,onLogin,onManualLogi
           <LoginCard title="研修管理システム" icon="📚" accentColor="#C89A55"
             pendingAttend={pendingAttend} internals={internals} employees={employees}
             onLogin={(empId,isAdmin,isManager,dept)=>onLogin(empId,isAdmin,isManager||false,dept||"")}/>
-          <LoginCard title="マニュアル管理" icon="📋" accentColor="#2f6db5"
-            pendingAttend={null} internals={[]} employees={employees}
-            onLogin={(empId,isAdmin)=>onManualLogin(empId,isAdmin)} isManual/>
+          {MANUAL_ENABLED
+            ? <LoginCard title="マニュアル管理" icon="📋" accentColor="#2f6db5"
+                pendingAttend={null} internals={[]} employees={employees}
+                onLogin={(empId,isAdmin)=>onManualLogin(empId,isAdmin)} isManual/>
+            : <div style={{width:"100%",background:"#fff",borderRadius:20,padding:"24px",boxShadow:"0 12px 40px #2f6db533",border:"1px solid #2f6db544",position:"relative",overflow:"hidden"}}>
+                <div style={{position:"absolute",top:12,right:12,background:"#f59e0b",color:"#fff",fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,letterSpacing:1}}>COMING SOON</div>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+                  <span style={{fontSize:28}}>📋</span>
+                  <div>
+                    <div style={{fontSize:16,fontWeight:800,color:"#9ca3af"}}>マニュアル管理</div>
+                    <div style={{fontSize:11,color:"#2f6db5"}}>準備中です</div>
+                  </div>
+                </div>
+                <div style={{background:"#f3f4f6",borderRadius:12,padding:"14px",textAlign:"center"}}>
+                  <div style={{fontSize:22,marginBottom:6}}>🚧</div>
+                  <div style={{fontSize:13,fontWeight:600,color:"#6b7280"}}>現在準備中です</div>
+                  <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>公開までしばらくお待ちください</div>
+                </div>
+              </div>
+          }
         </div>
         <div style={{marginTop:14,fontSize:11,color:"#9ca3af",textAlign:"center"}}>管理者: ADMIN / admin123</div>
       </div>
