@@ -802,11 +802,8 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
     return "noReq";
   };
 
-  const empList=curT?[...employees].sort((a,b)=>{
-    const order={pending:0,waitConfirm:1,noReq:2,done:3};
-    return order[getEmpStatus(a,curT)]-order[getEmpStatus(b,curT)];
-  }):[];
-
+  // 名前順で固定ソート（操作してもリストが入れ替わらないように）
+  const empList=curT?[...employees].sort((a,b)=>a.name.localeCompare(b.name,"ja")):[];
   const displayList=filterPending&&curT?empList.filter(e=>getEmpStatus(e,curT)!=="done"):empList;
 
   const reqCount=curT?employees.filter(e=>isReportRequired(e,curT)).length:0;
@@ -901,7 +898,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
                       </div>
                       <div style={{display:"flex",gap:5,flexShrink:0}}>
                         {s.attendance!=="参加済"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #16a34a",background:"#f0fdf4",color:"#15803d",cursor:"pointer",fontWeight:600}} onClick={()=>setIS(emp.id,curT.id,"attendance","参加済")}>参加✓</button>}
-                        {s.attendance==="参加済"&&status!=="done"&&!s.report!=="提出済"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#9ca3af",cursor:"pointer"}} onClick={()=>setIS(emp.id,curT.id,"attendance","未参加")}>取消</button>}
+                        {s.attendance==="参加済"&&status!=="done"&&s.report!=="提出済"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#9ca3af",cursor:"pointer"}} onClick={()=>setIS(emp.id,curT.id,"attendance","未参加")}>取消</button>}
                         {status==="waitConfirm"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #d97706",background:"#fef3c7",color:"#92400e",cursor:"pointer",fontWeight:600}} onClick={()=>setIS(emp.id,curT.id,"reportConfirmed",true)}>確認✓</button>}
                       </div>
                     </div>
@@ -1493,7 +1490,7 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
   const unreported=curT?employees.filter(e=>isReportRequired(e,curT)&&getIS(e.id,curT.id).report!=="提出済"&&!getIS(e.id,curT.id).reportConfirmed).length:0;
   const waitConfirm=curT?employees.filter(e=>{ const s=getIS(e.id,curT.id); return s.report==="提出済"&&!s.reportConfirmed; }).length:0;
 
-  const empList=curT?[...employees].sort((a,b)=>{ const o={pending:0,waitConfirm:1,noReq:2,done:3}; return o[getEmpStatus(a,curT)]-o[getEmpStatus(b,curT)]; }):[];
+  const empList=curT?[...employees].sort((a,b)=>a.name.localeCompare(b.name,"ja")):[];
   const displayList=filterPending&&curT?empList.filter(e=>getEmpStatus(e,curT)!=="done"):empList;
 
   return(
@@ -1585,6 +1582,7 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
                 </div>
                 <div style={{display:"flex",gap:5,flexShrink:0}}>
                   {s.attendance!=="参加済"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #16a34a",background:"#f0fdf4",color:"#15803d",cursor:"pointer",fontWeight:600}} onClick={()=>setIS(emp.id,curT.id,"attendance","参加済")}>参加✓</button>}
+                  {s.attendance==="参加済"&&s.report!=="提出済"&&status!=="done"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#9ca3af",cursor:"pointer"}} onClick={()=>setIS(emp.id,curT.id,"attendance","未参加")}>取消</button>}
                   {status==="waitConfirm"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #d97706",background:"#fef3c7",color:"#92400e",cursor:"pointer",fontWeight:600}} onClick={()=>setIS(emp.id,curT.id,"reportConfirmed",true)}>確認✓</button>}
                 </div>
               </div>
