@@ -783,7 +783,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
   // 復命書必須の職員かどうか判定
   const isReportRequired=(emp,t)=>{
     const s=getIS(emp.id,t.id);
-    return t.required||s.attendance==="参加済";
+    return (t.requiredEmpIds||[]).includes(emp.id)||s.attendance==="参加済";
   };
 
   // 未提出バッジ数（復命書必須なのに未提出）
