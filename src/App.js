@@ -41,14 +41,14 @@ const makeAttendUrl = tid => `${window.location.href.split("?")[0]}?attend=${tid
 const db = {
   async getEmployees() {
     const {data} = await supabase.from("employees").select("*").order("sort_order").order("id");
-    return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept,joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false,isActive:r.is_active!==false,managedDepts:r.managed_depts||[],roleTitle:r.role_title||""}));
+    return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept,joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false,isActive:r.is_active!==false,managedDepts:r.managed_depts||[],roleTitle:r.role_title||"",retireDate:r.retire_date||""}));
   },
   async upsertEmployee(emp) {
     await supabase.from("employees").upsert({
       id:emp.id,password:emp.password,name:emp.name,dept:emp.dept,
       join_date:emp.joinDate||null,qualifications:emp.qualifications||[],
       cert_trainings:emp.certTrainings||[],is_manager:emp.isManager||false,
-      is_active:emp.isActive!==false,managed_depts:emp.managedDepts||[],role_title:emp.roleTitle||"",
+      is_active:emp.isActive!==false,managed_depts:emp.managedDepts||[],role_title:emp.roleTitle||"",retire_date:emp.retireDate||null,
       updated_at:new Date().toISOString()
     },{onConflict:"id"});
   },
@@ -287,7 +287,7 @@ function LoginCard({title,icon,accentColor,pendingAttend,internals,employees,onL
     if(employees){
       const emp=employees.find(e=>e.id===id&&e.password===pw);
       if(emp){
-        if(emp.isActive===false){setErr("このアカウントは無効です。管理者にお問い合わせください。");return;}
+        if(emp.isActive===false||(emp.retireDate&&new Date(emp.retireDate)<=new Date())){setErr("このアカウントは無効です。管理者にお問い合わせください。");return;}
         onLogin(emp.id,false,emp.isManager||false,emp.dept);return;
       }
     }
@@ -1185,7 +1185,7 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
           {tab==="iManage"   &&<InternalManageTab internals={internals} setInternals={setInternals} deleteInternal={deleteInternal} employees={employees}/>}
           {tab==="xProgress" &&<ExternalProgressTab employees={employees} externals={externals} getXS={getXS} setXS={setXS} fiscalYear={fiscalYear}/>}
           {tab==="xManage"   &&<ExternalManageTab employees={employees} externals={externals} setExternals={setExternals} deleteExternal={deleteExternal}/>}
-          {tab==="empManage" &&<EmployeeManageTab employees={employees} setEmployees={setEmployees} internals={internals} getIS={getIS} getXS={getXS} externals={externals} fiscalYear={fiscalYear}/>}
+          {tab==="empManage" &&<EmployeeManageTab employees={employees} setEmployees={setEmployees} internals={internals} getIS={getIS} getXS={getXS} externals={externals} fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}/>}
         </div>
       </div>
     </div>
@@ -1209,6 +1209,11 @@ function EmpForm({data,onChange,onSave,onCancel,isEdit,allEmployees}){
       <div style={{marginBottom:10}}>
         <label style={S.label}>受講済み認定研修（カンマ区切り）</label>
         <input style={S.input} placeholder="認知症ケア専門士,実務者研修修了" value={data.certTrainings||""} onChange={e=>onChange({...data,certTrainings:e.target.value})}/>
+      </div>
+      <div style={{marginBottom:10}}>
+        <label style={S.label}>退職日（入力すると退職日以降ログイン不可）</label>
+        <input type="date" style={S.input} value={data.retireDate||""} onChange={e=>onChange({...data,retireDate:e.target.value})}/>
+        {data.retireDate&&<div style={{fontSize:11,color:"#d97706",marginTop:4}}>⚠ {data.retireDate} 以降ログインできなくなります</div>}
       </div>
       <div style={{marginBottom:14}}>
         <label style={{...S.label,display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
@@ -1250,7 +1255,15 @@ function EmpForm({data,onChange,onSave,onCancel,isEdit,allEmployees}){
   );
 }
 
-function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externals,fiscalYear}){
+function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externals,fiscalYear,setFiscalYear}){
+  // 年度の開始・終了日
+  const fyStart=new Date(fiscalYear,3,1); // 4月1日
+  const fyEnd=new Date(fiscalYear+1,2,31,23,59,59); // 翌3月31日
+
+  // 在籍中：退職日なし or 退職日が年度終了より後
+  const activeEmps=employees.filter(e=>!e.retireDate||new Date(e.retireDate)>fyEnd);
+  // 今年度退職者：退職日が年度内
+  const retiredThisYearEmps=employees.filter(e=>e.retireDate&&new Date(e.retireDate)>=fyStart&&new Date(e.retireDate)<=fyEnd);
   const [showAdd,setShowAdd]=useState(false);
   const [editEmp,setEditEmp]=useState(null);
   const [newE,setNewE]=useState({id:"",password:"",name:"",dept:"",joinDate:"",qualifications:"",certTrainings:"",isManager:false});
@@ -1266,6 +1279,7 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
       roleTitle:emp.roleTitle||"",
       managedDepts:emp.managedDepts||[],
       isActive:emp.isActive!==false,
+      retireDate:emp.retireDate||"",
     };
     if(!e.id||!e.password||!e.name||!e.dept)return;
     await db.upsertEmployee(e);
@@ -1376,47 +1390,48 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
       {importMsg&&<div style={{padding:"8px 14px",background:"#f0fdf4",border:"1px solid #86efac",borderRadius:8,color:"#15803d",marginBottom:12,fontSize:13}}>{importMsg}</div>}
       {showAdd&&<EmpForm data={newE} onChange={setNewE} onSave={saveEmp} onCancel={()=>setShowAdd(false)} isEdit={false} allEmployees={employees}/>}
       {editEmp&&<EmpForm data={editEmp} onChange={d=>setEditEmp(d)} onSave={saveEmp} onCancel={()=>setEditEmp(null)} isEdit={true} allEmployees={employees}/>}
+      {/* 年度切り替え */}
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+        <span style={{fontSize:12,color:"#6b7280"}}>表示年度：</span>
+        <select value={fiscalYear} onChange={e=>setFiscalYear&&setFiscalYear(Number(e.target.value))} style={{padding:"3px 8px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:12,cursor:"pointer"}}>
+          {[currentFY()-2,currentFY()-1,currentFY(),currentFY()+1].map(y=><option key={y} value={y}>{y}年度{y===currentFY()?"（今年度）":""}</option>)}
+        </select>
+        <span style={{fontSize:11,color:"#6b7280"}}>在籍：{activeEmps.length}名　今年度退職：{retiredThisYearEmps.length}名</span>
+      </div>
+
       {/* 在籍職員 */}
-      {(()=>{const active=employees.filter(e=>e.isActive!==false);return(
-        <div style={{marginBottom:8,fontSize:12,color:"#6b7280"}}>在籍職員：{active.length}名　退職者：{employees.filter(e=>e.isActive===false).length}名</div>
-      );})()}
-      {employees.filter(e=>e.isActive!==false).length===0&&<div style={S.empty}>職員が登録されていません。CSVインポートまたは手動で追加してください。</div>}
-      {[...new Set(employees.filter(e=>e.isActive!==false).map(e=>e.dept))].map(dept=>(
+      {activeEmps.length===0&&<div style={S.empty}>職員が登録されていません。</div>}
+      {[...new Set(activeEmps.map(e=>e.dept))].map(dept=>(
         <div key={dept} style={{marginBottom:16}}>
           <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"6px 12px",background:"#FDF6EC",borderRadius:8,marginBottom:6,border:"1px solid #E8D5B0"}}>
-            🏢 {dept}（{employees.filter(e=>e.dept===dept&&e.isActive!==false).length}名）
+            🏢 {dept}（{activeEmps.filter(e=>e.dept===dept).length}名）
           </div>
-          {employees.filter(e=>e.dept===dept&&e.isActive!==false).map(emp=>(
+          {activeEmps.filter(e=>e.dept===dept).map(emp=>(
             <div key={emp.id} style={{...S.card,padding:"8px 14px",marginBottom:4,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}>
                 <span style={{fontWeight:700,color:"#4A3020",fontSize:14}}>{emp.name}</span>
                 {emp.isManager&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,background:"#fef3c7",color:"#92400e",flexShrink:0}}>🏢 {emp.roleTitle||"部署長"}</span>}
               </div>
-              <div style={{display:"flex",gap:6,flexShrink:0}}>
-                <button style={S.qrBtn} onClick={()=>setEditEmp({...emp,qualifications:(emp.qualifications||[]).join(","),certTrainings:(emp.certTrainings||[]).join(",")})}>編集</button>
-                <button style={{...S.qrBtn,background:"#fef3c7",borderColor:"#fcd34d",color:"#92400e"}} onClick={async()=>{if(window.confirm(`${emp.name}さんを退職者にしますか？`)){await db.setEmployeeActive(emp.id,false);setEmployees(p=>p.map(e=>e.id===emp.id?{...e,isActive:false}:e));}}}>退職</button>
-              </div>
+              <button style={S.qrBtn} onClick={()=>setEditEmp({...emp,qualifications:(emp.qualifications||[]).join(","),certTrainings:(emp.certTrainings||[]).join(",")})}>編集</button>
             </div>
           ))}
         </div>
       ))}
-      {/* 退職者セクション */}
-      {employees.some(e=>e.isActive===false)&&(
+
+      {/* 今年度退職者 */}
+      {retiredThisYearEmps.length>0&&(
         <div style={{marginTop:16}}>
           <div style={{fontSize:13,fontWeight:700,color:"#6b7280",padding:"6px 12px",background:"#f3f4f6",borderRadius:8,marginBottom:6,border:"1px solid #e5e7eb"}}>
-            🚪 退職者（{employees.filter(e=>e.isActive===false).length}名）─ ログイン不可
+            🚪 {fiscalYear}年度退職者（{retiredThisYearEmps.length}名）
           </div>
-          {employees.filter(e=>e.isActive===false).map(emp=>(
-            <div key={emp.id} style={{...S.card,padding:"10px 14px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center",opacity:0.6}}>
-              <div style={{flex:1}}>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <span style={{fontWeight:700,color:"#6b7280",textDecoration:"line-through"}}>{emp.name}</span>
-                  <span style={{fontSize:11,background:"#f3f4f6",color:"#9ca3af",borderRadius:10,padding:"1px 8px"}}>退職</span>
-                  <span style={{fontSize:11,color:"#9ca3af"}}>{emp.id}</span>
-                </div>
-                <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>{emp.dept}</div>
+          {retiredThisYearEmps.map(emp=>(
+            <div key={emp.id} style={{...S.card,padding:"8px 14px",marginBottom:4,display:"flex",justifyContent:"space-between",alignItems:"center",opacity:0.6}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0,flexWrap:"wrap"}}>
+                <span style={{fontWeight:700,color:"#6b7280",fontSize:14,textDecoration:"line-through"}}>{emp.name}</span>
+                <span style={{fontSize:11,color:"#9ca3af"}}>{emp.dept}</span>
+                <span style={{fontSize:11,background:"#f3f4f6",color:"#9ca3af",borderRadius:10,padding:"1px 8px"}}>退職 {emp.retireDate}</span>
               </div>
-              <button style={{...S.qrBtn,fontSize:11}} onClick={async()=>{if(window.confirm(`${emp.name}さんを在籍に戻しますか？`)){await db.setEmployeeActive(emp.id,true);setEmployees(p=>p.map(e=>e.id===emp.id?{...e,isActive:true}:e));}}}>在籍に戻す</button>
+              <button style={S.qrBtn} onClick={()=>setEditEmp({...emp,qualifications:(emp.qualifications||[]).join(","),certTrainings:(emp.certTrainings||[]).join(",")})}>編集</button>
             </div>
           ))}
         </div>
