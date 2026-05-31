@@ -77,12 +77,12 @@ const db = {
   async getInternals() {
     const {data} = await supabase.from("internals").select("*").order("date");
     if(!data||data.length===0){await db.seedInternals();return INIT_INTERNAL;}
-    return data.map(r=>({id:r.id,title:r.title,date:r.date,required:r.required,videoUrl:r.video_url,description:r.description}));
+    return data.map(r=>({id:r.id,title:r.title,date:r.date,required:r.required,requiredEmpIds:r.required_emp_ids||[],videoUrl:r.video_url,description:r.description}));
   },
   async seedInternals() {
     for(const t of INIT_INTERNAL) await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,required:t.required,video_url:t.videoUrl,description:t.description},{onConflict:"id"});
   },
-  async upsertInternal(t) { await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,required:t.required,video_url:t.videoUrl,description:t.description},{onConflict:"id"}); },
+  async upsertInternal(t) { await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,required:t.required,required_emp_ids:t.requiredEmpIds||[],video_url:t.videoUrl,description:t.description},{onConflict:"id"}); },
   async deleteInternal(id) { await supabase.from("internals").delete().eq("id",id); },
   async getExternals() {
     const {data} = await supabase.from("externals").select("*").order("date");
@@ -731,7 +731,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
           {tab==="internal"&&(fyInternals.length===0?<div style={S.empty}>{viewFY}年度の内部研修はありません</div>
             :<div className="app-content-grid">
             {fyInternals.map(t=>(
-              <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)} readonly={!isCurrentFY}
+              <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)} empId={emp.id} readonly={!isCurrentFY}
                 onReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","提出済");showToast("復命書を提出しました");} }}
                 onCancelReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","未提出");showToast("提出を取り消しました");} }}
                 onVideo={v=>{ if(isCurrentFY){setIS(emp.id,t.id,"video",v);} }}
@@ -1007,7 +1007,7 @@ function ExternalProgress({status}){
   );
 }
 
-function InternalCard({training,status,onReport,onCancelReport,onVideo,onWatchVideo,readonly}){
+function InternalCard({training,status,empId,onReport,onCancelReport,onVideo,onWatchVideo,readonly}){
   const [open,setOpen]=useState(false);
   const attended=status.attendance==="参加済";
   const absentFix=status.attendance==="未参加（確定）";
@@ -1015,7 +1015,7 @@ function InternalCard({training,status,onReport,onCancelReport,onVideo,onWatchVi
   // 復命書にアクセスできる条件：参加済み OR 動画視聴済み
   const canAccessReport=attended||status.video==="視聴済";
   // 復命書必須の表示条件：training.required=true OR 参加済み
-  const showReqBadge=training.required||attended;
+  const showReqBadge=(training.requiredEmpIds||[]).includes(empId)||attended||canAccessReport;
   return(
     <div style={S.card}>
       <div style={S.cardHead} onClick={()=>setOpen(!open)}>
@@ -1182,7 +1182,7 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
         <div style={{...S.scroll,maxHeight:"calc(100vh - 185px)"}}>
           {tab==="ranking"   &&<RankingTab employees={employees} fiscalYear={fiscalYear} getCount={getCount}/>}
           {tab==="iProgress" &&<InternalProgressTab employees={employees} internals={internals} getIS={getIS} setIS={setIS} onQR={setQrT} fiscalYear={fiscalYear}/>}
-          {tab==="iManage"   &&<InternalManageTab internals={internals} setInternals={setInternals} deleteInternal={deleteInternal}/>}
+          {tab==="iManage"   &&<InternalManageTab internals={internals} setInternals={setInternals} deleteInternal={deleteInternal} employees={employees}/>}
           {tab==="xProgress" &&<ExternalProgressTab employees={employees} externals={externals} getXS={getXS} setXS={setXS} fiscalYear={fiscalYear}/>}
           {tab==="xManage"   &&<ExternalManageTab employees={employees} externals={externals} setExternals={setExternals} deleteExternal={deleteExternal}/>}
           {tab==="empManage" &&<EmployeeManageTab employees={employees} setEmployees={setEmployees} internals={internals} getIS={getIS} getXS={getXS} externals={externals} fiscalYear={fiscalYear}/>}
@@ -1468,7 +1468,7 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
   const [filterPending,setFilterPending]=useState(true);
   const curT=selT||fyInternals[0]||null;
 
-  const isReportRequired=(emp,t)=>{ const s=getIS(emp.id,t.id); return t.required||s.attendance==="参加済"; };
+  const isReportRequired=(emp,t)=>{ const s=getIS(emp.id,t.id); return (t.requiredEmpIds||[]).includes(emp.id)||s.attendance==="参加済"; };
   const getEmpStatus=(emp,t)=>{ const s=getIS(emp.id,t.id); if(s.reportConfirmed) return "done"; if(s.report==="提出済") return "waitConfirm"; if(isReportRequired(emp,t)) return "pending"; return "noReq"; };
   const unreportedCount=t=>employees.filter(e=>{ const s=getIS(e.id,t.id); return isReportRequired(e,t)&&s.report!=="提出済"&&!s.reportConfirmed; }).length;
   const avatarColor=i=>[["#E6F1FB","#185FA5"],["#EAF3DE","#3B6D11"],["#FAEEDA","#854F0B"],["#FCEBEB","#A32D2D"],["#F1EFE8","#5F5E5A"]][i%5];
@@ -1581,7 +1581,12 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
   );
 }
 
-function InternalTrainingForm({data,onChange,onSave,onCancel,title}){
+function InternalTrainingForm({data,onChange,onSave,onCancel,title,allEmployees}){
+  const [selDept,setSelDept]=useState("すべて");
+  const depts=["すべて",...Array.from(new Set((allEmployees||[]).map(e=>e.dept).filter(Boolean))).sort()];
+  const filteredEmps=selDept==="すべて"?(allEmployees||[]):(allEmployees||[]).filter(e=>e.dept===selDept);
+  const toggle=id=>{ const cur=data.requiredEmpIds||[]; onChange(p=>({...p,requiredEmpIds:cur.includes(id)?cur.filter(x=>x!==id):[...cur,id]})); };
+  const toggleDept=()=>{ const ids=filteredEmps.map(e=>e.id); const allSel=ids.every(id=>(data.requiredEmpIds||[]).includes(id)); onChange(p=>({...p,requiredEmpIds:allSel?(p.requiredEmpIds||[]).filter(id=>!ids.includes(id)):[...new Set([...(p.requiredEmpIds||[]),...ids])]})); };
   return(
     <div style={S.formBox}>
       <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>{title}</div>
@@ -1592,11 +1597,30 @@ function InternalTrainingForm({data,onChange,onSave,onCancel,title}){
             <input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={data[f.key]||""} onChange={e=>onChange(p=>({...p,[f.key]:e.target.value}))}/>
           </div>
         ))}
-      <div style={{marginBottom:12}}>
-        <label style={{...S.label,display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
-          <input type="checkbox" checked={data.required} onChange={e=>onChange(p=>({...p,required:e.target.checked}))} style={{width:16,height:16,accentColor:"#dc2626"}}/>
-          <span>全員に復命書必須にする <span style={{fontSize:11,color:"#6b7280",fontWeight:400}}>（OFFでも参加者には自動で必須になります）</span></span>
-        </label>
+      {/* 復命書必須対象者 */}
+      <div style={{marginBottom:12,padding:"12px",background:"#fef2f2",borderRadius:10,border:"1px solid #fca5a5"}}>
+        <div style={{fontSize:12,fontWeight:600,color:"#dc2626",marginBottom:8}}>📋 復命書必須の対象者（{(data.requiredEmpIds||[]).length}名選択中）</div>
+        <div style={{fontSize:11,color:"#9ca3af",marginBottom:8}}>※ 参加済みの職員には自動で必須になります</div>
+        {/* 部署フィルター */}
+        <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
+          {depts.map(d=>(
+            <button key={d} type="button" onClick={()=>setSelDept(d)} style={{padding:"3px 10px",borderRadius:14,border:"1.5px solid",borderColor:selDept===d?"#dc2626":"#e5e7eb",background:selDept===d?"#fee2e2":"#fff",color:selDept===d?"#dc2626":"#374151",fontSize:11,fontWeight:selDept===d?700:400,cursor:"pointer"}}>{d}</button>
+          ))}
+        </div>
+        {/* 一括選択 */}
+        <button type="button" onClick={toggleDept} style={{fontSize:11,color:"#dc2626",background:"#fee2e2",border:"1px solid #fca5a5",borderRadius:8,padding:"3px 10px",cursor:"pointer",marginBottom:8}}>
+          {filteredEmps.every(e=>(data.requiredEmpIds||[]).includes(e.id))?"✓ "+selDept+"の選択を解除":"＋ "+selDept+"を全員選択"}
+        </button>
+        {/* 職員一覧 */}
+        <div style={{display:"flex",flexWrap:"wrap",gap:6,maxHeight:150,overflowY:"auto",padding:"6px",background:"#fff",borderRadius:8,border:"1px solid #fca5a5"}}>
+          {filteredEmps.map(e=>{
+            const sel=(data.requiredEmpIds||[]).includes(e.id);
+            return(<label key={e.id} style={{display:"flex",alignItems:"center",gap:4,fontSize:12,cursor:"pointer",padding:"3px 8px",borderRadius:16,border:"1.5px solid",borderColor:sel?"#dc2626":"#e5e7eb",background:sel?"#fee2e2":"#fff",color:sel?"#dc2626":"#374151"}}>
+              <input type="checkbox" checked={sel} onChange={()=>toggle(e.id)} style={{display:"none"}}/>{e.name}
+            </label>);
+          })}
+          {filteredEmps.length===0&&<div style={{fontSize:11,color:"#9ca3af"}}>この部署の職員はいません</div>}
+        </div>
       </div>
       <div style={{display:"flex",gap:8}}>
         <button style={S.btn} onClick={onSave}>保存する</button>
@@ -1606,51 +1630,49 @@ function InternalTrainingForm({data,onChange,onSave,onCancel,title}){
   );
 }
 
-function InternalManageTab({internals,setInternals,deleteInternal}){
+function InternalManageTab({internals,setInternals,deleteInternal,employees}){
   const [showAdd,setShowAdd]=useState(false);
   const [editId,setEditId]=useState(null);
-  const [newT,setNewT]=useState({title:"",date:"",required:true,videoUrl:"",description:""});
+  const [newT,setNewT]=useState({title:"",date:"",required:false,requiredEmpIds:[],videoUrl:"",description:""});
   const [editT,setEditT]=useState(null);
 
   const add=async()=>{
     if(!newT.title||!newT.date)return;
     const t={...newT,id:"T"+String(Date.now()).slice(-6)};
     await setInternals(p=>[...p,t]);
-    setNewT({title:"",date:"",required:true,videoUrl:"",description:""});setShowAdd(false);
+    setNewT({title:"",date:"",required:false,requiredEmpIds:[],videoUrl:"",description:""});setShowAdd(false);
   };
-  const startEdit=t=>{ setEditId(t.id); setEditT({...t}); };
+  const startEdit=t=>{ setEditId(t.id); setEditT({...t,requiredEmpIds:t.requiredEmpIds||[]}); };
   const saveEdit=async()=>{
     if(!editT.title||!editT.date)return;
     await setInternals(p=>p.map(t=>t.id===editId?{...editT}:t));
     setEditId(null); setEditT(null);
   };
-  const toggleReq=async id=>{ await setInternals(p=>p.map(t=>t.id===id?{...t,required:!t.required}:t)); };
 
   return(
     <div style={{padding:4}}>
       <button style={{...S.btn,marginBottom:16}} onClick={()=>{setShowAdd(!showAdd);setEditId(null);}}>＋ 研修を追加</button>
-      {showAdd&&<InternalTrainingForm data={newT} onChange={setNewT} onSave={add} onCancel={()=>setShowAdd(false)} title="新しい内部研修を登録"/>}
+      {showAdd&&<InternalTrainingForm data={newT} onChange={setNewT} onSave={add} onCancel={()=>setShowAdd(false)} title="新しい内部研修を登録" allEmployees={employees}/>}
       {internals.map(t=>(
         <div key={t.id}>
           <div style={{...S.card,padding:"12px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{flex:1}}>
-              {t.required&&<span style={S.reqBadge}>復命書必須（全員）</span>}
               <div style={S.cardTitle}>{t.title}</div>
-              <div style={S.cardDate}>📅 {t.date}{t.videoUrl?<span style={{marginLeft:8,color:"#7c3aed",fontSize:11}}>▶ 動画あり</span>:<span style={{marginLeft:8,color:"#9ca3af",fontSize:11}}>動画未設定</span>}</div>
+              <div style={S.cardDate}>📅 {t.date}
+                {(t.requiredEmpIds||[]).length>0&&<span style={{marginLeft:8,fontSize:11,color:"#dc2626",fontWeight:600}}>復命書必須 {(t.requiredEmpIds||[]).length}名</span>}
+                {t.videoUrl?<span style={{marginLeft:8,color:"#7c3aed",fontSize:11}}>▶ 動画あり</span>:<span style={{marginLeft:8,color:"#9ca3af",fontSize:11}}>動画未設定</span>}
+              </div>
             </div>
             <div className="btn-col-sp" style={{display:"flex",gap:6,flexShrink:0}}>
               <button style={{...S.qrBtn,background:"#eff6ff",borderColor:"#bfdbfe",color:"#2563eb"}} onClick={()=>editId===t.id?setEditId(null):startEdit(t)}>
                 {editId===t.id?"閉じる":"編集"}
-              </button>
-              <button style={{...S.qrBtn,background:t.required?"#fef2f2":"#f9fafb",borderColor:t.required?"#fca5a5":"#e5e7eb",color:t.required?"#dc2626":"#6b7280"}} onClick={()=>toggleReq(t.id)}>
-                {t.required?"復命書必須ON":"復命書必須OFF"}
               </button>
               <button style={S.delBtn} onClick={()=>{if(window.confirm("削除しますか？"))deleteInternal(t.id);}}>削除</button>
             </div>
           </div>
           {editId===t.id&&editT&&(
             <div style={{marginTop:-8,marginBottom:8}}>
-              <InternalTrainingForm data={editT} onChange={setEditT} onSave={saveEdit} onCancel={()=>{setEditId(null);setEditT(null);}} title="研修を編集"/>
+              <InternalTrainingForm data={editT} onChange={setEditT} onSave={saveEdit} onCancel={()=>{setEditId(null);setEditT(null);}} title="研修を編集" allEmployees={employees}/>
             </div>
           )}
         </div>
