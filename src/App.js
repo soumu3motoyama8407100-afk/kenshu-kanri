@@ -35,6 +35,7 @@ const BADGES = [
 const getBadge = c => c===0?null:BADGES.find(b=>c>=b.min&&c<=b.max)||BADGES[BADGES.length-1];
 const rankStyle = r => r===1?{icon:"🥇",color:"#d97706"}:r===2?{icon:"🥈",color:"#6b7280"}:r===3?{icon:"🥉",color:"#b45309"}:{icon:`${r}`,color:"#374151"};
 const isPast = ds => { if(!ds)return false; const t=new Date();t.setHours(0,0,0,0);const d=new Date(ds);d.setHours(0,0,0,0);return t>d; };
+const formatDate = ds => { if(!ds)return ""; const d=new Date(ds+"T00:00:00"); const w=["日","月","火","水","木","金","土"][d.getDay()]; return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}（${w}）`; };
 const calcYears = jd => { if(!jd)return ""; const j=new Date(jd),n=new Date();let y=n.getFullYear()-j.getFullYear(),m=n.getMonth()-j.getMonth();if(m<0){y--;m+=12;}return `${y}年${m}ヶ月`; };
 const makeAttendUrl = tid => `${window.location.href.split("?")[0]}?attend=${tid}`;
 
@@ -930,7 +931,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
               <div key={x.id} style={{marginBottom:16,background:"#fff",borderRadius:12,border:"1px solid #E8D5B0",overflow:"hidden"}}>
                 <div style={{padding:"10px 14px",background:"#FDF6EC",borderBottom:"1px solid #E8D5B0"}}>
                   <div style={{fontWeight:700,fontSize:13,color:"#4A3020"}}>{x.title}</div>
-                  <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>📅 {x.date}　{waitX>0&&<span style={{color:"#d97706",fontWeight:600}}>確認待ち {waitX}名</span>}</div>
+                  <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>📅 {formatDate(x.date)}　{waitX>0&&<span style={{color:"#d97706",fontWeight:600}}>確認待ち {waitX}名</span>}</div>
                 </div>
                 {targets.map((emp,i)=>{const s=getXS(emp.id,x.id);const [bg,fg]=avatarColor(i);return(
                   <div key={emp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderBottom:"0.5px solid #f3f4f6"}}>
@@ -1031,7 +1032,7 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onVideo,onW
           {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
           <div style={S.cardTitle}>{training.title}</div>
           <div style={S.cardDate}>
-            📅 {training.date}
+            📅 {formatDate(training.date)}
             {training.startTime&&<span style={{marginLeft:8}}>🕐 {training.startTime}</span>}
             {training.location&&<span style={{marginLeft:8}}>📍 {training.location}</span>}
           </div>
@@ -1089,7 +1090,7 @@ function ExternalCard({ext,status,onAttend,onReport,onCancelReport,onViewPdf,rea
           <span style={S.extBadge}>外部</span>
           {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
           <div style={S.cardTitle}>{ext.title}</div>
-          <div style={S.cardDate}>📅 {ext.date} ｜ 🏢 {ext.organizer} ｜ 📍 {ext.location}</div>
+          <div style={S.cardDate}>📅 {formatDate(ext.date)} ｜ 🏢 {ext.organizer} ｜ 📍 {ext.location}</div>
         </div>
         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}><ExternalProgress status={status}/><span style={{color:"#d1d5db",fontSize:14}}>{open?"▲":"▼"}</span></div>
       </div>
@@ -1157,15 +1158,24 @@ function SPill({color,bg,border,children}){return <div style={{display:"inline-f
 function ToggleChip({label,active,color,onClick}){return <button onClick={onClick} style={{padding:"5px 14px",borderRadius:20,border:"1.5px solid",borderColor:active?color:"#e5e7eb",background:active?color:"#fff",color:active?"#fff":"#6b7280",fontSize:12,fontWeight:active?700:400,cursor:"pointer"}}>{label}</button>;}
 
 function PdfModal({ext,onClose}){
+  const url=ext._pdfType==="notice"?ext.noticePdfUrl:ext.pdfUrl;
   return(
     <div style={S.overlay} onClick={onClose}>
-      <div style={{...S.modal,maxWidth:700,width:"95vw",height:"88vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+      <div style={{...S.modal,maxWidth:700,width:"100vw",height:"100dvh",borderRadius:0,display:"flex",flexDirection:"column",padding:"12px 12px 0"}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,flexShrink:0}}>
           <div><div style={{fontWeight:800,fontSize:16,color:"#4A3020"}}>📄 研修要綱</div><div style={{fontSize:13,color:"#6b7280"}}>{ext.title}</div></div>
-          <button style={S.logoutBtn} onClick={onClose}>✕ 閉じる</button>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <a href={url} target="_blank" rel="noreferrer" style={{fontSize:12,color:"#2563eb",textDecoration:"underline",whiteSpace:"nowrap"}}>外部で開く</a>
+            <button style={S.logoutBtn} onClick={onClose}>✕ 閉じる</button>
+          </div>
         </div>
-        <div style={{flex:1,borderRadius:10,overflow:"hidden",border:"1px solid #e5e7eb"}}>
-          <iframe src={ext._pdfType==="notice"?ext.noticePdfUrl:ext.pdfUrl} style={{width:"100%",height:"100%",border:"none"}} title="PDF"/>
+        <div style={{flex:1,overflow:"auto",WebkitOverflowScrolling:"touch",borderRadius:"10px 10px 0 0",border:"1px solid #e5e7eb",borderBottom:"none"}}>
+          <object data={url} type="application/pdf" style={{width:"100%",height:"100%",minHeight:"75vh",border:"none",display:"block"}}>
+            <div style={{padding:24,textAlign:"center",color:"#6b7280"}}>
+              <p style={{marginBottom:12}}>PDFの表示に対応していません。</p>
+              <a href={url} target="_blank" rel="noreferrer" style={{color:"#2563eb",fontWeight:600}}>PDFを開く →</a>
+            </div>
+          </object>
         </div>
       </div>
     </div>
@@ -1526,7 +1536,7 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
             <div key={t.id} style={S.sCard}>
               {t.required&&<span style={S.reqBadge}>必須</span>}
               <div style={{fontSize:11,fontWeight:700,color:"#4A3020",margin:"4px 0 2px",lineHeight:1.3}}>{t.title}</div>
-              <div style={{fontSize:10,color:"#9ca3af",marginBottom:8}}>📅 {t.date}</div>
+              <div style={{fontSize:10,color:"#9ca3af",marginBottom:8}}>📅 {formatDate(t.date)}</div>
               <MiniBar label="👥 当日参加" v={attended} n={n} color="#16a34a"/>
               <MiniBar label="▶ 動画視聴" v={watched} n={n} color="#7c3aed"/>
               <MiniBar label="✅ 確認済" v={confirmed} n={n} color="#C89A55"/>
@@ -1691,7 +1701,7 @@ function InternalManageTab({internals,setInternals,deleteInternal,employees}){
           <div style={{...S.card,padding:"12px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{flex:1}}>
               <div style={S.cardTitle}>{t.title}</div>
-              <div style={S.cardDate}>📅 {t.date}
+              <div style={S.cardDate}>📅 {formatDate(t.date)}
                 {(t.requiredEmpIds||[]).length>0&&<span style={{marginLeft:8,fontSize:11,color:"#dc2626",fontWeight:600}}>復命書必須 {(t.requiredEmpIds||[]).length}名</span>}
                 {t.videoUrl?<span style={{marginLeft:8,color:"#7c3aed",fontSize:11}}>▶ 動画あり</span>:<span style={{marginLeft:8,color:"#9ca3af",fontSize:11}}>動画未設定</span>}
               </div>
@@ -1722,7 +1732,7 @@ function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear}){
       {fyExternals.map(x=>{const targets=employees.filter(e=>x.targetEmpIds.includes(e.id));return(
         <div key={x.id} style={{marginBottom:24}}>
           <div style={{fontWeight:700,color:"#4A3020",fontSize:14,marginBottom:4}}><span style={S.extBadge}>外部</span> {x.title}</div>
-          <div style={{fontSize:12,color:"#6b7280",marginBottom:10}}>📅 {x.date} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}</div>
+          <div style={{fontSize:12,color:"#6b7280",marginBottom:10}}>📅 {formatDate(x.date)} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}</div>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead><tr style={{background:"#C89A55",color:"#fff"}}><th style={S.th}>従業員</th><th style={S.th}>部署</th><th style={S.th}>進捗</th><th style={S.th}>受講</th><th style={S.th}>復命書</th><th style={S.th}>管理者確認</th></tr></thead>
             <tbody>{targets.map((emp,i)=>{const s=getXS(emp.id,x.id);return(
@@ -1852,7 +1862,7 @@ function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
             <div style={{flex:1}}>
               <span style={S.extBadge}>外部</span><div style={S.cardTitle}>{x.title}</div>
-              <div style={S.cardDate}>📅 {x.date} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}</div>
+              <div style={S.cardDate}>📅 {formatDate(x.date)} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}</div>
               <div style={{marginTop:6,fontSize:12,color:"#6b7280"}}>対象: {targets.map(e=>e.name).join("、")}</div>
               <div style={{marginTop:8}}>
                 <div style={{display:"flex",flexDirection:"column",gap:4}}>
