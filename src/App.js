@@ -1557,8 +1557,9 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
             const isActive=curT.id===t.id;
             return(
               <div key={t.id} style={{position:"relative",display:"inline-block"}}>
-                <button onClick={()=>setSelT(t)} style={{padding:"6px 12px",borderRadius:20,border:"none",cursor:"pointer",fontWeight:600,fontSize:12,background:isActive?"#4A3020":"#f3f4f6",color:isActive?"#fff":"#374151",whiteSpace:"nowrap"}}>
-                  {t.title}
+                <button onClick={()=>setSelT(t)} style={{padding:"6px 12px",borderRadius:20,border:"none",cursor:"pointer",fontWeight:600,fontSize:12,background:isActive?"#4A3020":"#f3f4f6",color:isActive?"#fff":"#374151",whiteSpace:"nowrap",lineHeight:1.3}}>
+                  <div>{t.title}</div>
+                  <div style={{fontSize:10,fontWeight:400,opacity:0.8}}>{formatDate(t.date)}</div>
                 </button>
                 {cnt>0&&<span style={{position:"absolute",top:-5,right:-5,minWidth:16,height:16,borderRadius:8,background:"#E24B4A",color:"#fff",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px",border:"1.5px solid #fff"}}>{cnt}</span>}
               </div>
