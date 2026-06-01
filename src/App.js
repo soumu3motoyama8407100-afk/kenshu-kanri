@@ -815,7 +815,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
 
   // 名前順で固定ソート（操作してもリストが入れ替わらないように）
   const empList=curT?[...employees].sort((a,b)=>a.name.localeCompare(b.name,"ja")):[];
-  const displayList=filterPending&&curT?empList.filter(e=>getEmpStatus(e,curT)!=="done"):empList;
+  const displayList=curT?empList.filter(e=>{const st=getEmpStatus(e,curT);return filterPending?st==="pending":st!=="done"&&st!=="waitConfirm";}):empList;
 
   const reqCount=curT?employees.filter(e=>isReportRequired(e,curT)).length:0;
   const unreported=curT?employees.filter(e=>isReportRequired(e,curT)&&getIS(e.id,curT.id).report!=="提出済"&&!getIS(e.id,curT.id).reportConfirmed).length:0;
@@ -853,8 +853,9 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
                 const isActive=(curT&&curT.id===t.id)||(!selTraining&&fyInternals[0]?.id===t.id);
                 return(
                   <div key={t.id} style={{position:"relative",display:"inline-block"}}>
-                    <button onClick={()=>setSelTraining(t)} style={{padding:"6px 12px",borderRadius:20,border:"none",cursor:"pointer",fontWeight:600,fontSize:12,background:isActive?"#1e3a5f":"#f3f4f6",color:isActive?"#fff":"#374151",whiteSpace:"nowrap"}}>
-                      {t.title}
+                    <button onClick={()=>setSelTraining(t)} style={{padding:"6px 12px",borderRadius:20,border:"none",cursor:"pointer",fontWeight:600,fontSize:12,background:isActive?"#1e3a5f":"#f3f4f6",color:isActive?"#fff":"#374151",whiteSpace:"nowrap",lineHeight:1.3}}>
+                      <div>{t.title}</div>
+                      <div style={{fontSize:10,fontWeight:400,opacity:0.8}}>{formatDate(t.date)}</div>
                     </button>
                     {cnt>0&&<span style={{position:"absolute",top:-5,right:-5,minWidth:16,height:16,borderRadius:8,background:"#E24B4A",color:"#fff",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px",border:"1.5px solid #fff"}}>{cnt}</span>}
                   </div>
@@ -864,14 +865,10 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
 
             {curT&&<>
               {/* サマリーカード */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+              <div style={{marginBottom:12}}>
                 <div style={{padding:"10px 12px",background:"#fef2f2",borderRadius:12,textAlign:"center",border:"1px solid #fca5a5"}}>
                   <div style={{fontSize:11,color:"#9ca3af",marginBottom:2}}>復命書 未提出</div>
                   <div style={{fontSize:22,fontWeight:700,color:"#dc2626"}}>{unreported}<span style={{fontSize:12,fontWeight:400,color:"#9ca3af"}}>/{reqCount}名</span></div>
-                </div>
-                <div style={{padding:"10px 12px",background:"#fffbeb",borderRadius:12,textAlign:"center",border:"1px solid #fcd34d"}}>
-                  <div style={{fontSize:11,color:"#9ca3af",marginBottom:2}}>確認待ち</div>
-                  <div style={{fontSize:22,fontWeight:700,color:"#d97706"}}>{waitConfirm}<span style={{fontSize:12,fontWeight:400,color:"#9ca3af"}}>名</span></div>
                 </div>
               </div>
 
@@ -1521,7 +1518,7 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
   const waitConfirm=curT?employees.filter(e=>{ const s=getIS(e.id,curT.id); return s.report==="提出済"&&!s.reportConfirmed; }).length:0;
 
   const empList=curT?[...employees].sort((a,b)=>a.name.localeCompare(b.name,"ja")):[];
-  const displayList=filterPending&&curT?empList.filter(e=>getEmpStatus(e,curT)!=="done"):empList;
+  const displayList=curT?empList.filter(e=>{const st=getEmpStatus(e,curT);return filterPending?st==="pending":st!=="done"&&st!=="waitConfirm";}):empList;
 
   return(
     <div>
