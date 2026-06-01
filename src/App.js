@@ -815,7 +815,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
 
   // 名前順で固定ソート（操作してもリストが入れ替わらないように）
   const empList=curT?[...employees].sort((a,b)=>a.name.localeCompare(b.name,"ja")):[];
-  const displayList=curT?empList.filter(e=>{const st=getEmpStatus(e,curT);return filterPending?st==="pending":st!=="done"&&st!=="waitConfirm";}):empList;
+  const displayList=filterPending&&curT?empList.filter(e=>getEmpStatus(e,curT)!=="done"):empList;
 
   const reqCount=curT?employees.filter(e=>isReportRequired(e,curT)).length:0;
   const unreported=curT?employees.filter(e=>isReportRequired(e,curT)&&getIS(e.id,curT.id).report!=="提出済"&&!getIS(e.id,curT.id).reportConfirmed).length:0;
@@ -865,10 +865,14 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
 
             {curT&&<>
               {/* サマリーカード */}
-              <div style={{marginBottom:12}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
                 <div style={{padding:"10px 12px",background:"#fef2f2",borderRadius:12,textAlign:"center",border:"1px solid #fca5a5"}}>
                   <div style={{fontSize:11,color:"#9ca3af",marginBottom:2}}>復命書 未提出</div>
                   <div style={{fontSize:22,fontWeight:700,color:"#dc2626"}}>{unreported}<span style={{fontSize:12,fontWeight:400,color:"#9ca3af"}}>/{reqCount}名</span></div>
+                </div>
+                <div style={{padding:"10px 12px",background:"#fffbeb",borderRadius:12,textAlign:"center",border:"1px solid #fcd34d"}}>
+                  <div style={{fontSize:11,color:"#9ca3af",marginBottom:2}}>確認待ち</div>
+                  <div style={{fontSize:22,fontWeight:700,color:"#d97706"}}>{waitConfirm}<span style={{fontSize:12,fontWeight:400,color:"#9ca3af"}}>名</span></div>
                 </div>
               </div>
 
@@ -1518,7 +1522,7 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
   const waitConfirm=curT?employees.filter(e=>{ const s=getIS(e.id,curT.id); return s.report==="提出済"&&!s.reportConfirmed; }).length:0;
 
   const empList=curT?[...employees].sort((a,b)=>a.name.localeCompare(b.name,"ja")):[];
-  const displayList=curT?empList.filter(e=>{const st=getEmpStatus(e,curT);return filterPending?st==="pending":st!=="done"&&st!=="waitConfirm";}):empList;
+  const displayList=curT?empList.filter(e=>getEmpStatus(e,curT)==="pending"):empList;
 
   return(
     <div>
@@ -1563,22 +1567,11 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
         </div>
 
         {/* サマリー */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+        <div style={{marginBottom:12}}>
           <div style={{padding:"10px 12px",background:"#fef2f2",borderRadius:12,textAlign:"center",border:"1px solid #fca5a5"}}>
             <div style={{fontSize:11,color:"#9ca3af",marginBottom:2}}>復命書 未提出</div>
             <div style={{fontSize:22,fontWeight:700,color:"#dc2626"}}>{unreported}<span style={{fontSize:12,fontWeight:400,color:"#9ca3af"}}>/{reqCount}名</span></div>
           </div>
-          <div style={{padding:"10px 12px",background:"#fffbeb",borderRadius:12,textAlign:"center",border:"1px solid #fcd34d"}}>
-            <div style={{fontSize:11,color:"#9ca3af",marginBottom:2}}>確認待ち</div>
-            <div style={{fontSize:22,fontWeight:700,color:"#d97706"}}>{waitConfirm}<span style={{fontSize:12,fontWeight:400,color:"#9ca3af"}}>名</span></div>
-          </div>
-        </div>
-
-        {/* フィルター */}
-        <div style={{display:"flex",gap:6,marginBottom:10}}>
-          {[["要対応のみ",true],["全員",false]].map(([l,v])=>(
-            <button key={l} onClick={()=>setFilterPending(v)} style={{padding:"4px 14px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:filterPending===v?"#374151":"#f3f4f6",color:filterPending===v?"#fff":"#6b7280"}}>{l}</button>
-          ))}
         </div>
 
         {/* 職員カードリスト */}
@@ -1610,7 +1603,6 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
                 <div style={{display:"flex",gap:5,flexShrink:0}}>
                   {s.attendance!=="参加済"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #16a34a",background:"#f0fdf4",color:"#15803d",cursor:"pointer",fontWeight:600}} onClick={()=>setIS(emp.id,curT.id,"attendance","参加済")}>参加✓</button>}
                   {s.attendance==="参加済"&&s.report!=="提出済"&&status!=="done"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#9ca3af",cursor:"pointer"}} onClick={()=>setIS(emp.id,curT.id,"attendance","未参加")}>取消</button>}
-                  {status==="waitConfirm"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #d97706",background:"#fef3c7",color:"#92400e",cursor:"pointer",fontWeight:600}} onClick={()=>setIS(emp.id,curT.id,"reportConfirmed",true)}>確認✓</button>}
                 </div>
               </div>
             );
