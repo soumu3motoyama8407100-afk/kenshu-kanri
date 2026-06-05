@@ -1425,19 +1425,37 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
     setEmployees([]);
   };
 
+  const parseCSVRows=text=>{
+    const rows=[]; let row=[]; let field=""; let inQ=false;
+    for(let i=0;i<text.length;i++){
+      const c=text[i],n=text[i+1];
+      if(inQ){
+        if(c==='"'&&n==='"'){field+='"';i++;}
+        else if(c==='"'){inQ=false;}
+        else{field+=c;}
+      }else{
+        if(c==='"'){inQ=true;}
+        else if(c===','){row.push(field.trim());field="";}
+        else if(c==='\r'&&n==='\n'){row.push(field.trim());if(row.some(f=>f))rows.push(row);row=[];field="";i++;}
+        else if(c==='\n'||c==='\r'){row.push(field.trim());if(row.some(f=>f))rows.push(row);row=[];field="";}
+        else{field+=c;}
+      }
+    }
+    if(field||row.length){row.push(field.trim());if(row.some(f=>f))rows.push(row);}
+    return rows;
+  };
+
   const handleCSV=e=>{
     const file=e.target.files[0]; if(!file)return;
     const reader=new FileReader();
     reader.onload=async ev=>{
-      const text=ev.target.result;
-      const lines=text.split("\n").filter(l=>l.trim());
+      const rows=parseCSVRows(ev.target.result);
       let count=0;
-      for(const line of lines.slice(4)){
-        const cols=line.split(",").map(s=>s.replace(/^"|"$/g,"").trim());
+      for(const cols of rows.slice(4)){
         if(cols.length<4||!cols[0])continue;
         // 例示行・ヘッダー行をスキップ
         if(cols[0].includes("例")||cols[0].includes("ID")||cols[0].includes("職員"))continue;
-        if(cols[2].includes("例")||cols[3].includes("例"))continue;
+        if((cols[2]||"").includes("例")||(cols[3]||"").includes("例"))continue;
         // 列順: 職員ID,パスワード,姓,名前,入社日,役職名,職員区分,所属,管理部署,保有資格,認定研修,部署長,在籍状態
         const emp={
           id:cols[0], password:cols[1]||"pass001",
