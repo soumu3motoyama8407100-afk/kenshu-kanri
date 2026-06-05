@@ -1529,39 +1529,71 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
 
       {/* 在籍職員 */}
       {activeEmps.length===0&&<div style={S.empty}>職員が登録されていません。</div>}
-      {[...new Set(activeEmps.map(e=>e.dept))].map(dept=>(
-        <div key={dept} style={{marginBottom:16}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"6px 12px",background:"#FDF6EC",borderRadius:8,marginBottom:6,border:"1px solid #E8D5B0"}}>
-            🏢 {dept}（{activeEmps.filter(e=>e.dept===dept).length}名）
-          </div>
-          {activeEmps.filter(e=>e.dept===dept).map(emp=>(
-            <div key={emp.id} style={{...S.card,padding:"8px 14px",marginBottom:4,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}>
-                <span style={{fontWeight:700,color:"#4A3020",fontSize:14}}>{emp.name}</span>
-                {emp.isManager&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,background:"#fef3c7",color:"#92400e",flexShrink:0}}>🏢 {emp.roleTitle||"部署長"}</span>}
-              </div>
-              <button style={S.qrBtn} onClick={()=>setEditEmp({...emp,qualifications:(emp.qualifications||[]).join(","),certTrainings:(emp.certTrainings||[]).join(",")})}>編集</button>
+      {[...new Set(activeEmps.map(e=>e.dept).filter(Boolean))].sort().map(dept=>{
+        const deptEmps=activeEmps.filter(e=>e.dept===dept);
+        return(
+          <div key={dept} style={{marginBottom:20}}>
+            <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"7px 14px",background:"#FDF6EC",borderRadius:"8px 8px 0 0",border:"1px solid #E8D5B0",borderBottom:"none"}}>
+              🏢 {dept}　<span style={{fontWeight:400,fontSize:12,color:"#A07840"}}>{deptEmps.length}名</span>
             </div>
-          ))}
-        </div>
-      ))}
+            <table style={{width:"100%",borderCollapse:"collapse",border:"1px solid #E8D5B0",borderRadius:"0 0 8px 8px",overflow:"hidden",fontSize:13}}>
+              <thead>
+                <tr style={{background:"#FAF3E6"}}>
+                  <th style={{padding:"6px 12px",textAlign:"left",fontWeight:600,color:"#6b7280",fontSize:12,borderBottom:"1px solid #E8D5B0",width:80}}>ID</th>
+                  <th style={{padding:"6px 12px",textAlign:"left",fontWeight:600,color:"#6b7280",fontSize:12,borderBottom:"1px solid #E8D5B0"}}>氏名</th>
+                  <th style={{padding:"6px 12px",textAlign:"left",fontWeight:600,color:"#6b7280",fontSize:12,borderBottom:"1px solid #E8D5B0",width:120}}>役職</th>
+                  <th style={{padding:"6px 12px",textAlign:"center",fontWeight:600,color:"#6b7280",fontSize:12,borderBottom:"1px solid #E8D5B0",width:60}}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {deptEmps.map((emp,i)=>(
+                  <tr key={emp.id} style={{background:i%2===0?"#fff":"#FDFAF5"}}>
+                    <td style={{padding:"8px 12px",color:"#9ca3af",fontSize:12,borderBottom:"1px solid #F0E8D8"}}>{emp.id}</td>
+                    <td style={{padding:"8px 12px",fontWeight:700,color:"#4A3020",borderBottom:"1px solid #F0E8D8"}}>{emp.name}</td>
+                    <td style={{padding:"8px 12px",borderBottom:"1px solid #F0E8D8"}}>
+                      {emp.isManager&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,background:"#fef3c7",color:"#92400e"}}>{emp.roleTitle||"部署長"}</span>}
+                    </td>
+                    <td style={{padding:"8px 12px",textAlign:"center",borderBottom:"1px solid #F0E8D8"}}>
+                      <button style={S.qrBtn} onClick={()=>setEditEmp({...emp,qualifications:(emp.qualifications||[]).join(","),certTrainings:(emp.certTrainings||[]).join(",")})}>編集</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
 
       {/* 今年度退職者 */}
       {retiredThisYearEmps.length>0&&(
-        <div style={{marginTop:16}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#6b7280",padding:"6px 12px",background:"#f3f4f6",borderRadius:8,marginBottom:6,border:"1px solid #e5e7eb"}}>
-            🚪 {fiscalYear}年度退職者（{retiredThisYearEmps.length}名）
+        <div style={{marginTop:20}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#6b7280",padding:"7px 14px",background:"#f3f4f6",borderRadius:"8px 8px 0 0",border:"1px solid #e5e7eb",borderBottom:"none"}}>
+            🚪 {fiscalYear}年度退職者　<span style={{fontWeight:400,fontSize:12}}>{retiredThisYearEmps.length}名</span>
           </div>
-          {retiredThisYearEmps.map(emp=>(
-            <div key={emp.id} style={{...S.card,padding:"8px 14px",marginBottom:4,display:"flex",justifyContent:"space-between",alignItems:"center",opacity:0.6}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0,flexWrap:"wrap"}}>
-                <span style={{fontWeight:700,color:"#6b7280",fontSize:14,textDecoration:"line-through"}}>{emp.name}</span>
-                <span style={{fontSize:11,color:"#9ca3af"}}>{emp.dept}</span>
-                <span style={{fontSize:11,background:"#f3f4f6",color:"#9ca3af",borderRadius:10,padding:"1px 8px"}}>退職 {emp.retireDate}</span>
-              </div>
-              <button style={S.qrBtn} onClick={()=>setEditEmp({...emp,qualifications:(emp.qualifications||[]).join(","),certTrainings:(emp.certTrainings||[]).join(",")})}>編集</button>
-            </div>
-          ))}
+          <table style={{width:"100%",borderCollapse:"collapse",border:"1px solid #e5e7eb",borderRadius:"0 0 8px 8px",overflow:"hidden",fontSize:13,opacity:0.7}}>
+            <thead>
+              <tr style={{background:"#f9fafb"}}>
+                <th style={{padding:"6px 12px",textAlign:"left",fontWeight:600,color:"#6b7280",fontSize:12,borderBottom:"1px solid #e5e7eb",width:80}}>ID</th>
+                <th style={{padding:"6px 12px",textAlign:"left",fontWeight:600,color:"#6b7280",fontSize:12,borderBottom:"1px solid #e5e7eb"}}>氏名</th>
+                <th style={{padding:"6px 12px",textAlign:"left",fontWeight:600,color:"#6b7280",fontSize:12,borderBottom:"1px solid #e5e7eb"}}>部署</th>
+                <th style={{padding:"6px 12px",textAlign:"left",fontWeight:600,color:"#6b7280",fontSize:12,borderBottom:"1px solid #e5e7eb",width:120}}>退職日</th>
+                <th style={{padding:"6px 12px",textAlign:"center",fontWeight:600,color:"#6b7280",fontSize:12,borderBottom:"1px solid #e5e7eb",width:60}}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {retiredThisYearEmps.map((emp,i)=>(
+                <tr key={emp.id} style={{background:i%2===0?"#fff":"#f9fafb"}}>
+                  <td style={{padding:"8px 12px",color:"#9ca3af",fontSize:12,borderBottom:"1px solid #f0f0f0"}}>{emp.id}</td>
+                  <td style={{padding:"8px 12px",fontWeight:700,color:"#9ca3af",textDecoration:"line-through",borderBottom:"1px solid #f0f0f0"}}>{emp.name}</td>
+                  <td style={{padding:"8px 12px",color:"#9ca3af",fontSize:12,borderBottom:"1px solid #f0f0f0"}}>{emp.dept}</td>
+                  <td style={{padding:"8px 12px",color:"#9ca3af",fontSize:12,borderBottom:"1px solid #f0f0f0"}}>{emp.retireDate}</td>
+                  <td style={{padding:"8px 12px",textAlign:"center",borderBottom:"1px solid #f0f0f0"}}>
+                    <button style={S.qrBtn} onClick={()=>setEditEmp({...emp,qualifications:(emp.qualifications||[]).join(","),certTrainings:(emp.certTrainings||[]).join(",")})}>編集</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
