@@ -58,11 +58,14 @@ const db = {
     return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept,joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false,isActive:r.is_active!==false,managedDepts:r.managed_depts||[],roleTitle:r.role_title||"",retireDate:r.retire_date||""}));
   },
   async upsertEmployee(emp) {
+    // 既存レコードのline_user_idを誤って消さないよう先に取得
+    const {data:existing} = await supabase.from("employees").select("line_user_id").eq("id",emp.id).single();
     await supabase.from("employees").upsert({
       id:emp.id,password:emp.password,name:emp.name,dept:emp.dept,
       join_date:emp.joinDate||null,qualifications:emp.qualifications||[],
       cert_trainings:emp.certTrainings||[],is_manager:emp.isManager||false,
       is_active:emp.isActive!==false,managed_depts:emp.managedDepts||[],role_title:emp.roleTitle||"",retire_date:emp.retireDate||null,
+      line_user_id:existing?.line_user_id||null,
       updated_at:new Date().toISOString()
     },{onConflict:"id"});
   },
@@ -254,13 +257,19 @@ export default function App() {
   useEffect(()=>{
     (async()=>{
       setLoading(true);
-      const [emps,iS,xS,int,ext,cmts,cmems,cmeets,mreads] = await Promise.all([
-        db.getEmployees(),db.getIStatuses(),db.getXStatuses(),db.getInternals(),db.getExternals(),
-        db.getCommittees(),db.getCommitteeMembers(),db.getCommitteeMeetings(),db.getMeetingReads()
+      // 職員・研修データは必須 → 先に確実に読み込む
+      const [emps,iS,xS,int,ext] = await Promise.all([
+        db.getEmployees(),db.getIStatuses(),db.getXStatuses(),db.getInternals(),db.getExternals()
       ]);
       setEmployees(emps); setIStatuses(iS); setXStatuses(xS); setInternals(int); setExternals(ext);
-      setCommittees(cmts); setCommitteeMembers(cmems); setCommitteeMeetings(cmeets); setMeetingReads(mreads);
       setLoading(false);
+      // 委員会データは別で読み込む（失敗しても職員データに影響しない）
+      try {
+        const [cmts,cmems,cmeets,mreads] = await Promise.all([
+          db.getCommittees(),db.getCommitteeMembers(),db.getCommitteeMeetings(),db.getMeetingReads()
+        ]);
+        setCommittees(cmts); setCommitteeMembers(cmems); setCommitteeMeetings(cmeets); setMeetingReads(mreads);
+      } catch(e){ console.warn("委員会データ読み込みエラー（テーブル未作成の可能性）:",e); }
     })();
   },[]);
 
