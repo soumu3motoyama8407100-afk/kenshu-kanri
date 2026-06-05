@@ -788,7 +788,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
           {!isCurrentFY&&<span style={{fontSize:11,color:"#d97706",fontWeight:600,background:"#fef3c7",padding:"2px 8px",borderRadius:20}}>過去年度閲覧中</span>}
         </div>
         <div style={S.tabBar}>
-          {[["score","🏅 実績"],["internal","🏢 内部研修"],["external","🌐 外部研修"],["video","▶ 動画"],["committee","🏛 委員会"],...(isManager?[["mgr","📋 部署管理"]]:[])]
+          {[["score","🏅 実績"],["internal","🏢 内部研修"],["external","🌐 外部研修"],["video","▶ 動画"],...(isManager?[["mgr","📋 部署管理"]]:[])]
             .map(([k,l])=>(
               <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{}),...(k==="mgr"?{background:tab===k?"#1e3a5f":undefined,color:tab===k?"#fff":"#1e3a5f",borderColor:"#1e3a5f"}:{}),...(k==="committee"?{color:tab===k?"#7c3aed":"#7c3aed",borderColor:tab===k?"#7c3aed":"transparent",borderBottom:tab===k?"2.5px solid #7c3aed":undefined}:{})}} onClick={()=>setTab(k)}>{l}</button>
             ))}
@@ -848,9 +848,6 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
               onSelect={t=>setVideoT(t)}
               onMarkWatched={(t,val)=>{ if(isCurrentFY){setIS(emp.id,t.id,"video",val);showToast(val==="視聴済"?"「視聴済」にしました":"未視聴に戻しました");} }}
               getStatus={t=>getIS(emp.id,t.id)} readonly={!isCurrentFY}/>
-          )}
-          {tab==="committee"&&committeeProps&&(
-            <CommitteeTab emp={emp} {...committeeProps}/>
           )}
           {tab==="mgr"&&isManager&&deptEmployees&&(
             <ManagerTabContent
