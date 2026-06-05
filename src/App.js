@@ -74,6 +74,7 @@ const db = {
     await supabase.from("employees").update({is_active:isActive,updated_at:new Date().toISOString()}).eq("id",id);
   },
   async deleteEmployee(id) { await supabase.from("employees").delete().eq("id",id); },
+  async deleteAllEmployees() { await supabase.from("employees").delete().neq("id","__dummy__"); },
   async getIStatuses() {
     const {data} = await supabase.from("i_statuses").select("*");
     const map = {};
@@ -1417,6 +1418,13 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
     setEmployees(p=>p.filter(e=>e.id!==id));
   };
 
+  const delAllEmps=async()=>{
+    if(!window.confirm("⚠️ 全職員データを削除します。\nこの操作は取り消せません。\n本当に削除しますか？"))return;
+    if(!window.confirm("もう一度確認します。\n全職員データを完全に削除してよいですか？"))return;
+    await db.deleteAllEmployees();
+    setEmployees([]);
+  };
+
   const handleCSV=e=>{
     const file=e.target.files[0]; if(!file)return;
     const reader=new FileReader();
@@ -1514,6 +1522,7 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
         </label>
         <button style={{...S.btn,width:"auto",padding:"8px 16px",background:"#d97706"}} onClick={downloadCSV}>📤 CSV出力</button>
         <button style={{...S.btn,width:"auto",padding:"8px 16px",background:"#7c3aed"}} onClick={exportHTML}>📊 研修履歴出力</button>
+        <button style={{...S.btn,width:"auto",padding:"8px 16px",background:"#dc2626"}} onClick={delAllEmps}>🗑 全職員を削除</button>
       </div>
       {importMsg&&<div style={{padding:"8px 14px",background:"#f0fdf4",border:"1px solid #86efac",borderRadius:8,color:"#15803d",marginBottom:12,fontSize:13}}>{importMsg}</div>}
       {showAdd&&<EmpForm data={newE} onChange={setNewE} onSave={saveEmp} onCancel={()=>setShowAdd(false)} isEdit={false} allEmployees={employees}/>}
