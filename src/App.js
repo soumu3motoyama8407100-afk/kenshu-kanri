@@ -1427,14 +1427,12 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
         const cols=line.split(",").map(s=>s.replace(/^"|"$/g,"").trim());
         if(cols.length<4||!cols[0])continue;
         const emp={
-          id:cols[0],password:cols[1]||"pass001",name:cols[2],dept:cols[3],
-          joinDate:cols[4]||"",
-          qualifications:cols[5]?cols[5].split("|").map(s=>s.trim()).filter(Boolean):[],
-          certTrainings:cols[6]?cols[6].split("|").map(s=>s.trim()).filter(Boolean):[],
-          isManager:cols[7]==="1"||cols[7]==="true",
-          managedDepts:cols[8]?cols[8].split("|").map(s=>s.trim()).filter(Boolean):[],
-          isActive:cols[9]!=="0"&&cols[9]!=="退職",
-          roleTitle:cols[10]||"",
+          // 12列以上 → 姓・名の2列形式、11列以下 → 氏名1列形式（旧）
+          id:cols[0],password:cols[1]||"pass001",
+          ...( cols.length>=12
+            ? { name:(cols[2].trim()+" "+cols[3].trim()).trim(), dept:cols[4], joinDate:cols[5]||"", qualifications:cols[6]?cols[6].split("|").map(s=>s.trim()).filter(Boolean):[], certTrainings:cols[7]?cols[7].split("|").map(s=>s.trim()).filter(Boolean):[], isManager:cols[8]==="1"||cols[8]==="true", managedDepts:cols[9]?cols[9].split("|").map(s=>s.trim()).filter(Boolean):[], isActive:cols[10]!=="0"&&cols[10]!=="退職", roleTitle:cols[11]||"" }
+            : { name:cols[2], dept:cols[3], joinDate:cols[4]||"", qualifications:cols[5]?cols[5].split("|").map(s=>s.trim()).filter(Boolean):[], certTrainings:cols[6]?cols[6].split("|").map(s=>s.trim()).filter(Boolean):[], isManager:cols[7]==="1"||cols[7]==="true", managedDepts:cols[8]?cols[8].split("|").map(s=>s.trim()).filter(Boolean):[], isActive:cols[9]!=="0"&&cols[9]!=="退職", roleTitle:cols[10]||"" }
+          ),
         };
         await db.upsertEmployee(emp);
         setEmployees(p=>{const idx=p.findIndex(x=>x.id===emp.id);return idx>=0?p.map(x=>x.id===emp.id?emp:x):[...p,emp];});
