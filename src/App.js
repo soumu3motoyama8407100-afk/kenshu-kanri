@@ -1432,7 +1432,7 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
       const text=ev.target.result;
       const lines=text.split("\n").filter(l=>l.trim());
       let count=0;
-      for(const line of lines.slice(1)){
+      for(const line of lines.slice(4)){
         const cols=line.split(",").map(s=>s.replace(/^"|"$/g,"").trim());
         if(cols.length<4||!cols[0])continue;
         // 列順: 職員ID,パスワード,姓,名前,入社日,役職名,職員区分,所属,管理部署,保有資格,認定研修,部署長,在籍状態
