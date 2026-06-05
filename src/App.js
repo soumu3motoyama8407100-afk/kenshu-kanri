@@ -780,11 +780,11 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <button onClick={()=>setShowProfile(true)} style={{width:38,height:38,borderRadius:"50%",background:"rgba(255,255,255,.25)",border:"1.5px solid rgba(255,255,255,.4)",color:"#4A3020",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>👤</button>
             <div>
-              <div style={S.headerName}>{emp.name}</div>
-              <div style={S.headerSub}>
-                {emp.dept} · {emp.id}
-                {isManager&&emp.roleTitle&&<span style={{marginLeft:8,background:"rgba(255,255,255,.25)",borderRadius:10,padding:"1px 8px",fontSize:11,fontWeight:700}}>{emp.roleTitle}</span>}
+              <div style={{...S.headerName,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                {emp.name}
+                {emp.roleTitle&&<span style={{fontSize:12,fontWeight:700,background:"rgba(255,255,255,.25)",borderRadius:10,padding:"2px 10px",letterSpacing:.5}}>{emp.roleTitle}</span>}
               </div>
+              <div style={S.headerSub}>{emp.dept} · {emp.id}</div>
             </div>
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
