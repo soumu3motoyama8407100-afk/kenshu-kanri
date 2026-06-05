@@ -1550,7 +1550,8 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
                 <tr style={{background:"#FAF3E6"}}>
                   <th style={{padding:"6px 12px",textAlign:"left",fontWeight:600,color:"#6b7280",fontSize:12,borderBottom:"1px solid #E8D5B0",width:80}}>ID</th>
                   <th style={{padding:"6px 12px",textAlign:"left",fontWeight:600,color:"#6b7280",fontSize:12,borderBottom:"1px solid #E8D5B0"}}>氏名</th>
-                  <th style={{padding:"6px 12px",textAlign:"left",fontWeight:600,color:"#6b7280",fontSize:12,borderBottom:"1px solid #E8D5B0",width:120}}>役職</th>
+                  <th style={{padding:"6px 12px",textAlign:"left",fontWeight:600,color:"#6b7280",fontSize:12,borderBottom:"1px solid #E8D5B0",width:110}}>役職名</th>
+                  <th style={{padding:"6px 12px",textAlign:"left",fontWeight:600,color:"#6b7280",fontSize:12,borderBottom:"1px solid #E8D5B0",width:110}}>職員区分</th>
                   <th style={{padding:"6px 12px",textAlign:"center",fontWeight:600,color:"#6b7280",fontSize:12,borderBottom:"1px solid #E8D5B0",width:60}}></th>
                 </tr>
               </thead>
@@ -1560,7 +1561,14 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
                     <td style={{padding:"8px 12px",color:"#9ca3af",fontSize:12,borderBottom:"1px solid #F0E8D8"}}>{emp.id}</td>
                     <td style={{padding:"8px 12px",fontWeight:700,color:"#4A3020",borderBottom:"1px solid #F0E8D8"}}>{emp.name}</td>
                     <td style={{padding:"8px 12px",borderBottom:"1px solid #F0E8D8"}}>
-                      {emp.isManager&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,background:"#fef3c7",color:"#92400e"}}>{emp.roleTitle||"部署長"}</span>}
+                      {emp.roleTitle
+                        ? <span style={{fontSize:12,fontWeight:600,color:"#92400e"}}>{emp.roleTitle}</span>
+                        : <span style={{fontSize:12,color:"#d1d5db"}}>─</span>}
+                    </td>
+                    <td style={{padding:"8px 12px",borderBottom:"1px solid #F0E8D8"}}>
+                      {emp.jobCategory
+                        ? <span style={{fontSize:11,padding:"2px 8px",borderRadius:20,background:"#e0f2fe",color:"#0369a1"}}>{emp.jobCategory}</span>
+                        : <span style={{fontSize:12,color:"#d1d5db"}}>─</span>}
                     </td>
                     <td style={{padding:"8px 12px",textAlign:"center",borderBottom:"1px solid #F0E8D8"}}>
                       <button style={S.qrBtn} onClick={()=>setEditEmp({...emp,qualifications:(emp.qualifications||[]).join(","),certTrainings:(emp.certTrainings||[]).join(",")})}>編集</button>
