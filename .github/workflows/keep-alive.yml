@@ -1,0 +1,16 @@
+name: Supabase Keep-Alive
+
+on:
+  schedule:
+    - cron: '0 1 * * *'  # 毎日 日本時間 10:00（UTC 01:00）に実行
+  workflow_dispatch:      # 手動実行も可能
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" \
+            "https://nncousuugjntzovtmkvt.supabase.co/functions/v1/keep-alive" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
