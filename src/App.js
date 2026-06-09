@@ -775,6 +775,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
   const [showQRScan,setShowQRScan]=useState(false);
   const [showScore,setShowScore]=useState(false);
   const [viewFY,setViewFY]=useState(fiscalYear);
+  // お知らせ既読管理（localStorage）
+  const [readIds,setReadIds]=useState(()=>{ try{return JSON.parse(localStorage.getItem(`nread_${emp.id}`)||"[]");}catch{return[];} });
   const isCurrentFY=viewFY===fiscalYear;
   const fyInternals=internals.filter(t=>inFiscalYear(t.date,viewFY)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const fyExternals=externals.filter(x=>x.targetEmpIds.includes(emp.id)&&inFiscalYear(x.date,viewFY)).sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -787,6 +789,20 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
     return{label:`${month}月`,count:iC+xC};
   });
   const maxM=Math.max(...monthCounts.map(m=>m.count),1);
+  // お知らせ：全体公開 or 自分が所属する委員会のもの
+  const visibleNotices=(committeeProps?.committeeNotices||[]).filter(n=>
+    n.isPublic||(committeeProps?.committeeMembers[n.committeeId]||[]).includes(emp.id)
+  );
+  const unreadCount=visibleNotices.filter(n=>!readIds.includes(n.id)).length;
+  const switchTab=k=>{
+    setTab(k);
+    if(k==="notices"){
+      const allIds=visibleNotices.map(n=>n.id);
+      const next=[...new Set([...readIds,...allIds])];
+      setReadIds(next);
+      localStorage.setItem(`nread_${emp.id}`,JSON.stringify(next));
+    }
+  };
   return(
     <div className="rsp-page" style={S.page}>
       {toast&&<div style={S.toast}>{toast}</div>}
@@ -848,9 +864,12 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
             </div>
           </div>
           {/* 実績ボタン */}
-          <button onClick={()=>setShowScore(true)} style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"5px 10px",background:"rgba(255,255,255,.18)",border:"1.5px solid rgba(255,255,255,.5)",borderRadius:12,cursor:"pointer",flexShrink:0,minWidth:54}}>
-            <span style={{fontSize:18}}>{count>=20?"👑":count>=15?"💎":count>=10?"🏆":count>=5?"⭐":"🌱"}</span>
-            <span style={{fontSize:10,color:"#fff",fontWeight:700,marginTop:1}}>{count}件</span>
+          <button onClick={()=>setShowScore(true)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",background:"rgba(255,255,255,.2)",border:"1.5px solid rgba(255,255,255,.6)",borderRadius:12,cursor:"pointer",flexShrink:0}}>
+            <span style={{fontSize:22}}>{count>=20?"👑":count>=15?"💎":count>=10?"🏆":count>=5?"⭐":"🌱"}</span>
+            <div style={{textAlign:"left"}}>
+              <div style={{fontSize:11,color:"rgba(255,255,255,.8)",fontWeight:600,lineHeight:1.2}}>実績</div>
+              <div style={{fontSize:15,color:"#fff",fontWeight:800,lineHeight:1.2}}>{count}<span style={{fontSize:11,fontWeight:400}}>件</span></div>
+            </div>
           </button>
         </div>
         {/* 年度バー */}
@@ -865,10 +884,19 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
         <div style={S.tabBar}>
           {[["training","📚 研修"],["video","▶ 動画"],
             ...(isManager?[["mgr","📋 部署管理"]]:[]),
-            ...(committeeProps?.committees?.some(c=>c.chairEmpId===emp.id)?[["chair","🏛 委員会"]]:
-               (committeeProps?.committeeNotices?.some(n=>n.isPublic||(committeeProps.committeeMembers[n.committeeId]||[]).includes(emp.id))?[["notices","📢 お知らせ"]]:[]))]
+            ...(committeeProps?.committees?.some(c=>c.chairEmpId===emp.id)?[["chair","🏛 委員会"]]:[]),
+            ["notices","📢 お知らせ"]]
             .map(([k,l])=>(
-              <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{}),...(k==="mgr"?{background:tab===k?"#1e3a5f":undefined,color:tab===k?"#fff":"#1e3a5f",borderColor:"#1e3a5f"}:{}),...(k==="chair"?{color:tab===k?"#fff":"#7c3aed",background:tab===k?"#7c3aed":undefined,borderBottom:tab===k?"2.5px solid #7c3aed":undefined}:{}),...(k==="notices"?{color:tab===k?"#fff":"#16a34a",background:tab===k?"#16a34a":undefined,borderBottom:tab===k?"2.5px solid #16a34a":undefined}:{})}} onClick={()=>setTab(k)}>{l}</button>
+              <button key={k}
+                style={{...S.tab,...(tab===k?S.tabOn:{}),...(k==="mgr"?{background:tab===k?"#1e3a5f":undefined,color:tab===k?"#fff":"#1e3a5f"}:{}),...(k==="chair"?{color:tab===k?"#fff":"#7c3aed",background:tab===k?"#7c3aed":undefined,borderBottom:tab===k?"2.5px solid #7c3aed":undefined}:{}),...(k==="notices"?{color:tab===k?"#fff":"#16a34a",background:tab===k?"#16a34a":undefined,borderBottom:tab===k?"2.5px solid #16a34a":undefined}:{}),position:"relative"}}
+                onClick={()=>switchTab(k)}>
+                {l}
+                {k==="notices"&&unreadCount>0&&(
+                  <span style={{position:"absolute",top:4,right:2,minWidth:16,height:16,background:"#ef4444",color:"#fff",borderRadius:99,fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px",lineHeight:1,boxShadow:"0 1px 4px rgba(0,0,0,.25)"}}>
+                    {unreadCount>99?"99+":unreadCount}
+                  </span>
+                )}
+              </button>
             ))}
         </div>
         {/* コンテンツ */}
@@ -924,8 +952,27 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
           {tab==="chair"&&committeeProps&&(
             <ChairCommitteeView emp={emp} {...committeeProps}/>
           )}
-          {tab==="notices"&&committeeProps&&(
-            <NoticeBoard emp={emp} {...committeeProps}/>
+          {tab==="notices"&&(
+            <div>
+              <div style={{fontWeight:700,fontSize:14,color:"#1e3a5f",marginBottom:14}}>📢 お知らせ</div>
+              {visibleNotices.length===0&&<div style={{textAlign:"center",padding:40,color:"#9ca3af",fontSize:13}}>現在お知らせはありません</div>}
+              {visibleNotices.map(n=>{
+                const c=committeeProps?.committees?.find(x=>x.id===n.committeeId);
+                const isUnread=!readIds.includes(n.id);
+                return(
+                  <div key={n.id} style={{background:"#fff",border:`1.5px solid ${isUnread?"#fcd34d":"#e5e7eb"}`,borderRadius:12,padding:"12px 14px",marginBottom:8,position:"relative"}}>
+                    {isUnread&&<span style={{position:"absolute",top:10,right:12,width:8,height:8,borderRadius:"50%",background:"#ef4444",display:"block"}}/>}
+                    <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
+                      {c&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:10,background:`${c.color||"#7c3aed"}20`,color:c.color||"#7c3aed"}}>{c.name}</span>}
+                      <span style={{fontWeight:700,fontSize:14,color:"#1e3a5f"}}>{n.title}</span>
+                      {n.isPublic&&<span style={{fontSize:10,background:"#dcfce7",color:"#15803d",borderRadius:10,padding:"1px 8px",fontWeight:700}}>全体</span>}
+                    </div>
+                    {n.body&&<div style={{fontSize:13,color:"#374151",whiteSpace:"pre-wrap",lineHeight:1.7,marginBottom:6}}>{n.body}</div>}
+                    <div style={{fontSize:11,color:"#9ca3af"}}>{n.createdAt?new Date(n.createdAt).toLocaleDateString("ja-JP"):""}</div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
         {/* スティッキーログアウトバー */}
