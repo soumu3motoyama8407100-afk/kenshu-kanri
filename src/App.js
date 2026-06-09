@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -177,7 +177,18 @@ const db = {
   async deleteCommittee(id) {
     await supabase.from("committee_members").delete().eq("committee_id",id);
     await supabase.from("committee_meetings").delete().eq("committee_id",id);
+    await supabase.from("committee_notices").delete().eq("committee_id",id);
     await supabase.from("committees").delete().eq("id",id);
+  },
+  async getCommitteeNotices() {
+    const {data} = await supabase.from("committee_notices").select("*").order("created_at",{ascending:false});
+    return (data||[]).map(r=>({id:r.id,committeeId:r.committee_id,title:r.title,body:r.body||"",postedBy:r.posted_by||"",isPublic:r.is_public||false,createdAt:r.created_at}));
+  },
+  async upsertCommitteeNotice(n) {
+    await supabase.from("committee_notices").upsert({id:n.id,committee_id:n.committeeId,title:n.title,body:n.body||"",posted_by:n.postedBy||"",is_public:n.isPublic||false,updated_at:new Date().toISOString()},{onConflict:"id"});
+  },
+  async deleteCommitteeNotice(id) {
+    await supabase.from("committee_notices").delete().eq("id",id);
   },
   async getCommitteeMembers() {
     const {data} = await supabase.from("committee_members").select("*");
@@ -255,6 +266,7 @@ export default function App() {
   const [committeeMembers,setCommitteeMembers] = useState({});
   const [committeeMeetings,setCommitteeMeetings] = useState([]);
   const [meetingReads,setMeetingReads] = useState({});
+  const [committeeNotices,setCommitteeNotices] = useState([]);
 
   useEffect(()=>{ const p=new URLSearchParams(window.location.search);const a=p.get("attend");if(a)setPendingAttend(a); },[]);
 
@@ -269,10 +281,10 @@ export default function App() {
       setLoading(false);
       // 委員会データは別で読み込む（失敗しても職員データに影響しない）
       try {
-        const [cmts,cmems,cmeets,mreads] = await Promise.all([
-          db.getCommittees(),db.getCommitteeMembers(),db.getCommitteeMeetings(),db.getMeetingReads()
+        const [cmts,cmems,cmeets,mreads,notices] = await Promise.all([
+          db.getCommittees(),db.getCommitteeMembers(),db.getCommitteeMeetings(),db.getMeetingReads(),db.getCommitteeNotices()
         ]);
-        setCommittees(cmts); setCommitteeMembers(cmems); setCommitteeMeetings(cmeets); setMeetingReads(mreads);
+        setCommittees(cmts); setCommitteeMembers(cmems); setCommitteeMeetings(cmeets); setMeetingReads(mreads); setCommitteeNotices(notices);
       } catch(e){ console.warn("委員会データ読み込みエラー（テーブル未作成の可能性）:",e); }
     })();
   },[]);
@@ -335,13 +347,16 @@ export default function App() {
     committeeMembers, setCommitteeMembers,
     committeeMeetings, setCommitteeMeetings,
     meetingReads, setMeetingReads,
+    committeeNotices, setCommitteeNotices,
     employees,
     upsertCommittee: async c => { await db.upsertCommittee(c); setCommittees(p=>p.map(x=>x.id===c.id?c:x).concat(p.find(x=>x.id===c.id)?[]:[c])); },
-    deleteCommittee: async id => { await db.deleteCommittee(id); setCommittees(p=>p.filter(c=>c.id!==id)); setCommitteeMembers(p=>{const n={...p};delete n[id];return n;}); setCommitteeMeetings(p=>p.filter(m=>m.committeeId!==id)); },
+    deleteCommittee: async id => { await db.deleteCommittee(id); setCommittees(p=>p.filter(c=>c.id!==id)); setCommitteeMembers(p=>{const n={...p};delete n[id];return n;}); setCommitteeMeetings(p=>p.filter(m=>m.committeeId!==id)); setCommitteeNotices(p=>p.filter(n=>n.committeeId!==id)); },
     setMembersFor: async (cid, empIds) => { await db.setCommitteeMembers(cid,empIds); setCommitteeMembers(p=>({...p,[cid]:empIds})); },
     upsertMeeting: async m => { await db.upsertCommitteeMeeting(m); setCommitteeMeetings(p=>{ const n=p.filter(x=>x.id!==m.id); return [...n,m].sort((a,b)=>a.scheduledDate.localeCompare(b.scheduledDate)); }); },
     deleteMeeting: async id => { await db.deleteCommitteeMeeting(id); setCommitteeMeetings(p=>p.filter(m=>m.id!==id)); },
     markRead: async (meetingId, empId) => { await db.markMeetingRead(meetingId,empId); setMeetingReads(p=>({...p,[meetingId]:[...(p[meetingId]||[]).filter(x=>x!==empId),empId]})); },
+    upsertNotice: async n => { await db.upsertCommitteeNotice(n); setCommitteeNotices(p=>{const f=p.filter(x=>x.id!==n.id);return [n,...f];}); },
+    deleteNotice: async id => { await db.deleteCommitteeNotice(id); setCommitteeNotices(p=>p.filter(n=>n.id!==id)); },
   };
 
   if(session.isAdmin) return(
@@ -801,9 +816,12 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
           {!isCurrentFY&&<span style={{fontSize:11,color:"#d97706",fontWeight:600,background:"#fef3c7",padding:"2px 8px",borderRadius:20}}>過去年度閲覧中</span>}
         </div>
         <div style={S.tabBar}>
-          {[["score","🏅 実績"],["internal","🏢 内部研修"],["external","🌐 外部研修"],["video","▶ 動画"],...(isManager?[["mgr","📋 部署管理"]]:[])]
+          {[["score","🏅 実績"],["internal","🏢 内部研修"],["external","🌐 外部研修"],["video","▶ 動画"],
+            ...(isManager?[["mgr","📋 部署管理"]]:[]),
+            ...(committeeProps?.committees?.some(c=>c.chairEmpId===emp.id)?[["chair","🏛 委員会"]]:
+               (committeeProps?.committeeNotices?.some(n=>n.isPublic||(committeeProps.committeeMembers[n.committeeId]||[]).includes(emp.id))?[["notices","📢 お知らせ"]]:[]))]
             .map(([k,l])=>(
-              <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{}),...(k==="mgr"?{background:tab===k?"#1e3a5f":undefined,color:tab===k?"#fff":"#1e3a5f",borderColor:"#1e3a5f"}:{}),...(k==="committee"?{color:tab===k?"#7c3aed":"#7c3aed",borderColor:tab===k?"#7c3aed":"transparent",borderBottom:tab===k?"2.5px solid #7c3aed":undefined}:{})}} onClick={()=>setTab(k)}>{l}</button>
+              <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{}),...(k==="mgr"?{background:tab===k?"#1e3a5f":undefined,color:tab===k?"#fff":"#1e3a5f",borderColor:"#1e3a5f"}:{}),...(k==="chair"?{color:tab===k?"#fff":"#7c3aed",background:tab===k?"#7c3aed":undefined,borderBottom:tab===k?"2.5px solid #7c3aed":undefined}:{}),...(k==="notices"?{color:tab===k?"#fff":"#16a34a",background:tab===k?"#16a34a":undefined,borderBottom:tab===k?"2.5px solid #16a34a":undefined}:{})}} onClick={()=>setTab(k)}>{l}</button>
             ))}
         </div>
         <div style={S.scroll}>
@@ -870,6 +888,12 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
               externals={externals} getXS={getXS} setXS={setXS}
               fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}
               managedDepts={managedDepts||[emp.dept]}/>
+          )}
+          {tab==="chair"&&committeeProps&&(
+            <ChairCommitteeView emp={emp} {...committeeProps}/>
+          )}
+          {tab==="notices"&&committeeProps&&(
+            <NoticeBoard emp={emp} {...committeeProps}/>
           )}
         </div>
       </div>
@@ -2318,37 +2342,55 @@ function MeetingForm({meeting,color,saving,onChange,onSave,onCancel}){
 }
 
 // ─── 委員会管理タブ（管理者専用） ───────────────────────────────────────────
-function CommitteeManageTab({committees,committeeMembers,committeeMeetings,meetingReads,employees,upsertCommittee,deleteCommittee,setMembersFor,upsertMeeting,deleteMeeting,setCommittees}){
+function CommitteeManageTab({committees,committeeMembers,committeeMeetings,meetingReads,committeeNotices,employees,upsertCommittee,deleteCommittee,setMembersFor,upsertMeeting,deleteMeeting,upsertNotice,deleteNotice,setCommittees}){
   const [selectedId,setSelectedId] = useState(committees[0]?.id||null);
   const [editForm,setEditForm] = useState(null);
   const [showAddForm,setShowAddForm] = useState(false);
   const [saving,setSaving] = useState(false);
-  const [memberInput,setMemberInput] = useState("");
+  const [selectedMembers,setSelectedMembers] = useState([]);
+  const [innerTab,setInnerTab] = useState("members");
+  const [showMeetingForm,setShowMeetingForm] = useState(false);
+  const [meetingForm,setMeetingForm] = useState({id:"",scheduledDate:"",startTime:"",location:"",agenda:""});
+  const [showNoticeForm,setShowNoticeForm] = useState(false);
+  const [noticeForm,setNoticeForm] = useState({id:"",title:"",body:"",isPublic:false});
 
   const selected = committees.find(c=>c.id===selectedId);
   const members = selected?(committeeMembers[selected.id]||[]):[];
+
+  useEffect(()=>{ if(selected) setSelectedMembers(committeeMembers[selected.id]||[]); },[selectedId,committeeMembers]);// eslint-disable-line
 
   const emptyCommittee=()=>({id:`C${String(Date.now()).slice(-4)}`,name:"",description:"",chairEmpId:"",color:"#C89A55"});
 
   const handleSaveCommittee=async c=>{
     if(!c.name){alert("委員会名を入力してください");return;}
-    setSaving(true);
-    await upsertCommittee(c);
-    setSaving(false);
-    setEditForm(null);
-    setShowAddForm(false);
+    setSaving(true); await upsertCommittee(c); setSaving(false);
+    setEditForm(null); setShowAddForm(false);
     if(!selectedId) setSelectedId(c.id);
   };
 
   const handleSaveMembers=async()=>{
     if(!selected)return;
-    const ids=memberInput.split(/[\n,　 ]+/).map(s=>s.trim()).filter(Boolean);
+    setSaving(true); await setMembersFor(selected.id,selectedMembers); setSaving(false);
+    alert("メンバーを保存しました");
+  };
+
+  const handleSaveMeeting=async()=>{
+    if(!meetingForm.scheduledDate){alert("開催日を入力してください");return;}
     setSaving(true);
-    await setMembersFor(selected.id,ids);
-    setSaving(false);
+    await upsertMeeting({...meetingForm,id:meetingForm.id||`M${Date.now()}`,committeeId:selected.id});
+    setSaving(false); setShowMeetingForm(false); setMeetingForm({id:"",scheduledDate:"",startTime:"",location:"",agenda:""});
+  };
+
+  const handleSaveNotice=async()=>{
+    if(!noticeForm.title.trim()){alert("タイトルを入力してください");return;}
+    setSaving(true);
+    await upsertNotice({...noticeForm,id:noticeForm.id||`N${Date.now()}`,committeeId:selected.id,postedBy:"ADMIN"});
+    setSaving(false); setShowNoticeForm(false); setNoticeForm({id:"",title:"",body:"",isPublic:false});
   };
 
   const COLORS=["#dc2626","#7c3aed","#0369a1","#d97706","#16a34a","#C89A55","#0891b2","#6b7280","#9333ea","#059669","#db2777","#ea580c"];
+  const myMeetings=(selected?committeeMeetings.filter(m=>m.committeeId===selected.id):[]).sort((a,b)=>a.scheduledDate.localeCompare(b.scheduledDate));
+  const myNotices=(selected?(committeeNotices||[]).filter(n=>n.committeeId===selected.id):[]);
 
   return(
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
@@ -2358,16 +2400,14 @@ function CommitteeManageTab({committees,committeeMembers,committeeMeetings,meeti
           <div style={{fontWeight:800,fontSize:14,color:"#4A3020"}}>🏛 委員会一覧</div>
           <button onClick={()=>{setShowAddForm(true);setEditForm(emptyCommittee());}} style={{padding:"6px 14px",borderRadius:20,background:"#7c3aed",color:"#fff",border:"none",fontWeight:700,fontSize:12,cursor:"pointer"}}>＋ 新規追加</button>
         </div>
-
         {showAddForm&&editForm&&(
           <CommitteeForm c={editForm} employees={employees} colors={COLORS} saving={saving}
             onChange={c=>setEditForm(c)} onSave={()=>handleSaveCommittee(editForm)}
             onCancel={()=>{setShowAddForm(false);setEditForm(null);}}/>
         )}
-
         <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
           {committees.map(c=>(
-            <button key={c.id} onClick={()=>{setSelectedId(c.id);setEditForm(null);setMemberInput(committees.find(x=>x.id===c.id)?((committeeMembers[c.id]||[]).join("\n")):"");}}
+            <button key={c.id} onClick={()=>{setSelectedId(c.id);setEditForm(null);setInnerTab("members");}}
               style={{padding:"7px 14px",borderRadius:20,border:`2px solid ${c.color}`,background:selectedId===c.id?c.color:"#fff",color:selectedId===c.id?"#fff":c.color,fontWeight:700,fontSize:12,cursor:"pointer"}}>
               {c.name}
             </button>
@@ -2377,6 +2417,7 @@ function CommitteeManageTab({committees,committeeMembers,committeeMeetings,meeti
 
       {selected&&(
         <div style={{background:"#fff",border:`1.5px solid ${selected.color}33`,borderRadius:14,overflow:"hidden"}}>
+          {/* 委員会ヘッダー */}
           <div style={{background:`${selected.color}18`,borderBottom:`1.5px solid ${selected.color}33`,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
               <div style={{fontWeight:800,fontSize:15,color:selected.color}}>{selected.name}</div>
@@ -2385,7 +2426,7 @@ function CommitteeManageTab({committees,committeeMembers,committeeMeetings,meeti
             </div>
             <div style={{display:"flex",gap:8}}>
               <button onClick={()=>{setEditForm({...selected});setShowAddForm(false);}} style={{padding:"6px 12px",borderRadius:10,border:`1.5px solid ${selected.color}`,background:"#fff",color:selected.color,fontWeight:700,fontSize:12,cursor:"pointer"}}>編集</button>
-              <button onClick={async()=>{if(window.confirm(`「${selected.name}」を削除しますか？\n（開催予定・メンバー情報もすべて削除されます）`)){await deleteCommittee(selected.id);setSelectedId(committees.filter(c=>c.id!==selected.id)[0]?.id||null);}}} style={{padding:"6px 12px",borderRadius:10,border:"1px solid #fca5a5",background:"#fff",color:"#dc2626",fontWeight:700,fontSize:12,cursor:"pointer"}}>削除</button>
+              <button onClick={async()=>{if(window.confirm(`「${selected.name}」を削除しますか？`)){await deleteCommittee(selected.id);setSelectedId(committees.filter(c=>c.id!==selected.id)[0]?.id||null);}}} style={{padding:"6px 12px",borderRadius:10,border:"1px solid #fca5a5",background:"#fff",color:"#dc2626",fontWeight:700,fontSize:12,cursor:"pointer"}}>削除</button>
             </div>
           </div>
 
@@ -2396,55 +2437,278 @@ function CommitteeManageTab({committees,committeeMembers,committeeMeetings,meeti
                 onCancel={()=>setEditForm(null)}/>
             )}
 
-            {/* メンバー管理 */}
-            <div style={{background:"#fffbeb",border:"1px solid #fcd34d",borderRadius:10,padding:14}}>
-              <div style={{fontWeight:700,fontSize:13,color:"#92400e",marginBottom:8}}>👥 委員メンバー管理</div>
-              <div style={{fontSize:12,color:"#6b7280",marginBottom:6}}>職員ID を改行またはカンマ区切りで入力</div>
-              <textarea rows={4} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #fcd34d",fontSize:13,boxSizing:"border-box",resize:"vertical"}}
-                value={memberInput}
-                placeholder="例: E001&#10;E002&#10;E003"
-                onChange={e=>setMemberInput(e.target.value)}
-                onFocus={()=>{ if(!memberInput) setMemberInput(members.join("\n")); }}
-              />
-              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8,marginBottom:8}}>
-                {members.map(eid=>{const e2=employees.find(e=>e.id===eid);return(
-                  <span key={eid} style={{fontSize:11,background:e2?"#fef3c7":"#fee2e2",border:`1px solid ${e2?"#fcd34d":"#fca5a5"}`,borderRadius:20,padding:"2px 10px",color:e2?"#92400e":"#dc2626",fontWeight:600}}>
-                    {e2?`${e2.name}（${eid}）`:`${eid}（未登録）`}
-                  </span>
-                );})}
-                {members.length===0&&<span style={{fontSize:12,color:"#9ca3af"}}>メンバー未設定</span>}
-              </div>
-              <button onClick={handleSaveMembers} disabled={saving} style={{padding:"8px 20px",background:"#d97706",color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>
-                {saving?"保存中…":"メンバーを保存"}
-              </button>
+            {/* インナータブ */}
+            <div style={{display:"flex",gap:0,borderBottom:"2px solid #e5e7eb"}}>
+              {[["members","👥 メンバー"],["meetings","📅 開催予定"],["notices","📢 お知らせ"]].map(([k,l])=>(
+                <button key={k} onClick={()=>setInnerTab(k)}
+                  style={{padding:"9px 16px",border:"none",background:"transparent",fontWeight:700,fontSize:12,color:innerTab===k?selected.color:"#9ca3af",borderBottom:innerTab===k?`2.5px solid ${selected.color}`:"2.5px solid transparent",cursor:"pointer",marginBottom:-2}}>
+                  {l}
+                </button>
+              ))}
             </div>
 
-            {/* 開催予定一覧 */}
-            <div>
-              <div style={{fontWeight:700,fontSize:13,color:"#374151",marginBottom:8}}>📅 開催予定</div>
-              {committeeMeetings.filter(m=>m.committeeId===selected.id).sort((a,b)=>a.scheduledDate.localeCompare(b.scheduledDate)).map(m=>{
-                const isPastMtg=m.scheduledDate<new Date().toISOString().slice(0,10);
-                const readList=meetingReads[m.id]||[];
-                return(
-                  <div key={m.id} style={{border:"1px solid #e5e7eb",borderRadius:10,padding:"10px 14px",marginBottom:8,opacity:isPastMtg?0.6:1}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-                      <div>
-                        <div style={{fontWeight:700,fontSize:13,color:isPastMtg?"#9ca3af":selected.color}}>{formatDate(m.scheduledDate)}{m.startTime&&` ${m.startTime}`}{m.location&&` 📍${m.location}`}</div>
-                        {m.agenda&&<div style={{fontSize:12,color:"#374151",marginTop:4}}>📋 {m.agenda}</div>}
-                        {!isPastMtg&&<div style={{fontSize:11,color:"#6b7280",marginTop:4}}>既読: {readList.length}/{members.length}名</div>}
-                      </div>
-                      <button onClick={async()=>{ if(window.confirm("この予定を削除しますか？")){await deleteMeeting(m.id);}}} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #fca5a5",background:"#fff",color:"#dc2626",fontSize:11,fontWeight:600,cursor:"pointer",flexShrink:0}}>削除</button>
-                    </div>
-                  </div>
-                );
-              })}
-              {committeeMeetings.filter(m=>m.committeeId===selected.id).length===0&&(
-                <div style={{fontSize:13,color:"#9ca3af",textAlign:"center",padding:12}}>開催予定なし</div>
-              )}
-            </div>
+            {/* メンバー管理 */}
+            {innerTab==="members"&&(
+              <div>
+                <MemberSelector employees={employees} selected={selectedMembers} onChange={setSelectedMembers}/>
+                <button onClick={handleSaveMembers} disabled={saving}
+                  style={{marginTop:14,padding:"10px",background:selected.color,color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer",width:"100%"}}>
+                  {saving?"保存中…":"メンバーを保存する"}
+                </button>
+              </div>
+            )}
+
+            {/* 開催予定 */}
+            {innerTab==="meetings"&&(
+              <div>
+                <button onClick={()=>{setShowMeetingForm(true);setMeetingForm({id:"",scheduledDate:"",startTime:"",location:"",agenda:"",committeeId:selected.id});}}
+                  style={{padding:"7px 16px",background:selected.color,color:"#fff",border:"none",borderRadius:20,fontWeight:700,fontSize:12,cursor:"pointer",marginBottom:12}}>
+                  ＋ 開催予定を追加
+                </button>
+                {showMeetingForm&&<MeetingForm form={meetingForm} onChange={setMeetingForm} onSave={handleSaveMeeting} onCancel={()=>setShowMeetingForm(false)} saving={saving}/>}
+                {myMeetings.length===0&&!showMeetingForm&&<div style={{textAlign:"center",padding:24,color:"#9ca3af",fontSize:13}}>開催予定なし</div>}
+                {myMeetings.map(m=><MeetingCard key={m.id} m={m} color={selected.color} readList={meetingReads[m.id]||[]} memberCount={members.length} onDelete={async()=>{if(window.confirm("削除しますか？"))await deleteMeeting(m.id);}}/>)}
+              </div>
+            )}
+
+            {/* お知らせ */}
+            {innerTab==="notices"&&(
+              <div>
+                <button onClick={()=>{setShowNoticeForm(true);setNoticeForm({id:"",title:"",body:"",isPublic:false});}}
+                  style={{padding:"7px 16px",background:"#16a34a",color:"#fff",border:"none",borderRadius:20,fontWeight:700,fontSize:12,cursor:"pointer",marginBottom:12}}>
+                  ＋ お知らせを投稿
+                </button>
+                {showNoticeForm&&<NoticeForm form={noticeForm} onChange={setNoticeForm} onSave={handleSaveNotice} onCancel={()=>setShowNoticeForm(false)} saving={saving}/>}
+                {myNotices.length===0&&!showNoticeForm&&<div style={{textAlign:"center",padding:24,color:"#9ca3af",fontSize:13}}>お知らせなし</div>}
+                {myNotices.map(n=><NoticeCard key={n.id} n={n} canDelete={true} onDelete={async()=>{if(window.confirm("削除しますか？"))await deleteNotice(n.id);}}/>)}
+              </div>
+            )}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ===== 部署選択→職員チェックボックス式メンバー選択 =====
+function MemberSelector({employees,selected,onChange}){
+  const depts=[...new Set(employees.filter(e=>e.isActive!==false).map(e=>e.dept).filter(Boolean))].sort();
+  const [selDept,setSelDept]=useState(depts[0]||"");
+  const deptEmps=employees.filter(e=>e.dept===selDept&&e.isActive!==false);
+  const toggleEmp=id=>{ if(selected.includes(id))onChange(selected.filter(x=>x!==id));else onChange([...selected,id]); };
+  const toggleDept=()=>{ const ids=deptEmps.map(e=>e.id); const all=ids.every(id=>selected.includes(id)); if(all)onChange(selected.filter(id=>!ids.includes(id)));else onChange([...new Set([...selected,...ids])]); };
+  return(
+    <div>
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:12,fontWeight:600,color:"#374151",marginBottom:6}}>選択済みメンバー（{selected.length}名）</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:6,minHeight:36,padding:"8px 10px",background:"#f8fafc",borderRadius:8,border:"1px solid #e2e8f0"}}>
+          {selected.map(id=>{const e=employees.find(x=>x.id===id);return e?(
+            <span key={id} style={{display:"flex",alignItems:"center",gap:4,fontSize:12,background:"#dbeafe",color:"#1e40af",borderRadius:20,padding:"3px 10px",fontWeight:600}}>
+              {e.name}
+              <button onClick={()=>toggleEmp(id)} style={{background:"none",border:"none",color:"#1e40af",cursor:"pointer",padding:0,fontSize:15,lineHeight:1,marginLeft:2}}>×</button>
+            </span>
+          ):null;})}
+          {selected.length===0&&<span style={{fontSize:12,color:"#9ca3af",alignSelf:"center"}}>未選択</span>}
+        </div>
+      </div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
+        {depts.map(d=>(
+          <button key={d} onClick={()=>setSelDept(d)}
+            style={{padding:"5px 12px",borderRadius:16,border:"1.5px solid",borderColor:selDept===d?"#7c3aed":"#e5e7eb",background:selDept===d?"#7c3aed":"#fff",color:selDept===d?"#fff":"#374151",fontSize:12,fontWeight:600,cursor:"pointer"}}>
+            {d}（{employees.filter(e=>e.dept===d&&e.isActive!==false).length}）
+          </button>
+        ))}
+      </div>
+      {selDept&&(
+        <div style={{border:"1px solid #e5e7eb",borderRadius:10,overflow:"hidden"}}>
+          <div style={{padding:"7px 14px",background:"#f9fafb",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid #e5e7eb"}}>
+            <span style={{fontSize:12,fontWeight:700,color:"#374151"}}>🏢 {selDept}</span>
+            <button onClick={toggleDept} style={{fontSize:11,padding:"3px 10px",borderRadius:12,border:"1px solid #7c3aed",background:"#fff",color:"#7c3aed",cursor:"pointer",fontWeight:600}}>
+              {deptEmps.every(e=>selected.includes(e.id))?"全解除":"全選択"}
+            </button>
+          </div>
+          {deptEmps.map((e,i)=>{
+            const checked=selected.includes(e.id);
+            return(
+              <label key={e.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",cursor:"pointer",background:i%2===0?"#fff":"#fafafa",borderBottom:"1px solid #f0f0f0"}}>
+                <input type="checkbox" checked={checked} onChange={()=>toggleEmp(e.id)} style={{width:16,height:16,accentColor:"#7c3aed",flexShrink:0}}/>
+                <span style={{fontWeight:checked?700:400,color:checked?"#7c3aed":"#374151",fontSize:13}}>{e.name}</span>
+                {e.roleTitle&&<span style={{fontSize:11,color:"#9ca3af",marginLeft:"auto"}}>{e.roleTitle}</span>}
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== 開催予定フォーム =====
+function MeetingForm({form,onChange,onSave,onCancel,saving}){
+  return(
+    <div style={{background:"#f8f5ff",border:"1.5px solid #c4b5fd",borderRadius:12,padding:14,marginBottom:12}}>
+      <div style={{fontWeight:700,fontSize:13,color:"#7c3aed",marginBottom:10}}>📅 開催予定を登録</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+        <div><label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>開催日 <span style={{color:"#dc2626"}}>*</span></label>
+          <input type="date" style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #c4b5fd",fontSize:13,boxSizing:"border-box"}} value={form.scheduledDate} onChange={e=>onChange({...form,scheduledDate:e.target.value})}/></div>
+        <div><label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>開始時刻</label>
+          <input type="time" style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #c4b5fd",fontSize:13,boxSizing:"border-box"}} value={form.startTime||""} onChange={e=>onChange({...form,startTime:e.target.value})}/></div>
+      </div>
+      <div style={{marginBottom:10}}><label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>開催場所</label>
+        <input style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #c4b5fd",fontSize:13,boxSizing:"border-box"}} placeholder="例: 第1会議室" value={form.location||""} onChange={e=>onChange({...form,location:e.target.value})}/></div>
+      <div style={{marginBottom:12}}><label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>議題・内容</label>
+        <textarea rows={3} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #c4b5fd",fontSize:13,boxSizing:"border-box",resize:"vertical"}} placeholder="例: ・令和7年度活動計画の審議" value={form.agenda||""} onChange={e=>onChange({...form,agenda:e.target.value})}/></div>
+      <div style={{display:"flex",gap:8}}>
+        <button onClick={onSave} disabled={saving} style={{flex:1,padding:"9px",background:"#7c3aed",color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>{saving?"保存中…":"保存する"}</button>
+        <button onClick={onCancel} style={{flex:1,padding:"9px",background:"#f3f4f6",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>キャンセル</button>
+      </div>
+    </div>
+  );
+}
+
+// ===== 開催予定カード =====
+function MeetingCard({m,color,readList,memberCount,onDelete}){
+  const isPast=m.scheduledDate<new Date().toISOString().slice(0,10);
+  return(
+    <div style={{border:"1px solid #e5e7eb",borderRadius:10,padding:"11px 14px",marginBottom:8,opacity:isPast?0.65:1,background:isPast?"#f9fafb":"#fff"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:700,fontSize:13,color:isPast?"#9ca3af":color}}>{formatDate(m.scheduledDate)}{m.startTime&&` ${m.startTime}〜`}</div>
+          {m.location&&<div style={{fontSize:12,color:"#6b7280",marginTop:2}}>📍 {m.location}</div>}
+          {m.agenda&&<div style={{fontSize:12,color:"#374151",marginTop:4,whiteSpace:"pre-wrap"}}>📋 {m.agenda}</div>}
+          {!isPast&&<div style={{fontSize:11,color:"#6b7280",marginTop:4}}>既読: {readList.length}/{memberCount}名</div>}
+        </div>
+        <button onClick={onDelete} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #fca5a5",background:"#fff",color:"#dc2626",fontSize:11,fontWeight:600,cursor:"pointer",flexShrink:0}}>削除</button>
+      </div>
+    </div>
+  );
+}
+
+// ===== お知らせフォーム =====
+function NoticeForm({form,onChange,onSave,onCancel,saving}){
+  return(
+    <div style={{background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:12,padding:14,marginBottom:12}}>
+      <div style={{fontWeight:700,fontSize:13,color:"#15803d",marginBottom:10}}>📢 お知らせを投稿</div>
+      <div style={{marginBottom:10}}><label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>タイトル <span style={{color:"#dc2626"}}>*</span></label>
+        <input style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #86efac",fontSize:13,boxSizing:"border-box"}} placeholder="例: 5月の委員会開催のお知らせ" value={form.title} onChange={e=>onChange({...form,title:e.target.value})}/></div>
+      <div style={{marginBottom:12}}><label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>内容</label>
+        <textarea rows={4} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #86efac",fontSize:13,boxSizing:"border-box",resize:"vertical"}} placeholder="お知らせの詳細内容を入力してください" value={form.body} onChange={e=>onChange({...form,body:e.target.value})}/></div>
+      <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,fontWeight:600,color:"#374151",marginBottom:12}}>
+        <input type="checkbox" checked={form.isPublic} onChange={e=>onChange({...form,isPublic:e.target.checked})} style={{width:16,height:16,accentColor:"#16a34a"}}/>
+        全職員に公開する（未チェックは委員会メンバーのみ）
+      </label>
+      <div style={{display:"flex",gap:8}}>
+        <button onClick={onSave} disabled={saving} style={{flex:1,padding:"9px",background:"#16a34a",color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>{saving?"投稿中…":"投稿する"}</button>
+        <button onClick={onCancel} style={{flex:1,padding:"9px",background:"#f3f4f6",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>キャンセル</button>
+      </div>
+    </div>
+  );
+}
+
+// ===== お知らせカード =====
+function NoticeCard({n,canDelete,onDelete,committeeName,color}){
+  return(
+    <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:12,padding:"12px 14px",marginBottom:8}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+        <div style={{flex:1}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
+            {committeeName&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:10,background:`${color||"#7c3aed"}20`,color:color||"#7c3aed"}}>{committeeName}</span>}
+            <span style={{fontWeight:700,fontSize:14,color:"#1e3a5f"}}>{n.title}</span>
+            {n.isPublic&&<span style={{fontSize:10,background:"#dcfce7",color:"#15803d",borderRadius:10,padding:"1px 8px",fontWeight:700}}>全体公開</span>}
+          </div>
+          {n.body&&<div style={{fontSize:13,color:"#374151",whiteSpace:"pre-wrap",lineHeight:1.7,marginBottom:6}}>{n.body}</div>}
+          <div style={{fontSize:11,color:"#9ca3af"}}>{n.createdAt?new Date(n.createdAt).toLocaleDateString("ja-JP"):""}</div>
+        </div>
+        {canDelete&&<button onClick={onDelete} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #fca5a5",background:"#fff",color:"#dc2626",fontSize:11,fontWeight:600,cursor:"pointer",flexShrink:0}}>削除</button>}
+      </div>
+    </div>
+  );
+}
+
+// ===== 委員長専用ビュー（職員画面の委員会タブ）=====
+function ChairCommitteeView({emp,committees,committeeMembers,committeeMeetings,meetingReads,committeeNotices,employees,setMembersFor,upsertMeeting,deleteMeeting,upsertNotice,deleteNotice}){
+  const myCommittee=committees.find(c=>c.chairEmpId===emp.id);
+  const [innerTab,setInnerTab]=useState("members");
+  const [selectedMembers,setSelectedMembers]=useState([]);
+  const [saving,setSaving]=useState(false);
+  const [showMeetingForm,setShowMeetingForm]=useState(false);
+  const [meetingForm,setMeetingForm]=useState({id:"",scheduledDate:"",startTime:"",location:"",agenda:""});
+  const [showNoticeForm,setShowNoticeForm]=useState(false);
+  const [noticeForm,setNoticeForm]=useState({id:"",title:"",body:"",isPublic:false});
+
+  const {useEffect:ue}=require("react");
+  ue(()=>{ if(myCommittee) setSelectedMembers(committeeMembers[myCommittee.id]||[]); },[myCommittee?.id,committeeMembers]);
+
+  if(!myCommittee) return <div style={{padding:40,textAlign:"center",color:"#9ca3af",fontSize:13}}>委員長に設定されている委員会がありません<br/><span style={{fontSize:11}}>管理者に委員長設定を依頼してください</span></div>;
+
+  const color=myCommittee.color||"#7c3aed";
+  const myMeetings=committeeMeetings.filter(m=>m.committeeId===myCommittee.id).sort((a,b)=>a.scheduledDate.localeCompare(b.scheduledDate));
+  const myNotices=(committeeNotices||[]).filter(n=>n.committeeId===myCommittee.id);
+  const currentMembers=committeeMembers[myCommittee.id]||[];
+
+  const handleSaveMembers=async()=>{ setSaving(true); await setMembersFor(myCommittee.id,selectedMembers); setSaving(false); alert("メンバーを保存しました"); };
+  const handleSaveMeeting=async()=>{ if(!meetingForm.scheduledDate){alert("開催日を入力してください");return;} setSaving(true); await upsertMeeting({...meetingForm,id:meetingForm.id||`M${Date.now()}`,committeeId:myCommittee.id}); setSaving(false); setShowMeetingForm(false); setMeetingForm({id:"",scheduledDate:"",startTime:"",location:"",agenda:""}); };
+  const handleSaveNotice=async()=>{ if(!noticeForm.title.trim()){alert("タイトルを入力してください");return;} setSaving(true); await upsertNotice({...noticeForm,id:noticeForm.id||`N${Date.now()}`,committeeId:myCommittee.id,postedBy:emp.id}); setSaving(false); setShowNoticeForm(false); setNoticeForm({id:"",title:"",body:"",isPublic:false}); };
+
+  return(
+    <div>
+      <div style={{background:`${color}18`,border:`1.5px solid ${color}33`,borderRadius:14,padding:"14px 16px",marginBottom:16}}>
+        <div style={{fontWeight:800,fontSize:16,color}}>🏛 {myCommittee.name}</div>
+        {myCommittee.description&&<div style={{fontSize:12,color:"#6b7280",marginTop:4}}>{myCommittee.description}</div>}
+        <div style={{fontSize:12,color,fontWeight:700,marginTop:4}}>👑 委員長: {emp.name}　メンバー: {currentMembers.length}名</div>
+      </div>
+      <div style={{display:"flex",gap:0,borderBottom:"2px solid #e5e7eb",marginBottom:16}}>
+        {[["members","👥 メンバー"],["meetings","📅 開催予定"],["notices","📢 お知らせ"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setInnerTab(k)}
+            style={{padding:"10px 18px",border:"none",background:"transparent",fontWeight:700,fontSize:13,color:innerTab===k?color:"#9ca3af",borderBottom:innerTab===k?`2.5px solid ${color}`:"2.5px solid transparent",cursor:"pointer",marginBottom:-2}}>
+            {l}
+          </button>
+        ))}
+      </div>
+      {innerTab==="members"&&(
+        <div>
+          <MemberSelector employees={employees} selected={selectedMembers} onChange={setSelectedMembers}/>
+          <button onClick={handleSaveMembers} disabled={saving} style={{marginTop:14,padding:"10px",background:color,color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer",width:"100%"}}>{saving?"保存中…":"メンバーを保存する"}</button>
+        </div>
+      )}
+      {innerTab==="meetings"&&(
+        <div>
+          <button onClick={()=>{setShowMeetingForm(true);setMeetingForm({id:"",scheduledDate:"",startTime:"",location:"",agenda:"",committeeId:myCommittee.id});}}
+            style={{padding:"7px 16px",background:color,color:"#fff",border:"none",borderRadius:20,fontWeight:700,fontSize:12,cursor:"pointer",marginBottom:12}}>
+            ＋ 開催予定を追加
+          </button>
+          {showMeetingForm&&<MeetingForm form={meetingForm} onChange={setMeetingForm} onSave={handleSaveMeeting} onCancel={()=>setShowMeetingForm(false)} saving={saving}/>}
+          {myMeetings.length===0&&!showMeetingForm&&<div style={{textAlign:"center",padding:32,color:"#9ca3af",fontSize:13}}>開催予定はまだありません</div>}
+          {myMeetings.map(m=><MeetingCard key={m.id} m={m} color={color} readList={meetingReads[m.id]||[]} memberCount={currentMembers.length} onDelete={async()=>{if(window.confirm("この予定を削除しますか？"))await deleteMeeting(m.id);}}/>)}
+        </div>
+      )}
+      {innerTab==="notices"&&(
+        <div>
+          <button onClick={()=>{setShowNoticeForm(true);setNoticeForm({id:"",title:"",body:"",isPublic:false});}}
+            style={{padding:"7px 16px",background:"#16a34a",color:"#fff",border:"none",borderRadius:20,fontWeight:700,fontSize:12,cursor:"pointer",marginBottom:12}}>
+            ＋ お知らせを投稿
+          </button>
+          {showNoticeForm&&<NoticeForm form={noticeForm} onChange={setNoticeForm} onSave={handleSaveNotice} onCancel={()=>setShowNoticeForm(false)} saving={saving}/>}
+          {myNotices.length===0&&!showNoticeForm&&<div style={{textAlign:"center",padding:32,color:"#9ca3af",fontSize:13}}>お知らせはまだありません</div>}
+          {myNotices.map(n=><NoticeCard key={n.id} n={n} canDelete={true} onDelete={async()=>{if(window.confirm("削除しますか？"))await deleteNotice(n.id);}}/>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== 一般職員向けお知らせ一覧 =====
+function NoticeBoard({emp,committees,committeeMembers,committeeNotices}){
+  const myCommitteeIds=committees.filter(c=>(committeeMembers[c.id]||[]).includes(emp.id)).map(c=>c.id);
+  const visible=(committeeNotices||[]).filter(n=>n.isPublic||myCommitteeIds.includes(n.committeeId));
+  return(
+    <div>
+      <div style={{fontWeight:700,fontSize:14,color:"#1e3a5f",marginBottom:14}}>📢 お知らせ</div>
+      {visible.length===0&&<div style={{textAlign:"center",padding:40,color:"#9ca3af",fontSize:13}}>現在お知らせはありません</div>}
+      {visible.map(n=>{
+        const c=committees.find(x=>x.id===n.committeeId);
+        return <NoticeCard key={n.id} n={n} canDelete={false} committeeName={c?.name} color={c?.color}/>;
+      })}
     </div>
   );
 }
