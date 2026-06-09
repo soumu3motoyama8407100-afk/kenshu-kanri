@@ -227,6 +227,8 @@ export default function App() {
         .btn-col-sp{flex-direction:column !important;align-items:flex-end !important;}
         .btn-col-sp button{width:100% !important;text-align:center !important;}
         input[type="date"]{-webkit-appearance:none;appearance:none;min-height:44px;padding:10px 14px !important;}
+        /* iOSの自動ズーム防止：input/selectは16px以上にする */
+        input,select,textarea{font-size:16px !important;}
       }
       /* PC（769px以上） */
       @media(min-width:769px){
