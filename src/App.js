@@ -767,12 +767,13 @@ function QRScanModal({onScan,onClose}){
 }
 
 function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalYear,getCount,onLogout,isManager,deptEmployees,managedDepts,setFiscalYear,committeeProps}){
-  const [tab,setTab]=useState("score");
+  const [tab,setTab]=useState("training");
   const [videoT,setVideoT]=useState(null);
   const [toast,setToast]=useState(null);
   const [pdfExt,setPdfExt]=useState(null);
   const [showProfile,setShowProfile]=useState(false);
   const [showQRScan,setShowQRScan]=useState(false);
+  const [showScore,setShowScore]=useState(false);
   const [viewFY,setViewFY]=useState(fiscalYear);
   const isCurrentFY=viewFY===fiscalYear;
   const fyInternals=internals.filter(t=>inFiscalYear(t.date,viewFY)).sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -792,22 +793,67 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
       {pdfExt&&<PdfModal ext={pdfExt} onClose={()=>setPdfExt(null)}/>}
       {showProfile&&<ProfileModal emp={emp} onClose={()=>setShowProfile(false)}/>}
       {showQRScan&&<QRScanModal onScan={tid=>{setIS(emp.id,tid,"attendance","参加済");setShowQRScan(false);showToast("✅ 参加済に登録しました！");}} onClose={()=>setShowQRScan(false)}/>}
+      {/* 実績モーダル */}
+      {showScore&&(
+        <div style={S.overlay} onClick={()=>setShowScore(false)}>
+          <div style={{...S.modal,maxWidth:480,maxHeight:"85vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <div style={{fontWeight:800,fontSize:16,color:"#4A3020"}}>🏅 研修実績</div>
+              <button style={S.logoutBtn} onClick={()=>setShowScore(false)}>✕</button>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14,padding:"6px 10px",background:"#FDF6EC",borderRadius:8,border:"1px solid #E8D5B0"}}>
+              <span style={{fontSize:12,color:"#A07840",fontWeight:600}}>📅</span>
+              <select value={viewFY} onChange={e=>setViewFY(Number(e.target.value))} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:13,fontWeight:600,color:"#4A3020",cursor:"pointer",background:"#fff"}}>
+                {[fiscalYear-2,fiscalYear-1,fiscalYear].map(y=><option key={y} value={y}>{y}年度{y===fiscalYear?"（今年度）":""}</option>)}
+              </select>
+            </div>
+            <PointCard count={count} fiscalYear={viewFY}/>
+            <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16,marginTop:14}}>
+              <div style={{fontWeight:700,fontSize:13,color:"#4A3020",marginBottom:10}}>📊 月別復命書提出状況（{viewFY}年度）</div>
+              <div style={{display:"flex",gap:4,alignItems:"flex-end",height:72}}>
+                {monthCounts.map((m,i)=>(
+                  <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+                    <div style={{fontSize:9,color:m.count>0?"#C89A55":"#9ca3af",fontWeight:700}}>{m.count>0?m.count:""}</div>
+                    <div style={{width:"100%",height:`${(m.count/maxM)*56}px`,minHeight:m.count>0?4:0,background:m.count>=3?"#7c3aed":m.count>=2?"#C89A55":m.count>=1?"#D4AA70":"#e5e7eb",borderRadius:"3px 3px 0 0"}}/>
+                    <div style={{fontSize:9,color:"#9ca3af"}}>{m.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16,marginTop:14}}>
+              <div style={{fontWeight:700,fontSize:13,color:"#4A3020",marginBottom:10}}>🎖 バッジコレクション</div>
+              <div style={{display:"flex",gap:8}}>
+                {BADGES.map(b=>{const earned=count>=b.min;return(
+                  <div key={b.id} style={{flex:1,textAlign:"center",padding:"10px 4px",borderRadius:10,background:earned?b.bg:"#f9fafb",border:`1.5px solid ${earned?b.color:"#e5e7eb"}`,opacity:earned?1:0.45}}>
+                    <div style={{fontSize:22,marginBottom:3}}>{b.icon}</div>
+                    <div style={{fontSize:10,fontWeight:700,color:earned?b.color:"#9ca3af"}}>{b.label}</div>
+                  </div>
+                );})}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="rsp-wrap" style={S.appWrap}>
+        {/* ヘッダー */}
         <div style={S.header}>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0}}>
             <button onClick={()=>setShowProfile(true)} style={{width:38,height:38,borderRadius:"50%",background:"rgba(255,255,255,.25)",border:"1.5px solid rgba(255,255,255,.4)",color:"#4A3020",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>👤</button>
-            <div>
+            <div style={{minWidth:0}}>
               <div style={{...S.headerName,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                {emp.name}
-                {emp.roleTitle&&<span style={{fontSize:12,fontWeight:700,background:"rgba(255,255,255,.25)",borderRadius:10,padding:"2px 10px",letterSpacing:.5}}>{emp.roleTitle}</span>}
+                <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.name}</span>
+                {emp.roleTitle&&<span style={{fontSize:11,fontWeight:700,background:"rgba(255,255,255,.25)",borderRadius:10,padding:"2px 8px",flexShrink:0}}>{emp.roleTitle}</span>}
               </div>
               <div style={S.headerSub}>{emp.dept} · {emp.id}</div>
             </div>
           </div>
-          <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            <button style={S.logoutBtn} onClick={onLogout}>ログアウト</button>
-          </div>
+          {/* 実績ボタン */}
+          <button onClick={()=>setShowScore(true)} style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"5px 10px",background:"rgba(255,255,255,.18)",border:"1.5px solid rgba(255,255,255,.5)",borderRadius:12,cursor:"pointer",flexShrink:0,minWidth:54}}>
+            <span style={{fontSize:18}}>{count>=20?"👑":count>=15?"💎":count>=10?"🏆":count>=5?"⭐":"🌱"}</span>
+            <span style={{fontSize:10,color:"#fff",fontWeight:700,marginTop:1}}>{count}件</span>
+          </button>
         </div>
+        {/* 年度バー */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"8px 16px",background:"#FDF6EC",borderBottom:"1px solid #E8D5B0"}}>
           <span style={{fontSize:12,color:"#A07840",fontWeight:600}}>📅 年度</span>
           <select value={viewFY} onChange={e=>setViewFY(Number(e.target.value))} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:13,fontWeight:600,color:"#4A3020",cursor:"pointer",background:"#fff"}}>
@@ -815,8 +861,9 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
           </select>
           {!isCurrentFY&&<span style={{fontSize:11,color:"#d97706",fontWeight:600,background:"#fef3c7",padding:"2px 8px",borderRadius:20}}>過去年度閲覧中</span>}
         </div>
+        {/* タブバー */}
         <div style={S.tabBar}>
-          {[["score","🏅 実績"],["internal","🏢 内部研修"],["external","🌐 外部研修"],["video","▶ 動画"],
+          {[["training","📚 研修"],["video","▶ 動画"],
             ...(isManager?[["mgr","📋 部署管理"]]:[]),
             ...(committeeProps?.committees?.some(c=>c.chairEmpId===emp.id)?[["chair","🏛 委員会"]]:
                (committeeProps?.committeeNotices?.some(n=>n.isPublic||(committeeProps.committeeMembers[n.committeeId]||[]).includes(emp.id))?[["notices","📢 お知らせ"]]:[]))]
@@ -824,55 +871,40 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
               <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{}),...(k==="mgr"?{background:tab===k?"#1e3a5f":undefined,color:tab===k?"#fff":"#1e3a5f",borderColor:"#1e3a5f"}:{}),...(k==="chair"?{color:tab===k?"#fff":"#7c3aed",background:tab===k?"#7c3aed":undefined,borderBottom:tab===k?"2.5px solid #7c3aed":undefined}:{}),...(k==="notices"?{color:tab===k?"#fff":"#16a34a",background:tab===k?"#16a34a":undefined,borderBottom:tab===k?"2.5px solid #16a34a":undefined}:{})}} onClick={()=>setTab(k)}>{l}</button>
             ))}
         </div>
+        {/* コンテンツ */}
         <div style={S.scroll}>
-          {tab==="score"&&(
+          {tab==="training"&&(
             <div style={{display:"flex",flexDirection:"column",gap:16}}>
-              <PointCard count={count} fiscalYear={viewFY}/>
-              <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16}}>
-                <div style={{fontWeight:700,fontSize:14,color:"#4A3020",marginBottom:12}}>📊 月別復命書提出状況（{viewFY}年度）</div>
-                <div style={{display:"flex",gap:4,alignItems:"flex-end",height:80}}>
-                  {monthCounts.map((m,i)=>(
-                    <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                      <div style={{fontSize:9,color:m.count>0?"#C89A55":"#9ca3af",fontWeight:700}}>{m.count>0?m.count:""}</div>
-                      <div style={{width:"100%",height:`${(m.count/maxM)*60}px`,minHeight:m.count>0?4:0,background:m.count>=3?"#7c3aed":m.count>=2?"#C89A55":m.count>=1?"#D4AA70":"#e5e7eb",borderRadius:"3px 3px 0 0"}}/>
-                      <div style={{fontSize:9,color:"#9ca3af"}}>{m.label}</div>
-                    </div>
+              {/* 内部研修 */}
+              {fyInternals.length>0&&(
+                <div>
+                  <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"6px 12px",background:"#FDF6EC",borderRadius:8,marginBottom:8,border:"1px solid #E8D5B0"}}>🏢 内部研修（{fyInternals.length}件）</div>
+                  <div className="app-content-grid">
+                    {fyInternals.map(t=>(
+                      <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)} empId={emp.id} readonly={!isCurrentFY}
+                        onReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","提出済");showToast("復命書を提出しました");} }}
+                        onCancelReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","未提出");showToast("提出を取り消しました");} }}
+                        onVideo={v=>{ if(isCurrentFY){setIS(emp.id,t.id,"video",v);} }}
+                        onWatchVideo={()=>{setVideoT(t);setTab("video");}}/>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* 外部研修 */}
+              {fyExternals.length>0&&(
+                <div>
+                  <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"6px 12px",background:"#FDF6EC",borderRadius:8,marginBottom:8,border:"1px solid #E8D5B0"}}>🌐 外部研修（{fyExternals.length}件）</div>
+                  {fyExternals.map(x=>(
+                    <ExternalCard key={x.id} ext={x} status={getXS(emp.id,x.id)} readonly={!isCurrentFY}
+                      onAttend={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{attended:true});showToast("受講済にしました");} }}
+                      onReport={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{reportSubmitted:true});showToast("復命書を提出しました");} }}
+                      onCancelReport={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{reportSubmitted:false});showToast("提出を取り消しました");} }}
+                      onViewPdf={type=>setPdfExt({...x,_pdfType:type})}/>
                   ))}
                 </div>
-              </div>
-              <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16}}>
-                <div style={{fontWeight:700,fontSize:14,color:"#4A3020",marginBottom:12}}>🎖 バッジコレクション</div>
-                <div style={{display:"flex",gap:10}}>
-                  {BADGES.map(b=>{const earned=count>=b.min;return(
-                    <div key={b.id} style={{flex:1,textAlign:"center",padding:"12px 8px",borderRadius:12,background:earned?b.bg:"#f9fafb",border:`1.5px solid ${earned?b.color:"#e5e7eb"}`,opacity:earned?1:0.45}}>
-                      <div style={{fontSize:28,marginBottom:4}}>{b.icon}</div>
-                      <div style={{fontSize:11,fontWeight:700,color:earned?b.color:"#9ca3af"}}>{b.label}</div>
-                      <div style={{fontSize:10,color:"#9ca3af",marginTop:2}}>{b.min}件〜</div>
-                    </div>
-                  );})}
-                </div>
-              </div>
+              )}
+              {fyInternals.length===0&&fyExternals.length===0&&<div style={S.empty}>{viewFY}年度の研修はありません</div>}
             </div>
-          )}
-          {tab==="internal"&&(fyInternals.length===0?<div style={S.empty}>{viewFY}年度の内部研修はありません</div>
-            :<div className="app-content-grid">
-            {fyInternals.map(t=>(
-              <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)} empId={emp.id} readonly={!isCurrentFY}
-                onReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","提出済");showToast("復命書を提出しました");} }}
-                onCancelReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","未提出");showToast("提出を取り消しました");} }}
-                onVideo={v=>{ if(isCurrentFY){setIS(emp.id,t.id,"video",v);} }}
-                onWatchVideo={()=>{setVideoT(t);setTab("video");}}/>
-            ))}
-            </div>
-          )}
-          {tab==="external"&&(fyExternals.length===0?<div style={S.empty}>{viewFY}年度の外部研修はありません</div>
-            :fyExternals.map(x=>(
-              <ExternalCard key={x.id} ext={x} status={getXS(emp.id,x.id)} readonly={!isCurrentFY}
-                onAttend={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{attended:true});showToast("受講済にしました");} }}
-                onReport={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{reportSubmitted:true});showToast("復命書を提出しました");} }}
-                onCancelReport={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{reportSubmitted:false});showToast("提出を取り消しました");} }}
-                onViewPdf={type=>setPdfExt({...x,_pdfType:type})}/>
-            ))
           )}
           {tab==="video"&&(
             <VideoTab trainings={fyInternals.filter(t=>t.videoUrl)} selected={videoT||fyInternals.find(t=>t.videoUrl)}
@@ -895,6 +927,12 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
           {tab==="notices"&&committeeProps&&(
             <NoticeBoard emp={emp} {...committeeProps}/>
           )}
+        </div>
+        {/* スティッキーログアウトバー */}
+        <div style={{position:"sticky",bottom:0,background:"linear-gradient(to top,#fff 80%,rgba(255,255,255,0))",padding:"12px 16px 16px",display:"flex",justifyContent:"center",zIndex:10}}>
+          <button onClick={onLogout} style={{padding:"10px 32px",background:"#4A3020",color:"#fff",border:"none",borderRadius:24,fontSize:13,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 16px rgba(74,48,32,.3)",letterSpacing:.5}}>
+            ログアウト
+          </button>
         </div>
       </div>
     </div>
