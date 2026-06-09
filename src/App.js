@@ -2226,7 +2226,7 @@ function CommitteeTab({emp,committees,committeeMembers,committeeMeetings,meeting
 
               {/* 開催予定フォーム（委員長のみ） */}
               {isChair&&showMeetingForm&&editMeeting&&(
-                <MeetingForm meeting={editMeeting} color={selected.color} saving={saving}
+                <MeetingForm form={editMeeting} saving={saving}
                   onChange={m=>setEditMeeting(m)}
                   onSave={()=>handleSaveMeeting(editMeeting)}
                   onCancel={()=>{setShowMeetingForm(false);setEditMeeting(null);}}/>
@@ -2267,7 +2267,7 @@ function CommitteeTab({emp,committees,committeeMembers,committeeMeetings,meeting
                     </div>
                     {isChair&&!isPastMtg&&isEditing&&(
                       <div style={{padding:"12px 14px",borderTop:"1px solid #e5e7eb"}}>
-                        <MeetingForm meeting={editMeeting} color={selected.color} saving={saving}
+                        <MeetingForm form={editMeeting} saving={saving}
                           onChange={m=>setEditMeeting(m)}
                           onSave={()=>handleSaveMeeting(editMeeting)}
                           onCancel={()=>{setShowMeetingForm(false);setEditMeeting(null);}}/>
@@ -2301,45 +2301,6 @@ function CommitteeTab({emp,committees,committeeMembers,committeeMeetings,meeting
   );
 }
 
-function MeetingForm({meeting,color,saving,onChange,onSave,onCancel}){
-  return(
-    <div style={{background:"#fffbeb",border:`1.5px solid ${color}55`,borderRadius:10,padding:14,marginBottom:10}}>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
-        <div>
-          <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>開催日 <span style={{color:"#dc2626"}}>*</span></label>
-          <input type="date" style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #e5e7eb",fontSize:13,boxSizing:"border-box"}}
-            value={meeting.scheduledDate} onChange={e=>onChange({...meeting,scheduledDate:e.target.value})}/>
-        </div>
-        <div>
-          <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>開始時刻</label>
-          <input type="time" style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #e5e7eb",fontSize:13,boxSizing:"border-box"}}
-            value={meeting.startTime} onChange={e=>onChange({...meeting,startTime:e.target.value})}/>
-        </div>
-      </div>
-      <div style={{marginBottom:10}}>
-        <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>開催場所</label>
-        <input style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #e5e7eb",fontSize:13,boxSizing:"border-box"}}
-          placeholder="例: 会議室A・オンライン" value={meeting.location} onChange={e=>onChange({...meeting,location:e.target.value})}/>
-      </div>
-      <div style={{marginBottom:10}}>
-        <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>議題・内容</label>
-        <textarea rows={3} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #e5e7eb",fontSize:13,boxSizing:"border-box",resize:"vertical"}}
-          placeholder="例: 感染対策マニュアル改訂について" value={meeting.agenda} onChange={e=>onChange({...meeting,agenda:e.target.value})}/>
-      </div>
-      <div style={{marginBottom:12}}>
-        <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>備考・連絡事項</label>
-        <textarea rows={2} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #e5e7eb",fontSize:13,boxSizing:"border-box",resize:"vertical"}}
-          placeholder="持参物など" value={meeting.notes} onChange={e=>onChange({...meeting,notes:e.target.value})}/>
-      </div>
-      <div style={{display:"flex",gap:8}}>
-        <button onClick={onSave} disabled={saving} style={{flex:1,padding:"9px",background:color,color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>
-          {saving?"保存中…":"保存"}
-        </button>
-        <button onClick={onCancel} style={{flex:1,padding:"9px",background:"#f3f4f6",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>キャンセル</button>
-      </div>
-    </div>
-  );
-}
 
 // ─── 委員会管理タブ（管理者専用） ───────────────────────────────────────────
 function CommitteeManageTab({committees,committeeMembers,committeeMeetings,meetingReads,committeeNotices,employees,upsertCommittee,deleteCommittee,setMembersFor,upsertMeeting,deleteMeeting,upsertNotice,deleteNotice,setCommittees}){
