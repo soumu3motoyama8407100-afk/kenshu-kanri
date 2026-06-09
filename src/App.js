@@ -888,14 +888,11 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
             ["notices","📢 お知らせ"]]
             .map(([k,l])=>(
               <button key={k}
-                style={{...S.tab,...(tab===k?S.tabOn:{}),...(k==="mgr"?{background:tab===k?"#1e3a5f":undefined,color:tab===k?"#fff":"#1e3a5f"}:{}),...(k==="chair"?{color:tab===k?"#fff":"#7c3aed",background:tab===k?"#7c3aed":undefined,borderBottom:tab===k?"2.5px solid #7c3aed":undefined}:{}),...(k==="notices"?{color:tab===k?"#fff":"#16a34a",background:tab===k?"#16a34a":undefined,borderBottom:tab===k?"2.5px solid #16a34a":undefined}:{}),position:"relative"}}
-                onClick={()=>switchTab(k)}>
+                disabled={k==="notices"}
+                style={{...S.tab,...(tab===k?S.tabOn:{}),...(k==="mgr"?{background:tab===k?"#1e3a5f":undefined,color:tab===k?"#fff":"#1e3a5f"}:{}),...(k==="chair"?{color:tab===k?"#fff":"#7c3aed",background:tab===k?"#7c3aed":undefined,borderBottom:tab===k?"2.5px solid #7c3aed":undefined}:{}),...(k==="notices"?{color:"#9ca3af",background:"#f3f4f6",borderBottom:"none",cursor:"not-allowed",opacity:.7}:{}),position:"relative"}}
+                onClick={()=>k!=="notices"&&switchTab(k)}>
                 {l}
-                {k==="notices"&&unreadCount>0&&(
-                  <span style={{position:"absolute",top:4,right:2,minWidth:16,height:16,background:"#ef4444",color:"#fff",borderRadius:99,fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px",lineHeight:1,boxShadow:"0 1px 4px rgba(0,0,0,.25)"}}>
-                    {unreadCount>99?"99+":unreadCount}
-                  </span>
-                )}
+                {k==="notices"&&<span style={{fontSize:9,background:"#e5e7eb",color:"#6b7280",borderRadius:6,padding:"1px 5px",fontWeight:700,marginLeft:3,verticalAlign:"middle"}}>準備中</span>}
               </button>
             ))}
         </div>
@@ -955,8 +952,13 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
           {tab==="notices"&&(
             <div>
               <div style={{fontWeight:700,fontSize:14,color:"#1e3a5f",marginBottom:14}}>📢 お知らせ</div>
-              {visibleNotices.length===0&&<div style={{textAlign:"center",padding:40,color:"#9ca3af",fontSize:13}}>現在お知らせはありません</div>}
-              {visibleNotices.map(n=>{
+              <div style={{textAlign:"center",padding:"48px 24px",color:"#9ca3af"}}>
+                <div style={{fontSize:40,marginBottom:12}}>🚧</div>
+                <div style={{fontSize:15,fontWeight:700,color:"#6b7280",marginBottom:6}}>このタブは現在準備中です</div>
+                <div style={{fontSize:13,color:"#9ca3af"}}>近日公開予定です。しばらくお待ちください。</div>
+              </div>
+              {false&&visibleNotices.length===0&&<div style={{textAlign:"center",padding:40,color:"#9ca3af",fontSize:13}}>現在お知らせはありません</div>}
+              {false&&visibleNotices.map(n=>{
                 const c=committeeProps?.committees?.find(x=>x.id===n.committeeId);
                 const isUnread=!readIds.includes(n.id);
                 return(
