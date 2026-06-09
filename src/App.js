@@ -884,17 +884,20 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,fiscalY
         <div style={S.tabBar}>
           {[["training","📚 研修"],["video","▶ 動画"],
             ...(isManager?[["mgr","📋 部署管理"]]:[]),
-            ...(committeeProps?.committees?.some(c=>c.chairEmpId===emp.id)?[["chair","🏛 委員会"]]:[]),
+            ["chair","🏛 委員会"],
             ["notices","📢 お知らせ"]]
-            .map(([k,l])=>(
+            .map(([k,l])=>{
+              const isLocked=k==="notices"||k==="chair";
+              return(
               <button key={k}
-                disabled={k==="notices"}
-                style={{...S.tab,...(tab===k?S.tabOn:{}),...(k==="mgr"?{background:tab===k?"#1e3a5f":undefined,color:tab===k?"#fff":"#1e3a5f"}:{}),...(k==="chair"?{color:tab===k?"#fff":"#7c3aed",background:tab===k?"#7c3aed":undefined,borderBottom:tab===k?"2.5px solid #7c3aed":undefined}:{}),...(k==="notices"?{color:"#9ca3af",background:"#f3f4f6",borderBottom:"none",cursor:"not-allowed",opacity:.7}:{}),position:"relative"}}
-                onClick={()=>k!=="notices"&&switchTab(k)}>
+                disabled={isLocked}
+                style={{...S.tab,...(tab===k?S.tabOn:{}),...(k==="mgr"?{background:tab===k?"#1e3a5f":undefined,color:tab===k?"#fff":"#1e3a5f"}:{}),...(isLocked?{color:"#9ca3af",background:"#f3f4f6",borderBottom:"none",cursor:"not-allowed",opacity:.7}:{}),position:"relative"}}
+                onClick={()=>!isLocked&&switchTab(k)}>
                 {l}
-                {k==="notices"&&<span style={{fontSize:9,background:"#e5e7eb",color:"#6b7280",borderRadius:6,padding:"1px 5px",fontWeight:700,marginLeft:3,verticalAlign:"middle"}}>準備中</span>}
+                {isLocked&&<span style={{fontSize:9,background:"#e5e7eb",color:"#6b7280",borderRadius:6,padding:"1px 5px",fontWeight:700,marginLeft:3,verticalAlign:"middle"}}>準備中</span>}
               </button>
-            ))}
+              );
+            })}
         </div>
         {/* コンテンツ */}
         <div style={S.scroll}>
@@ -1692,8 +1695,8 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
               <tbody>
                 {deptEmps.map((emp,i)=>(
                   <tr key={emp.id} style={{background:i%2===0?"#fff":"#FDFAF5"}}>
-                    <td style={{padding:"8px 12px",color:"#9ca3af",fontSize:12,borderBottom:"1px solid #F0E8D8"}}>{emp.id}</td>
-                    <td style={{padding:"8px 12px",fontWeight:700,color:"#4A3020",borderBottom:"1px solid #F0E8D8"}}>{emp.name}</td>
+                    <td style={{padding:"8px 12px",color:"#9ca3af",fontSize:12,borderBottom:"1px solid #F0E8D8",whiteSpace:"nowrap"}}>{emp.id}</td>
+                    <td style={{padding:"8px 12px",fontWeight:700,color:"#4A3020",borderBottom:"1px solid #F0E8D8",whiteSpace:"nowrap"}}>{emp.name}</td>
                     <td style={{padding:"8px 12px",borderBottom:"1px solid #F0E8D8"}}>
                       {emp.roleTitle
                         ? <span style={{fontSize:12,fontWeight:600,color:"#92400e"}}>{emp.roleTitle}</span>
@@ -1735,7 +1738,7 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
               {retiredThisYearEmps.map((emp,i)=>(
                 <tr key={emp.id} style={{background:i%2===0?"#fff":"#f9fafb"}}>
                   <td style={{padding:"8px 12px",color:"#9ca3af",fontSize:12,borderBottom:"1px solid #f0f0f0"}}>{emp.id}</td>
-                  <td style={{padding:"8px 12px",fontWeight:700,color:"#9ca3af",textDecoration:"line-through",borderBottom:"1px solid #f0f0f0"}}>{emp.name}</td>
+                  <td style={{padding:"8px 12px",fontWeight:700,color:"#9ca3af",textDecoration:"line-through",borderBottom:"1px solid #f0f0f0",whiteSpace:"nowrap"}}>{emp.name}</td>
                   <td style={{padding:"8px 12px",color:"#9ca3af",fontSize:12,borderBottom:"1px solid #f0f0f0"}}>{emp.dept}</td>
                   <td style={{padding:"8px 12px",color:"#9ca3af",fontSize:12,borderBottom:"1px solid #f0f0f0"}}>{emp.retireDate}</td>
                   <td style={{padding:"8px 12px",textAlign:"center",borderBottom:"1px solid #f0f0f0"}}>
