@@ -448,7 +448,7 @@ function DualLoginScreen({pendingAttend,internals,employees,onLogin,onManualLogi
           <LoginCard title="研修管理システム" icon="📚" accentColor="#C89A55"
             pendingAttend={pendingAttend} internals={internals} employees={employees}
             onLogin={(empId,isAdmin,isManager,dept)=>onLogin(empId,isAdmin,isManager||false,dept||"")}/>
-          <ManualLoginCard employees={employees} onManualLogin={onManualLogin}/>
+          {MANUAL_ENABLED&&<ManualLoginCard employees={employees} onManualLogin={onManualLogin}/>}
         </div>
         <div style={{marginTop:14,fontSize:11,color:"#9ca3af",textAlign:"center"}}>管理者: ADMIN / admin123</div>
       </div>
