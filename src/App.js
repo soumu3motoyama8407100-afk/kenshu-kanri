@@ -226,17 +226,7 @@ const db = {
   },
   async upsertSeminar(s) { await supabase.from("seminars").upsert({id:s.id,title:s.title,date:s.date,video_url:s.videoUrl||"",description:s.description||"",organizer:s.organizer||"リブドゥ",updated_at:new Date().toISOString()},{onConflict:"id"}); },
   async deleteSeminar(id) {
-    await supabase.from("seminar_views").delete().eq("seminar_id",id);
     await supabase.from("seminars").delete().eq("id",id);
-  },
-  async getSeminarViews() {
-    const {data} = await supabase.from("seminar_views").select("*");
-    const map = {};
-    (data||[]).forEach(r => { if(!map[r.emp_id])map[r.emp_id]={}; map[r.emp_id][r.seminar_id]={watched:r.watched}; });
-    return map;
-  },
-  async setSeminarView(empId,sid,watched) {
-    await supabase.from("seminar_views").upsert({emp_id:empId,seminar_id:sid,watched,updated_at:new Date().toISOString()},{onConflict:"emp_id,seminar_id"});
   },
 };
 
@@ -286,7 +276,6 @@ export default function App() {
   const [meetingReads,setMeetingReads] = useState({});
   const [committeeNotices,setCommitteeNotices] = useState([]);
   const [seminars,setSeminars] = useState([]);
-  const [semViews,setSemViews] = useState({});
 
   useEffect(()=>{ const p=new URLSearchParams(window.location.search);const a=p.get("attend");if(a)setPendingAttend(a); },[]);
 
@@ -308,8 +297,7 @@ export default function App() {
       } catch(e){ console.warn("委員会データ読み込みエラー（テーブル未作成の可能性）:",e); }
       // セミナーデータも別で読み込む（テーブル未作成でも職員データに影響しない）
       try {
-        const [sems,sv] = await Promise.all([db.getSeminars(),db.getSeminarViews()]);
-        setSeminars(sems); setSemViews(sv);
+        setSeminars(await db.getSeminars());
       } catch(e){ console.warn("セミナーデータ読み込みエラー（テーブル未作成の可能性）:",e); }
     })();
   },[]);
@@ -340,11 +328,6 @@ export default function App() {
     const next={...getXS(empId,xid),...patch};
     setXStatuses(p=>({...p,[empId]:{...p[empId],[xid]:next}}));
     await db.setXStatus(empId,xid,next);
-  };
-  const getSV = (empId,sid) => semViews[empId]?.[sid]?.watched===true;
-  const setSV = async(empId,sid,watched) => {
-    setSemViews(p=>({...p,[empId]:{...p[empId],[sid]:{watched}}}));
-    await db.setSeminarView(empId,sid,watched);
   };
   const getCount = (empId,fy) => {
     const iC=internals.filter(t=>inFiscalYear(t.date,fy)&&getIS(empId,t.id).reportConfirmed===true).length;
@@ -398,7 +381,6 @@ export default function App() {
       seminars={seminars}
       upsertSeminar={async s=>{ setSeminars(p=>{const i=p.findIndex(x=>x.id===s.id);return i>=0?p.map(x=>x.id===s.id?s:x):[...p,s].sort((a,b)=>new Date(a.date)-new Date(b.date));}); await db.upsertSeminar(s); }}
       deleteSeminar={async id=>{ setSeminars(p=>p.filter(s=>s.id!==id)); await db.deleteSeminar(id); }}
-      getSV={getSV}
       getIS={getIS} setIS={setIS} getXS={getXS} setXS={setXS}
       fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}
       getCount={getCount} onLogout={handleLogout}
@@ -413,7 +395,7 @@ export default function App() {
       <EmployeeScreen emp={mgr}
         internals={internals} getIS={getIS} setIS={setIS}
         externals={externals} getXS={getXS} setXS={setXS}
-        seminars={seminars} getSV={getSV} setSV={setSV}
+        seminars={seminars}
         fiscalYear={fiscalYear} getCount={getCount}
         onLogout={handleLogout}
         isManager={true}
@@ -430,7 +412,7 @@ export default function App() {
     <EmployeeScreen emp={emp}
       internals={internals} getIS={getIS} setIS={setIS}
       externals={externals} getXS={getXS} setXS={setXS}
-      seminars={seminars} getSV={getSV} setSV={setSV}
+      seminars={seminars}
       fiscalYear={fiscalYear} getCount={getCount}
       onLogout={handleLogout}
       committeeProps={committeeProps}/>
@@ -802,7 +784,7 @@ function QRScanModal({onScan,onClose}){
   );
 }
 
-function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminars,getSV,setSV,fiscalYear,getCount,onLogout,isManager,deptEmployees,managedDepts,setFiscalYear,committeeProps}){
+function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminars,fiscalYear,getCount,onLogout,isManager,deptEmployees,managedDepts,setFiscalYear,committeeProps}){
   const [tab,setTab]=useState("training");
   const [videoT,setVideoT]=useState(null);
   const [toast,setToast]=useState(null);
@@ -978,9 +960,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
               getStatus={t=>getIS(emp.id,t.id)} readonly={!isCurrentFY}/>
           )}
           {tab==="seminar"&&(
-            <SeminarTab seminars={fySeminars} empId={emp.id} getSV={getSV} readonly={!isCurrentFY}
-              onMarkWatched={(s,val)=>{ if(isCurrentFY){setSV(emp.id,s.id,val);showToast(val?"「視聴済」にしました":"未視聴に戻しました");} }}
-              fiscalYear={viewFY}/>
+            <SeminarTab seminars={fySeminars} fiscalYear={viewFY}/>
           )}
           {tab==="mgr"&&isManager&&deptEmployees&&(
             <ManagerTabContent
@@ -1410,7 +1390,7 @@ function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus,readonly}
 
 const isEmbedUrl = u => /youtube\.com\/embed|youtube-nocookie\.com\/embed|player\.vimeo\.com/.test(u||"");
 
-function SeminarCard({seminar,watched,readonly,onMarkWatched}){
+function SeminarCard({seminar}){
   const [open,setOpen]=useState(false);
   const released=!seminar.date||new Date(seminar.date)<=new Date();
   return(
@@ -1422,11 +1402,7 @@ function SeminarCard({seminar,watched,readonly,onMarkWatched}){
           <div style={S.cardTitle}>{seminar.title}</div>
           <div style={S.cardDate}>📅 配信開始 {seminar.date} ｜ 🏢 {seminar.organizer}</div>
         </div>
-        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
-          {watched?<span style={{fontSize:11,fontWeight:700,padding:"2px 10px",borderRadius:20,background:"#dcfce7",color:"#15803d"}}>✅ 視聴済</span>
-            :<span style={{fontSize:11,fontWeight:600,padding:"2px 10px",borderRadius:20,background:"#f3f4f6",color:"#6b7280"}}>○ 未視聴</span>}
-          <span style={{color:"#d1d5db",fontSize:14}}>{open?"▲":"▼"}</span>
-        </div>
+        <span style={{color:"#d1d5db",fontSize:14}}>{open?"▲":"▼"}</span>
       </div>
       {open&&(
         <div style={S.cardBody}>
@@ -1443,40 +1419,26 @@ function SeminarCard({seminar,watched,readonly,onMarkWatched}){
                   <a href={seminar.videoUrl} target="_blank" rel="noreferrer" style={{...S.watchBtn,display:"block",textAlign:"center",textDecoration:"none",background:"#0e7490",boxSizing:"border-box"}}>▶ 視聴ページを開く</a>
                   <div style={{fontSize:11,color:"#9ca3af",marginTop:6,textAlign:"center"}}>🔖 視聴ページはブックマークできません。視聴のたびにこのボタンから開いてください。</div>
                 </div>}
-          {released&&seminar.videoUrl&&!readonly&&(
-            <div style={{display:"flex",gap:8,marginTop:4}}>
-              {watched
-                ?<button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"5px 12px",cursor:"pointer"}} onClick={()=>onMarkWatched(seminar,false)}>未視聴に戻す</button>
-                :<button style={{...S.actionBtn}} onClick={()=>onMarkWatched(seminar,true)}>視聴済にする</button>}
-            </div>
-          )}
         </div>
       )}
     </div>
   );
 }
 
-function SeminarTab({seminars,empId,getSV,onMarkWatched,readonly,fiscalYear}){
-  const watchedCount=seminars.filter(s=>getSV(empId,s.id)).length;
+function SeminarTab({seminars,fiscalYear}){
   return(
     <div>
       <div style={{display:"flex",alignItems:"center",gap:10,background:"#ecfeff",border:"1.5px solid #67e8f9",borderRadius:12,padding:"12px 16px",marginBottom:16}}>
         <span style={{fontSize:24}}>📺</span>
         <div>
           <div style={{fontWeight:700,fontSize:13,color:"#0e7490"}}>リブドゥ オンラインセミナー</div>
-          <div style={{fontSize:12,color:"#155e75",marginTop:2}}>年間を通じていつでも視聴できます。配信開始日以降、好きなタイミングで視聴してください。</div>
+          <div style={{fontSize:12,color:"#155e75",marginTop:2}}>年間を通じていつでも視聴できます。動画は毎月更新されるので、好きなタイミングで視聴してください。</div>
         </div>
       </div>
-      {seminars.length>0&&(
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-          <span style={{fontSize:12,color:"#6b7280"}}>{fiscalYear}年度の配信：{seminars.length}本</span>
-          <span style={{fontSize:12,fontWeight:700,color:"#0e7490"}}>視聴済 {watchedCount}/{seminars.length}</span>
-        </div>
-      )}
       {seminars.length===0
         ?<div style={S.empty}>{fiscalYear}年度のオンラインセミナーはまだ登録されていません</div>
         :seminars.map(s=>(
-          <SeminarCard key={s.id} seminar={s} watched={getSV(empId,s.id)} readonly={readonly} onMarkWatched={onMarkWatched}/>
+          <SeminarCard key={s.id} seminar={s}/>
         ))}
     </div>
   );
@@ -1510,7 +1472,7 @@ function PdfModal({ext,onClose}){
   );
 }
 
-function AdminScreen({employees,setEmployees,internals,setInternals,externals,setExternals,deleteInternal,deleteExternal,seminars,upsertSeminar,deleteSeminar,getSV,getIS,setIS,getXS,setXS,fiscalYear,setFiscalYear,getCount,onLogout,committeeProps}){
+function AdminScreen({employees,setEmployees,internals,setInternals,externals,setExternals,deleteInternal,deleteExternal,seminars,upsertSeminar,deleteSeminar,getIS,setIS,getXS,setXS,fiscalYear,setFiscalYear,getCount,onLogout,committeeProps}){
   const [tab,setTab]=useState("ranking");
   const [qrT,setQrT]=useState(null);
   return(
@@ -1540,7 +1502,7 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
           {tab==="iManage"   &&<InternalManageTab internals={internals} setInternals={setInternals} deleteInternal={deleteInternal} employees={employees}/>}
           {tab==="xProgress" &&<ExternalProgressTab employees={employees} externals={externals} getXS={getXS} setXS={setXS} fiscalYear={fiscalYear}/>}
           {tab==="xManage"   &&<ExternalManageTab employees={employees} externals={externals} setExternals={setExternals} deleteExternal={deleteExternal}/>}
-          {tab==="semManage" &&<SeminarManageTab seminars={seminars} upsertSeminar={upsertSeminar} deleteSeminar={deleteSeminar} employees={employees} getSV={getSV}/>}
+          {tab==="semManage" &&<SeminarManageTab seminars={seminars} upsertSeminar={upsertSeminar} deleteSeminar={deleteSeminar}/>}
           {tab==="empManage" &&<EmployeeManageTab employees={employees} setEmployees={setEmployees} internals={internals} getIS={getIS} getXS={getXS} externals={externals} fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}/>}
           {tab==="committeeManage"&&committeeProps&&<CommitteeManageTab {...committeeProps}/>}
         </div>
@@ -2291,13 +2253,12 @@ function SeminarForm({data,onChange,onSave,onCancel,title}){
   );
 }
 
-function SeminarManageTab({seminars,upsertSeminar,deleteSeminar,employees,getSV}){
+function SeminarManageTab({seminars,upsertSeminar,deleteSeminar}){
   const [showAdd,setShowAdd]=useState(false);
   const [editId,setEditId]=useState(null);
   const emptySem={title:"",date:"",organizer:"リブドゥ",videoUrl:"",description:""};
   const [newS,setNewS]=useState(emptySem);
   const [editS,setEditS]=useState(null);
-  const activeEmps=employees.filter(e=>e.isActive!==false&&(!e.retireDate||new Date(e.retireDate)>new Date()));
 
   const clean=s=>({...s,title:(s.title||"").trim(),organizer:(s.organizer||"リブドゥ").trim()||"リブドゥ",videoUrl:(s.videoUrl||"").trim()});
   const add=async()=>{
@@ -2321,7 +2282,6 @@ function SeminarManageTab({seminars,upsertSeminar,deleteSeminar,employees,getSV}
       {showAdd&&<SeminarForm data={newS} onChange={setNewS} onSave={add} onCancel={()=>setShowAdd(false)} title="新しいオンラインセミナーを登録"/>}
       {seminars.length===0&&<div style={S.empty}>オンラインセミナーはまだ登録されていません</div>}
       {seminars.map(s=>{
-        const watched=activeEmps.filter(e=>getSV(e.id,s.id)).length;
         return(
           <div key={s.id}>
             <div style={{...S.card,padding:"12px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
@@ -2330,15 +2290,12 @@ function SeminarManageTab({seminars,upsertSeminar,deleteSeminar,employees,getSV}
                 <div style={S.cardDate}>📅 配信開始 {s.date} ｜ 🏢 {s.organizer}
                   {s.videoUrl?<span style={{marginLeft:8,color:"#0e7490",fontSize:11}}>▶ URLあり</span>:<span style={{marginLeft:8,color:"#dc2626",fontSize:11}}>URL未設定</span>}
                 </div>
-                <div style={{maxWidth:240,marginTop:6}}>
-                  <MiniBar label="✅ 視聴済" v={watched} n={activeEmps.length} color="#0e7490"/>
-                </div>
               </div>
               <div className="btn-col-sp" style={{display:"flex",gap:6,flexShrink:0}}>
                 <button style={{...S.qrBtn,background:"#eff6ff",borderColor:"#bfdbfe",color:"#2563eb"}} onClick={()=>{if(editId===s.id){setEditId(null);setEditS(null);}else{setEditId(s.id);setEditS({...s});setShowAdd(false);}}}>
                   {editId===s.id?"閉じる":"編集"}
                 </button>
-                <button style={S.delBtn} onClick={()=>{if(window.confirm("削除しますか？視聴記録も削除されます。"))deleteSeminar(s.id);}}>削除</button>
+                <button style={S.delBtn} onClick={()=>{if(window.confirm("削除しますか？"))deleteSeminar(s.id);}}>削除</button>
               </div>
             </div>
             {editId===s.id&&editS&&(
