@@ -24,16 +24,6 @@ const INIT_COMMITTEES = [
   { id:"C010", name:"ケアの質向上委員会",       description:"サービスの質評価・改善計画の立案",               chairEmpId:"", color:"#059669" },
 ];
 
-const INIT_INTERNAL = [
-  { id:"T001", title:"新入社員オリエンテーション", date:"2026-04-01", required:true,  videoUrl:"https://www.youtube.com/embed/dQw4w9WgXcQ", description:"会社の基本方針・規則・業務フローを学ぶ研修" },
-  { id:"T002", title:"情報セキュリティ研修",       date:"2026-04-15", required:true,  videoUrl:"https://www.youtube.com/embed/dQw4w9WgXcQ", description:"個人情報保護・サイバーセキュリティの基礎知識" },
-  { id:"T003", title:"ハラスメント防止研修",       date:"2026-05-01", required:true,  videoUrl:"https://www.youtube.com/embed/dQw4w9WgXcQ", description:"職場環境の改善とハラスメント対策" },
-  { id:"T004", title:"リーダーシップ研修",         date:"2026-05-20", required:false, videoUrl:"https://www.youtube.com/embed/dQw4w9WgXcQ", description:"チームマネジメントとリーダーシップスキルの向上" },
-];
-const INIT_EXTERNAL = [
-  { id:"X001", title:"自治体向けDX推進セミナー",     date:"2026-06-10", organizer:"総務省",         location:"東京",      targetEmpIds:["E001","E003"], pdfUrl:null, pdfPath:null, pdfName:null },
-  { id:"X002", title:"メンタルヘルスマネジメント検定", date:"2026-07-01", organizer:"大阪商工会議所", location:"オンライン", targetEmpIds:["E002","E004"], pdfUrl:null, pdfPath:null, pdfName:null },
-];
 
 const inFiscalYear = (dateStr,fy) => { if(!dateStr)return false; const d=new Date(dateStr),s=new Date(fy,3,1),e=new Date(fy+1,2,31,23,59,59); return d>=s&&d<=e; };
 const currentFY = () => { const n=new Date(); return n.getMonth()>=3?n.getFullYear():n.getFullYear()-1; };
@@ -99,17 +89,13 @@ const db = {
   },
   async getInternals() {
     const {data} = await supabase.from("internals").select("*").order("date");
-    if(!data||data.length===0){await db.seedInternals();return INIT_INTERNAL;}
-    return data.map(r=>({id:r.id,title:r.title,date:r.date,required:r.required,requiredEmpIds:r.required_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||""}));
-  },
-  async seedInternals() {
-    for(const t of INIT_INTERNAL) await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,required:t.required,video_url:t.videoUrl,description:t.description},{onConflict:"id"});
+    return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,required:r.required,requiredEmpIds:r.required_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||""}));
   },
   async upsertInternal(t) { await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,required:t.required,required_emp_ids:t.requiredEmpIds||[],video_url:t.videoUrl,description:t.description,location:t.location||"",start_time:t.startTime||""},{onConflict:"id"}); },
   async deleteInternal(id) { await supabase.from("internals").delete().eq("id",id); },
   async getExternals() {
     const {data} = await supabase.from("externals").select("*").order("date");
-    if(!data||data.length===0){await db.seedExternals();return INIT_EXTERNAL;}
+    if(!data||data.length===0)return [];
     const oneYearAgo=new Date(Date.now()-365*24*60*60*1000);
     for(const r of data){
       if(r.file_path && r.date && new Date(r.date)<oneYearAgo){
@@ -119,9 +105,6 @@ const db = {
       }
     }
     return data.map(r=>({id:r.id,title:r.title,date:r.date,organizer:r.organizer,location:r.location,targetEmpIds:r.target_emp_ids||[],pdfUrl:r.file_url||null,pdfPath:r.file_path||null,pdfName:r.pdf_name,noticePdfUrl:r.notice_file_url||null,noticePdfPath:r.notice_file_path||null,noticePdfName:r.notice_file_name||null}));
-  },
-  async seedExternals() {
-    for(const x of INIT_EXTERNAL) await supabase.from("externals").upsert({id:x.id,title:x.title,date:x.date,organizer:x.organizer,location:x.location,target_emp_ids:x.targetEmpIds,pdf_name:x.pdfName,file_url:x.pdfUrl,file_path:x.pdfPath},{onConflict:"id"});
   },
   async upsertExternal(x) { await supabase.from("externals").upsert({id:x.id,title:x.title,date:x.date,organizer:x.organizer,location:x.location,target_emp_ids:x.targetEmpIds,pdf_name:x.pdfName,file_url:x.pdfUrl,file_path:x.pdfPath,notice_file_url:x.noticePdfUrl||null,notice_file_path:x.noticePdfPath||null,notice_file_name:x.noticePdfName||null},{onConflict:"id"}); },
   async uploadExternalPdf(xId,file) {
@@ -275,8 +258,8 @@ export default function App() {
   },[]);
 
   const [employees,setEmployees] = useState([]);
-  const [internals,setInternals] = useState(INIT_INTERNAL);
-  const [externals,setExternals] = useState(INIT_EXTERNAL);
+  const [internals,setInternals] = useState([]);
+  const [externals,setExternals] = useState([]);
   const [iStatuses,setIStatuses] = useState({});
   const [xStatuses,setXStatuses] = useState({});
   const [fiscalYear,setFiscalYear] = useState(currentFY());
