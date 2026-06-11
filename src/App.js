@@ -931,6 +931,19 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
         <div style={S.scroll}>
           {tab==="training"&&(
             <div style={{display:"flex",flexDirection:"column",gap:16}}>
+              {/* 外部研修 */}
+              {fyExternals.length>0&&(
+                <div>
+                  <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"6px 12px",background:"#FDF6EC",borderRadius:8,marginBottom:8,border:"1px solid #E8D5B0"}}>🌐 外部研修（{fyExternals.length}件）</div>
+                  {fyExternals.map(x=>(
+                    <ExternalCard key={x.id} ext={x} status={getXS(emp.id,x.id)} readonly={!isCurrentFY}
+                      onAttend={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{attended:true});showToast("受講済にしました");} }}
+                      onReport={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{reportSubmitted:true});showToast("復命書を提出しました");} }}
+                      onCancelReport={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{reportSubmitted:false});showToast("提出を取り消しました");} }}
+                      onViewPdf={type=>setPdfExt({...x,_pdfType:type})}/>
+                  ))}
+                </div>
+              )}
               {/* 内部研修 */}
               {fyInternals.length>0&&(
                 <div>
@@ -944,19 +957,6 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                         onWatchVideo={()=>{setVideoT(t);setTab("video");}}/>
                     ))}
                   </div>
-                </div>
-              )}
-              {/* 外部研修 */}
-              {fyExternals.length>0&&(
-                <div>
-                  <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"6px 12px",background:"#FDF6EC",borderRadius:8,marginBottom:8,border:"1px solid #E8D5B0"}}>🌐 外部研修（{fyExternals.length}件）</div>
-                  {fyExternals.map(x=>(
-                    <ExternalCard key={x.id} ext={x} status={getXS(emp.id,x.id)} readonly={!isCurrentFY}
-                      onAttend={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{attended:true});showToast("受講済にしました");} }}
-                      onReport={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{reportSubmitted:true});showToast("復命書を提出しました");} }}
-                      onCancelReport={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{reportSubmitted:false});showToast("提出を取り消しました");} }}
-                      onViewPdf={type=>setPdfExt({...x,_pdfType:type})}/>
-                  ))}
                 </div>
               )}
               {fyInternals.length===0&&fyExternals.length===0&&<div style={S.empty}>{viewFY}年度の研修はありません</div>}
