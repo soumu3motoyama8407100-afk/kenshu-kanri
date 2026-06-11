@@ -51,6 +51,10 @@ const isPast = ds => { if(!ds)return false; const t=new Date();t.setHours(0,0,0,
 const formatDate = ds => { if(!ds)return ""; const d=new Date(ds+"T00:00:00"); const w=["日","月","火","水","木","金","土"][d.getDay()]; return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}（${w}）`; };
 const calcYears = jd => { if(!jd)return ""; const j=new Date(jd),n=new Date();let y=n.getFullYear()-j.getFullYear(),m=n.getMonth()-j.getMonth();if(m<0){y--;m+=12;}return `${y}年${m}ヶ月`; };
 const makeAttendUrl = tid => `${window.location.href.split("?")[0]}?attend=${tid}`;
+// セミナーの月別視聴用ユーティリティ（"2026-06" 形式）
+const currentYM = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; };
+const ymLabel = ym => `${Number(ym.split("-")[1])}月`;
+const fyMonths = fy => Array.from({length:12},(_,i)=>{ const m=(i+3)%12+1; const y=i<9?fy:fy+1; return {ym:`${y}-${String(m).padStart(2,"0")}`,label:`${m}月`}; });
 
 const db = {
   async getEmployees() {
@@ -226,7 +230,17 @@ const db = {
   },
   async upsertSeminar(s) { await supabase.from("seminars").upsert({id:s.id,title:s.title,date:s.date,video_url:s.videoUrl||"",description:s.description||"",organizer:s.organizer||"リブドゥ",updated_at:new Date().toISOString()},{onConflict:"id"}); },
   async deleteSeminar(id) {
+    await supabase.from("seminar_monthly_views").delete().eq("seminar_id",id);
     await supabase.from("seminars").delete().eq("id",id);
+  },
+  async getSeminarMonthly() {
+    const {data} = await supabase.from("seminar_monthly_views").select("*");
+    const map = {};
+    (data||[]).forEach(r => { map[`${r.emp_id}|${r.seminar_id}|${r.ym}`]={watched:r.watched===true,reportSubmitted:r.report_submitted===true}; });
+    return map;
+  },
+  async setSeminarMonthly(empId,sid,ym,fields) {
+    await supabase.from("seminar_monthly_views").upsert({emp_id:empId,seminar_id:sid,ym,watched:fields.watched===true,report_submitted:fields.reportSubmitted===true,updated_at:new Date().toISOString()},{onConflict:"emp_id,seminar_id,ym"});
   },
 };
 
@@ -276,6 +290,7 @@ export default function App() {
   const [meetingReads,setMeetingReads] = useState({});
   const [committeeNotices,setCommitteeNotices] = useState([]);
   const [seminars,setSeminars] = useState([]);
+  const [semMonthly,setSemMonthly] = useState({});
 
   useEffect(()=>{ const p=new URLSearchParams(window.location.search);const a=p.get("attend");if(a)setPendingAttend(a); },[]);
 
@@ -297,7 +312,8 @@ export default function App() {
       } catch(e){ console.warn("委員会データ読み込みエラー（テーブル未作成の可能性）:",e); }
       // セミナーデータも別で読み込む（テーブル未作成でも職員データに影響しない）
       try {
-        setSeminars(await db.getSeminars());
+        const [sems,smv] = await Promise.all([db.getSeminars(),db.getSeminarMonthly()]);
+        setSeminars(sems); setSemMonthly(smv);
       } catch(e){ console.warn("セミナーデータ読み込みエラー（テーブル未作成の可能性）:",e); }
     })();
   },[]);
@@ -328,6 +344,12 @@ export default function App() {
     const next={...getXS(empId,xid),...patch};
     setXStatuses(p=>({...p,[empId]:{...p[empId],[xid]:next}}));
     await db.setXStatus(empId,xid,next);
+  };
+  const getSMV = (empId,sid,ym) => semMonthly[`${empId}|${sid}|${ym}`]||{watched:false,reportSubmitted:false};
+  const setSMV = async(empId,sid,ym,patch) => {
+    const next={...getSMV(empId,sid,ym),...patch};
+    setSemMonthly(p=>({...p,[`${empId}|${sid}|${ym}`]:next}));
+    await db.setSeminarMonthly(empId,sid,ym,next);
   };
   const getCount = (empId,fy) => {
     const iC=internals.filter(t=>inFiscalYear(t.date,fy)&&getIS(empId,t.id).reportConfirmed===true).length;
@@ -381,6 +403,7 @@ export default function App() {
       seminars={seminars}
       upsertSeminar={async s=>{ setSeminars(p=>{const i=p.findIndex(x=>x.id===s.id);return i>=0?p.map(x=>x.id===s.id?s:x):[...p,s].sort((a,b)=>new Date(a.date)-new Date(b.date));}); await db.upsertSeminar(s); }}
       deleteSeminar={async id=>{ setSeminars(p=>p.filter(s=>s.id!==id)); await db.deleteSeminar(id); }}
+      getSMV={getSMV}
       getIS={getIS} setIS={setIS} getXS={getXS} setXS={setXS}
       fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}
       getCount={getCount} onLogout={handleLogout}
@@ -395,7 +418,7 @@ export default function App() {
       <EmployeeScreen emp={mgr}
         internals={internals} getIS={getIS} setIS={setIS}
         externals={externals} getXS={getXS} setXS={setXS}
-        seminars={seminars}
+        seminars={seminars} getSMV={getSMV} setSMV={setSMV}
         fiscalYear={fiscalYear} getCount={getCount}
         onLogout={handleLogout}
         isManager={true}
@@ -412,7 +435,7 @@ export default function App() {
     <EmployeeScreen emp={emp}
       internals={internals} getIS={getIS} setIS={setIS}
       externals={externals} getXS={getXS} setXS={setXS}
-      seminars={seminars}
+      seminars={seminars} getSMV={getSMV} setSMV={setSMV}
       fiscalYear={fiscalYear} getCount={getCount}
       onLogout={handleLogout}
       committeeProps={committeeProps}/>
@@ -784,7 +807,7 @@ function QRScanModal({onScan,onClose}){
   );
 }
 
-function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminars,fiscalYear,getCount,onLogout,isManager,deptEmployees,managedDepts,setFiscalYear,committeeProps}){
+function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminars,getSMV,setSMV,fiscalYear,getCount,onLogout,isManager,deptEmployees,managedDepts,setFiscalYear,committeeProps}){
   const [tab,setTab]=useState("training");
   const [videoT,setVideoT]=useState(null);
   const [toast,setToast]=useState(null);
@@ -865,6 +888,9 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                   </div>
                 );})}
               </div>
+            </div>
+            <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16,marginTop:14}}>
+              <SeminarStampRow fy={viewFY} empId={emp.id} seminars={seminars} getSMV={getSMV}/>
             </div>
           </div>
         </div>
@@ -960,7 +986,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
               getStatus={t=>getIS(emp.id,t.id)} readonly={!isCurrentFY}/>
           )}
           {tab==="seminar"&&(
-            <SeminarTab seminars={fySeminars} fiscalYear={viewFY}/>
+            <SeminarTab seminars={fySeminars} empId={emp.id} getSMV={getSMV} setSMV={setSMV}
+              readonly={!isCurrentFY} fiscalYear={viewFY} showToast={showToast}/>
           )}
           {tab==="mgr"&&isManager&&deptEmployees&&(
             <ManagerTabContent
@@ -968,6 +995,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
               employees={deptEmployees}
               internals={internals} getIS={getIS} setIS={setIS}
               externals={externals} getXS={getXS} setXS={setXS}
+              seminars={seminars} getSMV={getSMV}
               fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}
               managedDepts={managedDepts||[emp.dept]}/>
           )}
@@ -1014,7 +1042,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
 }
 
 // ── 部署長コンテンツ（ダッシュボード型）─────────────────────────
-function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS,setXS,fiscalYear,setFiscalYear}){
+function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS,setXS,seminars,getSMV,fiscalYear,setFiscalYear}){
   const fyInternals=internals.filter(t=>inFiscalYear(t.date,fiscalYear)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const fyExternals=externals.filter(x=>inFiscalYear(x.date,fiscalYear)&&x.targetEmpIds.some(id=>employees.map(e=>e.id).includes(id)));
   const [selTraining,setSelTraining]=useState(null);
@@ -1067,9 +1095,9 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
         </select>}
       </div>
 
-      {/* 内部/外部切り替え */}
-      <div style={{display:"flex",gap:6,marginBottom:12}}>
-        {[["i","📊 内部研修"],["x","🌐 外部研修"]].map(([k,l])=>(
+      {/* 内部/外部/セミナー切り替え */}
+      <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
+        {[["i","📊 内部研修"],["x","🌐 外部研修"],...(getSMV?[["s","📺 セミナー"]]:[])].map(([k,l])=>(
           <button key={k} onClick={()=>setMode(k)} style={{padding:"6px 16px",borderRadius:20,border:"none",cursor:"pointer",fontWeight:600,fontSize:12,background:mode===k?"#1e3a5f":"#f3f4f6",color:mode===k?"#fff":"#374151"}}>
             {l}
           </button>
@@ -1182,6 +1210,10 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
             );
           })}
         </>
+      )}
+
+      {mode==="s"&&getSMV&&(
+        <SeminarStatusBoard key={fiscalYear} employees={employees} seminars={seminars} getSMV={getSMV} fiscalYear={fiscalYear}/>
       )}
     </div>
   );
@@ -1390,9 +1422,101 @@ function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus,readonly}
 
 const isEmbedUrl = u => /youtube\.com\/embed|youtube-nocookie\.com\/embed|player\.vimeo\.com/.test(u||"");
 
-function SeminarCard({seminar}){
+// 📺 セミナー視聴スタンプ（年度の12ヶ月分・視聴した月にスタンプ）
+function SeminarStampRow({fy,empId,seminars,getSMV}){
+  const months=fyMonths(fy);
+  const nowYM=currentYM();
+  const watchedOf=ym=>(seminars||[]).some(s=>getSMV(empId,s.id,ym).watched);
+  const n=months.filter(m=>watchedOf(m.ym)).length;
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <div style={{fontWeight:700,fontSize:13,color:"#4A3020"}}>📺 セミナー視聴スタンプ（{fy}年度）</div>
+        <span style={{fontSize:13,fontWeight:800,color:"#0e7490"}}>{n}<span style={{fontSize:10,fontWeight:400,color:"#9ca3af"}}>/12ヶ月</span></span>
+      </div>
+      <div style={{display:"flex",gap:4}}>
+        {months.map(m=>{
+          const on=watchedOf(m.ym);
+          const future=m.ym>nowYM;
+          return(
+            <div key={m.ym} style={{flex:1,textAlign:"center",minWidth:0}}>
+              <div style={{width:"100%",maxWidth:34,aspectRatio:"1",margin:"0 auto",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,background:on?"#ecfeff":"#f9fafb",border:`1.5px solid ${on?"#0e7490":"#e5e7eb"}`,opacity:future?0.4:1}}>{on?"📺":""}</div>
+              <div style={{fontSize:9,color:on?"#0e7490":"#9ca3af",marginTop:3,fontWeight:on?700:400}}>{m.label}</div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{fontSize:11,color:n>=12?"#b45309":n>=6?"#0e7490":"#9ca3af",marginTop:8,fontWeight:n>=6?700:400}}>
+        {n>=12?"👑 全月視聴達成！すばらしい学習意欲です！":n>=6?`⭐ ${n}ヶ月視聴！この調子！`:"※ 視聴チェックを付けた月にスタンプが付きます（復命書ポイントとは別の参考実績です）"}
+      </div>
+    </div>
+  );
+}
+
+// 📊 所属長・管理者向け：月ごとの視聴・復命書提出状況
+function SeminarStatusBoard({employees,seminars,getSMV,fiscalYear}){
+  const fySems=(seminars||[]).filter(s=>inFiscalYear(s.date,fiscalYear));
+  const nowYM=currentYM();
+  const allMonths=fyMonths(fiscalYear);
+  const months=allMonths.filter(m=>m.ym<=nowYM);
+  const [selYM,setSelYM]=useState(months.length?months[months.length-1].ym:allMonths[0].ym);
+  if(fySems.length===0) return <div style={S.empty}>{fiscalYear}年度のオンラインセミナーは登録されていません</div>;
+  const agg=eid=>({watched:fySems.some(s=>getSMV(eid,s.id,selYM).watched),report:fySems.some(s=>getSMV(eid,s.id,selYM).reportSubmitted)});
+  const list=[...employees].sort((a,b)=>a.name.localeCompare(b.name,"ja"));
+  const wN=list.filter(e=>agg(e.id).watched).length;
+  const rN=list.filter(e=>agg(e.id).report).length;
+  const avatarColor=i=>[["#E6F1FB","#185FA5"],["#EAF3DE","#3B6D11"],["#FAEEDA","#854F0B"],["#FCEBEB","#A32D2D"],["#F1EFE8","#5F5E5A"]][i%5];
+  return(
+    <div>
+      {/* 月セレクター */}
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+        {(months.length?months:allMonths.slice(0,1)).map(m=>(
+          <button key={m.ym} onClick={()=>setSelYM(m.ym)} style={{padding:"5px 12px",borderRadius:16,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:selYM===m.ym?"#0e7490":"#f3f4f6",color:selYM===m.ym?"#fff":"#374151"}}>
+            {m.label}
+          </button>
+        ))}
+      </div>
+      {/* サマリー */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+        <div style={{padding:"10px 12px",background:"#ecfeff",borderRadius:12,textAlign:"center",border:"1px solid #67e8f9"}}>
+          <div style={{fontSize:11,color:"#9ca3af",marginBottom:2}}>{ymLabel(selYM)}分 視聴済</div>
+          <div style={{fontSize:22,fontWeight:700,color:"#0e7490"}}>{wN}<span style={{fontSize:12,fontWeight:400,color:"#9ca3af"}}>/{list.length}名</span></div>
+        </div>
+        <div style={{padding:"10px 12px",background:"#eff6ff",borderRadius:12,textAlign:"center",border:"1px solid #bfdbfe"}}>
+          <div style={{fontSize:11,color:"#9ca3af",marginBottom:2}}>復命書 提出（任意）</div>
+          <div style={{fontSize:22,fontWeight:700,color:"#2563eb"}}>{rN}<span style={{fontSize:12,fontWeight:400,color:"#9ca3af"}}>名</span></div>
+        </div>
+      </div>
+      {/* 職員リスト */}
+      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        {list.map((emp,i)=>{
+          const st=agg(emp.id);
+          const [bg,fg]=avatarColor(i);
+          return(
+            <div key={emp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",background:"#fff",borderRadius:12,border:"1px solid #E8D5B0"}}>
+              <div style={{width:30,height:30,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:600,flexShrink:0,background:bg,color:fg}}>{emp.name?emp.name.charAt(0):"?"}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <span style={{fontSize:13,fontWeight:600,color:"#4A3020"}}>{emp.name}</span>
+                <span style={{fontSize:11,color:"#9ca3af",marginLeft:6}}>{emp.dept}</span>
+              </div>
+              <div style={{display:"flex",gap:4,flexShrink:0}}>
+                {st.watched?<span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:"#ecfeff",color:"#0e7490",fontWeight:600}}>📺 視聴済</span>
+                  :<span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:"#f3f4f6",color:"#9ca3af"}}>未視聴</span>}
+                {st.report&&<span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:"#dbeafe",color:"#2563eb",fontWeight:600}}>📄 復命書</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{fontSize:11,color:"#9ca3af",marginTop:10}}>※ セミナーの復命書は任意（提出ポイント対象外）です。視聴チェック・提出チェックは職員本人が付けます。</div>
+    </div>
+  );
+}
+
+function SeminarCard({seminar,status,onWatch,onReport,readonly}){
   const [open,setOpen]=useState(false);
   const released=!seminar.date||new Date(seminar.date)<=new Date();
+  const mL=ymLabel(currentYM());
   return(
     <div style={S.card}>
       <div style={S.cardHead} onClick={()=>setOpen(!open)}>
@@ -1402,7 +1526,12 @@ function SeminarCard({seminar}){
           <div style={S.cardTitle}>{seminar.title}</div>
           <div style={S.cardDate}>📅 配信開始 {seminar.date} ｜ 🏢 {seminar.organizer}</div>
         </div>
-        <span style={{color:"#d1d5db",fontSize:14}}>{open?"▲":"▼"}</span>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
+          {released&&!readonly&&(status.watched
+            ?<span style={{fontSize:11,fontWeight:700,padding:"2px 10px",borderRadius:20,background:"#ecfeff",color:"#0e7490"}}>📺 {mL}分 視聴済</span>
+            :<span style={{fontSize:11,fontWeight:600,padding:"2px 10px",borderRadius:20,background:"#fef3c7",color:"#92400e"}}>○ {mL}分 未視聴</span>)}
+          <span style={{color:"#d1d5db",fontSize:14}}>{open?"▲":"▼"}</span>
+        </div>
       </div>
       {open&&(
         <div style={S.cardBody}>
@@ -1419,26 +1548,56 @@ function SeminarCard({seminar}){
                   <a href={seminar.videoUrl} target="_blank" rel="noreferrer" style={{...S.watchBtn,display:"block",textAlign:"center",textDecoration:"none",background:"#0e7490",boxSizing:"border-box"}}>▶ 視聴ページを開く</a>
                   <div style={{fontSize:11,color:"#9ca3af",marginTop:6,textAlign:"center"}}>🔖 視聴ページはブックマークできません。視聴のたびにこのボタンから開いてください。</div>
                 </div>}
+          {released&&seminar.videoUrl&&!readonly&&(
+            <>
+              <div style={S.sBlock}>
+                <div style={S.sLabel}><span style={S.stepNum}>1</span> 今月（{mL}）分の視聴チェック</div>
+                {status.watched
+                  ?<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                    <SPill color="#0e7490" bg="#ecfeff" border="#67e8f9">📺 {mL}分 視聴済み</SPill>
+                    <button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"3px 10px",cursor:"pointer"}} onClick={()=>onWatch(false)}>取り消す</button>
+                  </div>
+                  :<button style={{...S.actionBtn,background:"#0e7490"}} onClick={()=>onWatch(true)}>{mL}分を視聴済にする</button>}
+                <div style={{fontSize:11,color:"#9ca3af",marginTop:6}}>動画は毎月更新されるため、視聴チェックも月ごとに新しくなります。</div>
+              </div>
+              <div style={S.sBlock}>
+                <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書（任意・ポイント対象外）</div>
+                {status.reportSubmitted
+                  ?<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                    <SPill color="#2563eb" bg="#eff6ff" border="#bfdbfe">📄 {mL}分 提出済み</SPill>
+                    <button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"3px 10px",cursor:"pointer"}} onClick={()=>onReport(false)}>取り消す</button>
+                  </div>
+                  :<button style={{...S.actionBtn,background:"#2563eb"}} onClick={()=>onReport(true)}>復命書を提出した</button>}
+                <div style={{fontSize:11,color:"#9ca3af",marginTop:6}}>提出は任意です。提出した場合は所属長・管理者の画面に表示されます。</div>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function SeminarTab({seminars,fiscalYear}){
+function SeminarTab({seminars,empId,getSMV,setSMV,readonly,fiscalYear,showToast}){
+  const ym=currentYM();
   return(
     <div>
       <div style={{display:"flex",alignItems:"center",gap:10,background:"#ecfeff",border:"1.5px solid #67e8f9",borderRadius:12,padding:"12px 16px",marginBottom:16}}>
         <span style={{fontSize:24}}>📺</span>
         <div>
           <div style={{fontWeight:700,fontSize:13,color:"#0e7490"}}>リブドゥ オンラインセミナー</div>
-          <div style={{fontSize:12,color:"#155e75",marginTop:2}}>年間を通じていつでも視聴できます。動画は毎月更新されるので、好きなタイミングで視聴してください。</div>
+          <div style={{fontSize:12,color:"#155e75",marginTop:2}}>年間を通じていつでも視聴できます。動画は毎月更新されるので、毎月チェックしてスタンプを集めましょう！</div>
         </div>
+      </div>
+      <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16,marginBottom:16}}>
+        <SeminarStampRow fy={fiscalYear} empId={empId} seminars={seminars} getSMV={getSMV}/>
       </div>
       {seminars.length===0
         ?<div style={S.empty}>{fiscalYear}年度のオンラインセミナーはまだ登録されていません</div>
         :seminars.map(s=>(
-          <SeminarCard key={s.id} seminar={s}/>
+          <SeminarCard key={s.id} seminar={s} status={getSMV(empId,s.id,ym)} readonly={readonly}
+            onWatch={val=>{setSMV(empId,s.id,ym,{watched:val});showToast(val?`📺 ${ymLabel(ym)}分を視聴済にしました！`:"未視聴に戻しました");}}
+            onReport={val=>{setSMV(empId,s.id,ym,{reportSubmitted:val});showToast(val?"📄 復命書を提出済にしました":"提出を取り消しました");}}/>
         ))}
     </div>
   );
@@ -1472,7 +1631,7 @@ function PdfModal({ext,onClose}){
   );
 }
 
-function AdminScreen({employees,setEmployees,internals,setInternals,externals,setExternals,deleteInternal,deleteExternal,seminars,upsertSeminar,deleteSeminar,getIS,setIS,getXS,setXS,fiscalYear,setFiscalYear,getCount,onLogout,committeeProps}){
+function AdminScreen({employees,setEmployees,internals,setInternals,externals,setExternals,deleteInternal,deleteExternal,seminars,upsertSeminar,deleteSeminar,getSMV,getIS,setIS,getXS,setXS,fiscalYear,setFiscalYear,getCount,onLogout,committeeProps}){
   const [tab,setTab]=useState("ranking");
   const [qrT,setQrT]=useState(null);
   return(
@@ -1502,7 +1661,7 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
           {tab==="iManage"   &&<InternalManageTab internals={internals} setInternals={setInternals} deleteInternal={deleteInternal} employees={employees}/>}
           {tab==="xProgress" &&<ExternalProgressTab employees={employees} externals={externals} getXS={getXS} setXS={setXS} fiscalYear={fiscalYear}/>}
           {tab==="xManage"   &&<ExternalManageTab employees={employees} externals={externals} setExternals={setExternals} deleteExternal={deleteExternal}/>}
-          {tab==="semManage" &&<SeminarManageTab seminars={seminars} upsertSeminar={upsertSeminar} deleteSeminar={deleteSeminar}/>}
+          {tab==="semManage" &&<SeminarManageTab seminars={seminars} upsertSeminar={upsertSeminar} deleteSeminar={deleteSeminar} employees={employees} getSMV={getSMV} fiscalYear={fiscalYear}/>}
           {tab==="empManage" &&<EmployeeManageTab employees={employees} setEmployees={setEmployees} internals={internals} getIS={getIS} getXS={getXS} externals={externals} fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}/>}
           {tab==="committeeManage"&&committeeProps&&<CommitteeManageTab {...committeeProps}/>}
         </div>
@@ -2253,12 +2412,13 @@ function SeminarForm({data,onChange,onSave,onCancel,title}){
   );
 }
 
-function SeminarManageTab({seminars,upsertSeminar,deleteSeminar}){
+function SeminarManageTab({seminars,upsertSeminar,deleteSeminar,employees,getSMV,fiscalYear}){
   const [showAdd,setShowAdd]=useState(false);
   const [editId,setEditId]=useState(null);
   const emptySem={title:"",date:"",organizer:"リブドゥ",videoUrl:"",description:""};
   const [newS,setNewS]=useState(emptySem);
   const [editS,setEditS]=useState(null);
+  const activeEmps=(employees||[]).filter(e=>e.isActive!==false&&(!e.retireDate||new Date(e.retireDate)>new Date()));
 
   const clean=s=>({...s,title:(s.title||"").trim(),organizer:(s.organizer||"リブドゥ").trim()||"リブドゥ",videoUrl:(s.videoUrl||"").trim()});
   const add=async()=>{
@@ -2306,6 +2466,12 @@ function SeminarManageTab({seminars,upsertSeminar,deleteSeminar}){
           </div>
         );
       })}
+      {getSMV&&seminars.length>0&&(
+        <div style={{marginTop:24}}>
+          <div style={{fontWeight:700,fontSize:14,color:"#4A3020",marginBottom:10}}>📊 視聴・復命書 提出状況（{fiscalYear}年度）</div>
+          <SeminarStatusBoard key={fiscalYear} employees={activeEmps} seminars={seminars} getSMV={getSMV} fiscalYear={fiscalYear}/>
+        </div>
+      )}
     </div>
   );
 }
