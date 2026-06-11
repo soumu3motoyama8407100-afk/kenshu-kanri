@@ -879,6 +879,9 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
               </div>
             </div>
             <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16,marginTop:14}}>
+              <SeminarStampRow fy={viewFY} empId={emp.id} seminars={seminars} getSMV={getSMV}/>
+            </div>
+            <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16,marginTop:14}}>
               <div style={{fontWeight:700,fontSize:13,color:"#4A3020",marginBottom:10}}>🎖 バッジコレクション</div>
               <div style={{display:"flex",gap:8}}>
                 {BADGES.map(b=>{const earned=count>=b.min;return(
@@ -888,9 +891,6 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                   </div>
                 );})}
               </div>
-            </div>
-            <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16,marginTop:14}}>
-              <SeminarStampRow fy={viewFY} empId={emp.id} seminars={seminars} getSMV={getSMV}/>
             </div>
           </div>
         </div>
@@ -1513,67 +1513,99 @@ function SeminarStatusBoard({employees,seminars,getSMV,fiscalYear}){
   );
 }
 
-function SeminarCard({seminar,status,onWatch,onReport,readonly}){
-  const [open,setOpen]=useState(false);
+// 📺 セミナーパネル（水色枠の中に視聴ボタン・視聴チェック・復命書を開いた状態で表示）
+function SeminarPanel({seminar,status,onWatch,onReport,readonly}){
   const released=!seminar.date||new Date(seminar.date)<=new Date();
   const mL=ymLabel(currentYM());
+  const innerBox={background:"#fff",borderRadius:10,padding:"12px 14px",border:"1px solid #a5f3fc",marginBottom:8};
   return(
-    <div style={S.card}>
-      <div style={S.cardHead} onClick={()=>setOpen(!open)}>
-        <div style={{flex:1}}>
-          <span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#ecfeff",color:"#0e7490"}}>📺 オンラインセミナー</span>
-          {!released&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>配信前</span>}
-          <div style={S.cardTitle}>{seminar.title}</div>
-          <div style={S.cardDate}>📅 配信開始 {seminar.date} ｜ 🏢 {seminar.organizer}</div>
+    <div style={{background:"#ecfeff",border:"1.5px solid #67e8f9",borderRadius:14,padding:16,marginBottom:16}}>
+      <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:12}}>
+        <span style={{fontSize:26}}>📺</span>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontWeight:800,fontSize:15,color:"#0e7490"}}>{seminar.title}</div>
+          <div style={{fontSize:11,color:"#155e75",marginTop:2}}>🏢 {seminar.organizer} ｜ 📅 配信開始 {seminar.date}</div>
+          <div style={{fontSize:12,color:"#155e75",marginTop:4}}>年間を通じていつでも視聴できます。動画は毎月更新されます。</div>
         </div>
-        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
-          {released&&!readonly&&(status.watched
-            ?<span style={{fontSize:11,fontWeight:700,padding:"2px 10px",borderRadius:20,background:"#ecfeff",color:"#0e7490"}}>📺 {mL}分 視聴済</span>
-            :<span style={{fontSize:11,fontWeight:600,padding:"2px 10px",borderRadius:20,background:"#fef3c7",color:"#92400e"}}>○ {mL}分 未視聴</span>)}
-          <span style={{color:"#d1d5db",fontSize:14}}>{open?"▲":"▼"}</span>
+        {!released&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,background:"#f3f4f6",color:"#6b7280",flexShrink:0}}>配信前</span>}
+      </div>
+      {seminar.description&&<div style={{...innerBox,fontSize:13,color:"#374151",whiteSpace:"pre-wrap",lineHeight:1.7}}>{seminar.description}</div>}
+      {!released
+        ?<div style={{...innerBox,color:"#6b7280",fontSize:13}}>🕐 {seminar.date} から視聴できます</div>
+        :!seminar.videoUrl
+          ?<div style={{...innerBox,color:"#9ca3af",fontSize:13}}>視聴URLは準備中です</div>
+          :isEmbedUrl(seminar.videoUrl)
+            ?<div style={{position:"relative",paddingBottom:"56.25%",borderRadius:12,overflow:"hidden",background:"#000",marginBottom:8}}>
+              <iframe style={{position:"absolute",inset:0,width:"100%",height:"100%",border:"none"}} src={seminar.videoUrl} allowFullScreen title={seminar.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"/>
+            </div>
+            :<div style={{marginBottom:8}}>
+              <a href={seminar.videoUrl} target="_blank" rel="noreferrer" style={{...S.watchBtn,display:"block",textAlign:"center",textDecoration:"none",background:"#0e7490",boxSizing:"border-box"}}>▶ 視聴ページを開く</a>
+              <div style={{fontSize:11,color:"#155e75",marginTop:6,textAlign:"center"}}>🔖 視聴ページはブックマークできません。視聴のたびにこのボタンから開いてください。</div>
+            </div>}
+      {released&&seminar.videoUrl&&!readonly&&(
+        <>
+          <div style={innerBox}>
+            <div style={S.sLabel}><span style={{...S.stepNum,background:"#0e7490"}}>1</span> 今月（{mL}）分の視聴チェック</div>
+            {status.watched
+              ?<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                <SPill color="#0e7490" bg="#ecfeff" border="#67e8f9">📺 {mL}分 視聴済み</SPill>
+                <button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"3px 10px",cursor:"pointer"}} onClick={()=>onWatch(false)}>取り消す</button>
+              </div>
+              :<button style={{...S.actionBtn,background:"#0e7490"}} onClick={()=>onWatch(true)}>{mL}分を視聴済にする</button>}
+            <div style={{fontSize:11,color:"#9ca3af",marginTop:6}}>動画は毎月更新されるため、視聴チェックも月ごとに新しくなります。</div>
+          </div>
+          <div style={{...innerBox,marginBottom:0}}>
+            <div style={S.sLabel}><span style={{...S.stepNum,background:"#2563eb"}}>2</span> 復命書（任意・ポイント対象外）</div>
+            {status.reportSubmitted
+              ?<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                <SPill color="#2563eb" bg="#eff6ff" border="#bfdbfe">📄 {mL}分 提出済み</SPill>
+                <button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"3px 10px",cursor:"pointer"}} onClick={()=>onReport(false)}>取り消す</button>
+              </div>
+              :<button style={{...S.actionBtn,background:"#2563eb"}} onClick={()=>onReport(true)}>復命書を提出した</button>}
+            <div style={{fontSize:11,color:"#9ca3af",marginTop:6}}>提出は任意です。提出した場合は所属長・管理者の画面に表示されます。</div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// 🔥 連続視聴記録（案D：ストリーク表示）
+function SeminarStreak({fy,empId,seminars,getSMV}){
+  const months=fyMonths(fy);
+  const nowYM=currentYM();
+  const past=months.filter(m=>m.ym<=nowYM);
+  const watchedOf=ym=>(seminars||[]).some(s=>getSMV(empId,s.id,ym).watched);
+  const total=months.filter(m=>watchedOf(m.ym)).length;
+  // 連続記録：今月から遡って数える（今月が未視聴でも先月までの連続は維持）
+  let streak=0;
+  for(let i=past.length-1;i>=0;i--){
+    if(watchedOf(past[i].ym)){streak++;}
+    else if(i===past.length-1){continue;}
+    else{break;}
+  }
+  const curWatched=past.length>0&&watchedOf(past[past.length-1].ym);
+  const msg=streak>=2?`🔥 ${streak}ヶ月連続視聴中！`
+    :streak===1?(curWatched?"📺 視聴スタート！この調子！":"📺 連続記録 1ヶ月")
+    :total>0?"今月から再スタートしましょう！"
+    :"今月から視聴を始めましょう！";
+  const sub=curWatched?`今年度合計 ${total}ヶ月`:`今年度合計 ${total}ヶ月 ・ 今月分を視聴して${streak>=1?"記録をつなげよう！":"スタート！"}`;
+  return(
+    <div style={{display:"flex",alignItems:"center",gap:14}}>
+      <div style={{width:64,height:64,borderRadius:"50%",background:streak>=2?"#ffedd5":"#ecfeff",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0,border:`1.5px solid ${streak>=2?"#fdba74":"#67e8f9"}`}}>
+        <span style={{fontSize:20,lineHeight:1}}>{streak>=2?"🔥":"📺"}</span>
+        <span style={{fontSize:15,fontWeight:800,color:streak>=2?"#c2410c":"#0e7490"}}>{streak}</span>
+      </div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:15,fontWeight:700,color:"#4A3020",marginBottom:2}}>{msg}</div>
+        <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>{sub}（復命書ポイントとは別の参考実績です）</div>
+        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+          {past.map(m=>{
+            const on=watchedOf(m.ym);
+            return <span key={m.ym} style={{fontSize:11,padding:"2px 10px",borderRadius:10,background:on?"#ecfeff":"#f3f4f6",color:on?"#0e7490":"#9ca3af",fontWeight:on?700:400,border:`1px solid ${on?"#67e8f9":"#e5e7eb"}`}}>{m.label}{on?" ✓":""}</span>;
+          })}
         </div>
       </div>
-      {open&&(
-        <div style={S.cardBody}>
-          {seminar.description&&<p style={{color:"#6b7280",fontSize:13,margin:"12px 0",whiteSpace:"pre-wrap",lineHeight:1.7}}>{seminar.description}</p>}
-          {!released
-            ?<SPill color="#6b7280" bg="#f9fafb" border="#e5e7eb">🕐 {seminar.date} から視聴できます</SPill>
-            :!seminar.videoUrl
-              ?<SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">視聴URLは準備中です</SPill>
-              :isEmbedUrl(seminar.videoUrl)
-                ?<div style={{position:"relative",paddingBottom:"56.25%",borderRadius:12,overflow:"hidden",background:"#000",marginBottom:12}}>
-                  <iframe style={{position:"absolute",inset:0,width:"100%",height:"100%",border:"none"}} src={seminar.videoUrl} allowFullScreen title={seminar.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"/>
-                </div>
-                :<div style={{marginBottom:12}}>
-                  <a href={seminar.videoUrl} target="_blank" rel="noreferrer" style={{...S.watchBtn,display:"block",textAlign:"center",textDecoration:"none",background:"#0e7490",boxSizing:"border-box"}}>▶ 視聴ページを開く</a>
-                  <div style={{fontSize:11,color:"#9ca3af",marginTop:6,textAlign:"center"}}>🔖 視聴ページはブックマークできません。視聴のたびにこのボタンから開いてください。</div>
-                </div>}
-          {released&&seminar.videoUrl&&!readonly&&(
-            <>
-              <div style={S.sBlock}>
-                <div style={S.sLabel}><span style={S.stepNum}>1</span> 今月（{mL}）分の視聴チェック</div>
-                {status.watched
-                  ?<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                    <SPill color="#0e7490" bg="#ecfeff" border="#67e8f9">📺 {mL}分 視聴済み</SPill>
-                    <button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"3px 10px",cursor:"pointer"}} onClick={()=>onWatch(false)}>取り消す</button>
-                  </div>
-                  :<button style={{...S.actionBtn,background:"#0e7490"}} onClick={()=>onWatch(true)}>{mL}分を視聴済にする</button>}
-                <div style={{fontSize:11,color:"#9ca3af",marginTop:6}}>動画は毎月更新されるため、視聴チェックも月ごとに新しくなります。</div>
-              </div>
-              <div style={S.sBlock}>
-                <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書（任意・ポイント対象外）</div>
-                {status.reportSubmitted
-                  ?<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                    <SPill color="#2563eb" bg="#eff6ff" border="#bfdbfe">📄 {mL}分 提出済み</SPill>
-                    <button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"3px 10px",cursor:"pointer"}} onClick={()=>onReport(false)}>取り消す</button>
-                  </div>
-                  :<button style={{...S.actionBtn,background:"#2563eb"}} onClick={()=>onReport(true)}>復命書を提出した</button>}
-                <div style={{fontSize:11,color:"#9ca3af",marginTop:6}}>提出は任意です。提出した場合は所属長・管理者の画面に表示されます。</div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -1582,23 +1614,18 @@ function SeminarTab({seminars,empId,getSMV,setSMV,readonly,fiscalYear,showToast}
   const ym=currentYM();
   return(
     <div>
-      <div style={{display:"flex",alignItems:"center",gap:10,background:"#ecfeff",border:"1.5px solid #67e8f9",borderRadius:12,padding:"12px 16px",marginBottom:16}}>
-        <span style={{fontSize:24}}>📺</span>
-        <div>
-          <div style={{fontWeight:700,fontSize:13,color:"#0e7490"}}>リブドゥ オンラインセミナー</div>
-          <div style={{fontSize:12,color:"#155e75",marginTop:2}}>年間を通じていつでも視聴できます。動画は毎月更新されるので、毎月チェックしてスタンプを集めましょう！</div>
-        </div>
-      </div>
-      <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16,marginBottom:16}}>
-        <SeminarStampRow fy={fiscalYear} empId={empId} seminars={seminars} getSMV={getSMV}/>
-      </div>
       {seminars.length===0
         ?<div style={S.empty}>{fiscalYear}年度のオンラインセミナーはまだ登録されていません</div>
-        :seminars.map(s=>(
-          <SeminarCard key={s.id} seminar={s} status={getSMV(empId,s.id,ym)} readonly={readonly}
-            onWatch={val=>{setSMV(empId,s.id,ym,{watched:val});showToast(val?`📺 ${ymLabel(ym)}分を視聴済にしました！`:"未視聴に戻しました");}}
-            onReport={val=>{setSMV(empId,s.id,ym,{reportSubmitted:val});showToast(val?"📄 復命書を提出済にしました":"提出を取り消しました");}}/>
-        ))}
+        :<>
+          {seminars.map(s=>(
+            <SeminarPanel key={s.id} seminar={s} status={getSMV(empId,s.id,ym)} readonly={readonly}
+              onWatch={val=>{setSMV(empId,s.id,ym,{watched:val});showToast(val?`📺 ${ymLabel(ym)}分を視聴済にしました！`:"未視聴に戻しました");}}
+              onReport={val=>{setSMV(empId,s.id,ym,{reportSubmitted:val});showToast(val?"📄 復命書を提出済にしました":"提出を取り消しました");}}/>
+          ))}
+          <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16}}>
+            <SeminarStreak fy={fiscalYear} empId={empId} seminars={seminars} getSMV={getSMV}/>
+          </div>
+        </>}
     </div>
   );
 }
