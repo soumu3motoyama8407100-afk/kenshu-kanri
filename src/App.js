@@ -1430,7 +1430,7 @@ function SeminarCard({seminar,watched,readonly,onMarkWatched}){
       </div>
       {open&&(
         <div style={S.cardBody}>
-          {seminar.description&&<p style={{color:"#6b7280",fontSize:13,margin:"12px 0"}}>{seminar.description}</p>}
+          {seminar.description&&<p style={{color:"#6b7280",fontSize:13,margin:"12px 0",whiteSpace:"pre-wrap",lineHeight:1.7}}>{seminar.description}</p>}
           {!released
             ?<SPill color="#6b7280" bg="#f9fafb" border="#e5e7eb">🕐 {seminar.date} から視聴できます</SPill>
             :!seminar.videoUrl
@@ -1439,7 +1439,10 @@ function SeminarCard({seminar,watched,readonly,onMarkWatched}){
                 ?<div style={{position:"relative",paddingBottom:"56.25%",borderRadius:12,overflow:"hidden",background:"#000",marginBottom:12}}>
                   <iframe style={{position:"absolute",inset:0,width:"100%",height:"100%",border:"none"}} src={seminar.videoUrl} allowFullScreen title={seminar.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"/>
                 </div>
-                :<a href={seminar.videoUrl} target="_blank" rel="noreferrer" style={{...S.watchBtn,display:"block",textAlign:"center",textDecoration:"none",background:"#0e7490",marginBottom:12,boxSizing:"border-box"}}>▶ 視聴ページを開く</a>}
+                :<div style={{marginBottom:12}}>
+                  <a href={seminar.videoUrl} target="_blank" rel="noreferrer" style={{...S.watchBtn,display:"block",textAlign:"center",textDecoration:"none",background:"#0e7490",boxSizing:"border-box"}}>▶ 視聴ページを開く</a>
+                  <div style={{fontSize:11,color:"#9ca3af",marginTop:6,textAlign:"center"}}>🔖 視聴ページはブックマークできません。視聴のたびにこのボタンから開いてください。</div>
+                </div>}
           {released&&seminar.videoUrl&&!readonly&&(
             <div style={{display:"flex",gap:8,marginTop:4}}>
               {watched
@@ -2270,14 +2273,16 @@ function SeminarForm({data,onChange,onSave,onCancel,title}){
   return(
     <div style={S.formBox}>
       <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>{title}</div>
-      {[{key:"title",label:"セミナー名",placeholder:"例：6月配信「スキンケアの基礎」"},{key:"date",label:"配信開始日",type:"date"},{key:"organizer",label:"提供元",placeholder:"リブドゥ"},{key:"videoUrl",label:"視聴URL（埋め込みURL または 視聴ページURL）",placeholder:"https://..."},{key:"description",label:"説明（任意）",placeholder:"セミナーの概要"}]
+      {[{key:"title",label:"セミナー名",placeholder:"例：6月配信「スキンケアの基礎」"},{key:"date",label:"配信開始日",type:"date"},{key:"organizer",label:"提供元",placeholder:"リブドゥ"},{key:"videoUrl",label:"視聴URL（埋め込みURL または 視聴ページURL）",placeholder:"https://..."},{key:"description",label:"説明・視聴手順（任意）",placeholder:"例：ボタンを押すとログイン画面が開きます。\nメールアドレス：通達記載のもの\nパスワード：通達記載のもの",multi:true}]
         .map(f=>(
           <div key={f.key} style={{marginBottom:10}}>
             <label style={S.label}>{f.label}</label>
-            <input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={data[f.key]||""} onChange={e=>onChange(p=>({...p,[f.key]:e.target.value}))}/>
+            {f.multi
+              ?<textarea rows={4} style={{...S.input,resize:"vertical",fontFamily:"inherit"}} placeholder={f.placeholder||""} value={data[f.key]||""} onChange={e=>onChange(p=>({...p,[f.key]:e.target.value}))}/>
+              :<input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={data[f.key]||""} onChange={e=>onChange(p=>({...p,[f.key]:e.target.value}))}/>}
           </div>
         ))}
-      <div style={{fontSize:11,color:"#9ca3af",marginBottom:12}}>💡 YouTube・Vimeoの埋め込みURLはアプリ内で再生されます。それ以外のURLは「視聴ページを開く」ボタンとして表示されます。</div>
+      <div style={{fontSize:11,color:"#9ca3af",marginBottom:12,lineHeight:1.7}}>💡 YouTube・Vimeoの埋め込みURLはアプリ内で再生されます。それ以外のURL（リブドゥの視聴ページ等）は「視聴ページを開く」ボタンとして表示されます。<br/>💡 リブドゥはログインが必要なため、説明欄にログイン方法を書いておくと職員が迷いません。</div>
       <div style={{display:"flex",gap:8}}>
         <button style={S.btn} onClick={onSave}>保存する</button>
         <button style={{...S.btn,background:"#f3f4f6",color:"#374151"}} onClick={onCancel}>キャンセル</button>
@@ -2294,14 +2299,15 @@ function SeminarManageTab({seminars,upsertSeminar,deleteSeminar,employees,getSV}
   const [editS,setEditS]=useState(null);
   const activeEmps=employees.filter(e=>e.isActive!==false&&(!e.retireDate||new Date(e.retireDate)>new Date()));
 
+  const clean=s=>({...s,title:(s.title||"").trim(),organizer:(s.organizer||"リブドゥ").trim()||"リブドゥ",videoUrl:(s.videoUrl||"").trim()});
   const add=async()=>{
-    if(!newS.title||!newS.date)return;
-    await upsertSeminar({...newS,id:"S"+String(Date.now()).slice(-6)});
+    if(!newS.title.trim()||!newS.date)return;
+    await upsertSeminar({...clean(newS),id:"S"+String(Date.now()).slice(-6)});
     setNewS(emptySem); setShowAdd(false);
   };
   const saveEdit=async()=>{
-    if(!editS.title||!editS.date)return;
-    await upsertSeminar({...editS});
+    if(!editS.title.trim()||!editS.date)return;
+    await upsertSeminar(clean(editS));
     setEditId(null); setEditS(null);
   };
 
