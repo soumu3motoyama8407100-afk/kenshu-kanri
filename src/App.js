@@ -2273,7 +2273,7 @@ function SeminarForm({data,onChange,onSave,onCancel,title}){
   return(
     <div style={S.formBox}>
       <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>{title}</div>
-      {[{key:"title",label:"セミナー名",placeholder:"例：6月配信「スキンケアの基礎」"},{key:"date",label:"配信開始日",type:"date"},{key:"organizer",label:"提供元",placeholder:"リブドゥ"},{key:"videoUrl",label:"視聴URL（埋め込みURL または 視聴ページURL）",placeholder:"https://..."},{key:"description",label:"説明・視聴手順（任意）",placeholder:"例：ボタンを押すとログイン画面が開きます。\nメールアドレス：通達記載のもの\nパスワード：通達記載のもの",multi:true}]
+      {[{key:"title",label:"セミナー名",placeholder:"例：リブドゥ オンラインセミナー（年間視聴）"},{key:"date",label:"配信開始日（視聴できるようになる日）",type:"date"},{key:"organizer",label:"提供元",placeholder:"リブドゥ"},{key:"videoUrl",label:"視聴URL（入口URL または 埋め込みURL）",placeholder:"https://..."},{key:"description",label:"説明・視聴手順（任意）",placeholder:"例：ボタンを押すとログイン画面が開きます。\nメールアドレス：通達記載のもの\nパスワード：通達記載のもの\n動画は毎月更新されます。",multi:true}]
         .map(f=>(
           <div key={f.key} style={{marginBottom:10}}>
             <label style={S.label}>{f.label}</label>
@@ -2315,7 +2315,7 @@ function SeminarManageTab({seminars,upsertSeminar,deleteSeminar,employees,getSV}
     <div style={{padding:4}}>
       <div style={{display:"flex",alignItems:"center",gap:10,background:"#ecfeff",border:"1.5px solid #67e8f9",borderRadius:12,padding:"12px 16px",marginBottom:16}}>
         <span style={{fontSize:24}}>📺</span>
-        <div style={{fontSize:12,color:"#155e75"}}>リブドゥ オンラインセミナーなど、年間を通じて視聴できる配信をここで登録します。配信開始日以降、職員の「📺 セミナー」タブに視聴ボタンが表示されます。</div>
+        <div style={{fontSize:12,color:"#155e75"}}>リブドゥ オンラインセミナーなど、年間を通じて視聴できる配信をここで登録します。リブドゥのように中身が毎月自動更新されるものは「年間の入口」として<b>1件だけ</b>登録すればOKです（毎月の追加は不要）。配信開始日以降、職員の「📺 セミナー」タブに視聴ボタンが表示されます。</div>
       </div>
       <button style={{...S.btn,marginBottom:16}} onClick={()=>{setShowAdd(!showAdd);setEditId(null);}}>＋ セミナーを追加</button>
       {showAdd&&<SeminarForm data={newS} onChange={setNewS} onSave={add} onCancel={()=>setShowAdd(false)} title="新しいオンラインセミナーを登録"/>}
