@@ -2,15 +2,20 @@ name: Supabase Keep-Alive
 
 on:
   schedule:
-    - cron: '0 1 * * *'  # 毎日 日本時間 10:00（UTC 01:00）に実行
+    - cron: '5 1 * * *'   # 毎日 日本時間 10:05（UTC 01:05）keep-alive + 通知キュー送信
+    - cron: '0 3,5,7 * * *' # 日本時間 12:00, 14:00, 16:00 にも通知キューを確認
   workflow_dispatch:      # 手動実行も可能
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase
+      - name: Ping Supabase (keep-alive)
         run: |
           curl -s -o /dev/null -w "%{http_code}" \
             "https://nncousuugjntzovtmkvt.supabase.co/functions/v1/keep-alive" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
+      - name: Send queued LINE notifications
+        run: |
+          curl -s "https://nncousuugjntzovtmkvt.supabase.co/functions/v1/line-notify" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"

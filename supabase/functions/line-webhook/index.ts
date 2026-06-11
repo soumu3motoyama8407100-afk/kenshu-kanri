@@ -19,17 +19,23 @@ async function verifySignature(body: string, signature: string): Promise<boolean
   return expected === signature;
 }
 
-async function replyMessage(replyToken: string, text: string) {
+async function replyMessage(replyToken: string, text: string, quickReplies?: {label: string, text: string}[]) {
+  const message: Record<string, unknown> = { type: "text", text };
+  if (quickReplies && quickReplies.length > 0) {
+    message.quickReply = {
+      items: quickReplies.map(q => ({
+        type: "action",
+        action: { type: "message", label: q.label, text: q.text }
+      }))
+    };
+  }
   await fetch("https://api.line.me/v2/bot/message/reply", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
     },
-    body: JSON.stringify({
-      replyToken,
-      messages: [{ type: "text", text }],
-    }),
+    body: JSON.stringify({ replyToken, messages: [message] }),
   });
 }
 
@@ -48,27 +54,126 @@ serve(async (req) => {
 
   for (const event of payload.events ?? []) {
 
-    // 友だち追加 → pending に一時保存して登録案内を送る
+    // ─── 友だち追加 ───────────────────────────────────────────────────
     if (event.type === "follow" && event.source?.userId) {
       const lineUserId = event.source.userId;
       await supabase
         .from("pending_line_users")
-        .upsert({ line_user_id: lineUserId, followed_at: new Date().toISOString() }, { onConflict: "line_user_id" });
+        .upsert(
+          { line_user_id: lineUserId, followed_at: new Date().toISOString(), pending_emp_id: null },
+          { onConflict: "line_user_id" }
+        );
 
       await replyMessage(
         event.replyToken,
-        "👋 ザ・ハートクラブ 職員通知サービスへようこそ！\n\n職員IDを以下の形式で送信して登録を完了してください。\n\n例）職員ID:E001\n\n※職員IDは管理者にご確認ください。"
+        "※※初回登録※※\nこちらに職員番号を送信してください。\n\n例）E001"
       );
     }
 
-    // テキストメッセージ受信 → 「職員ID:XXXX」形式で紐づけ
+    // ─── テキストメッセージ受信 ────────────────────────────────────────
     if (event.type === "message" && event.message?.type === "text" && event.source?.userId) {
       const text = event.message.text.trim();
       const lineUserId = event.source.userId;
 
-      const match = text.match(/^職員ID[:：]\s*([A-Za-z0-9]+)$/i);
-      if (match) {
-        const empId = match[1].toUpperCase();
+      // 確認待ち状態を取得
+      const { data: pending } = await supabase
+        .from("pending_line_users")
+        .select("pending_emp_id")
+        .eq("line_user_id", lineUserId)
+        .single();
+
+      const pendingEmpId = pending?.pending_emp_id || null;
+
+      // ── 「はい」「いいえ」の返答待ち中 ──
+      if (pendingEmpId) {
+        if (text === "はい" || text === "YES" || text === "yes") {
+          // 登録確定前に既登録チェック
+          const { data: alreadyReg } = await supabase
+            .from("employees")
+            .select("id, name")
+            .eq("line_user_id", lineUserId)
+            .maybeSingle();
+
+          if (alreadyReg) {
+            await supabase.from("pending_line_users").update({ pending_emp_id: null }).eq("line_user_id", lineUserId);
+            await replyMessage(
+              event.replyToken,
+              `✅ すでに「${alreadyReg.name}」さんとして登録済みです。\n\n登録内容の変更は管理者にお問い合わせください。`
+            );
+            continue;
+          }
+
+          // 登録確定
+          await supabase
+            .from("employees")
+            .update({ line_user_id: lineUserId })
+            .eq("id", pendingEmpId);
+
+          await supabase
+            .from("pending_line_users")
+            .update({ pending_emp_id: null })
+            .eq("line_user_id", lineUserId);
+
+          const { data: emp } = await supabase
+            .from("employees")
+            .select("name")
+            .eq("id", pendingEmpId)
+            .single();
+
+          await replyMessage(
+            event.replyToken,
+            `✅ 登録が完了しました！\n\n${emp?.name} さん、よろしくお願いします。\n委員会の開催予定などをこちらからお知らせします。`
+          );
+
+        } else if (text === "いいえ" || text === "NO" || text === "no") {
+          // 登録キャンセル → 入力し直し
+          await supabase
+            .from("pending_line_users")
+            .update({ pending_emp_id: null })
+            .eq("line_user_id", lineUserId);
+
+          await replyMessage(
+            event.replyToken,
+            "もう一度、職員番号を送信してください。\n\n例）E001\n\n※職員番号は管理者にご確認ください。"
+          );
+
+        } else {
+          // はい／いいえ以外
+          const { data: emp } = await supabase
+            .from("employees")
+            .select("name")
+            .eq("id", pendingEmpId)
+            .single();
+
+          await replyMessage(
+            event.replyToken,
+            `${emp?.name} さんで合っていますか？\n\n下のボタンを押してください。`,
+            [{ label: "✅ はい", text: "はい" }, { label: "❌ いいえ", text: "いいえ" }]
+          );
+        }
+        continue;
+      }
+
+      // ── 職員番号の入力 ──
+      // 英数字のみ（例: E001, 158, 0158）を職員番号として受け付ける
+      const empIdMatch = text.match(/^([A-Za-z0-9]+)$/);
+      if (empIdMatch) {
+        // すでに登録済みの場合は上書きしない
+        const { data: alreadyRegistered } = await supabase
+          .from("employees")
+          .select("id, name")
+          .eq("line_user_id", lineUserId)
+          .maybeSingle();
+
+        if (alreadyRegistered) {
+          await replyMessage(
+            event.replyToken,
+            `✅ すでに「${alreadyRegistered.name}」さんとして登録済みです。\n\n登録内容の変更は管理者にお問い合わせください。`
+          );
+          continue;
+        }
+
+        const empId = empIdMatch[1].toUpperCase();
         const { data: emp } = await supabase
           .from("employees")
           .select("id, name")
@@ -76,26 +181,30 @@ serve(async (req) => {
           .single();
 
         if (emp) {
+          // 確認待ち状態を保存
           await supabase
-            .from("employees")
-            .update({ line_user_id: lineUserId })
-            .eq("id", empId);
+            .from("pending_line_users")
+            .upsert(
+              { line_user_id: lineUserId, pending_emp_id: empId },
+              { onConflict: "line_user_id" }
+            );
 
           await replyMessage(
             event.replyToken,
-            `✅ ${emp.name} さんの登録が完了しました！\n\n委員会の開催予定などをLINEでお知らせします。`
+            `「${emp.name}」さんで合っていますか？`,
+            [{ label: "✅ はい", text: "はい" }, { label: "❌ いいえ", text: "いいえ" }]
           );
         } else {
           await replyMessage(
             event.replyToken,
-            `❌ 職員ID「${empId}」は見つかりませんでした。\n\n正しいIDを「職員ID:E001」の形式で送り直してください。`
+            `職員番号「${empId}」は見つかりませんでした。\n\nもう一度、正しい職員番号を送ってください。\n\n例）E001`
           );
         }
       } else {
-        // 形式が合わないとき
+        // 番号の形式が合わない
         await replyMessage(
           event.replyToken,
-          "登録するには以下の形式で送ってください。\n\n例）職員ID:E001"
+          "職員番号を送信してください。\n\n例）E001"
         );
       }
     }

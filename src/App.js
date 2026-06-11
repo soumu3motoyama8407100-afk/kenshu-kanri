@@ -49,7 +49,7 @@ const fyMonths = fy => Array.from({length:12},(_,i)=>{ const m=(i+3)%12+1; const
 const db = {
   async getEmployees() {
     const {data} = await supabase.from("employees").select("*").order("sort_order").order("id");
-    return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept||"",joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false,isActive:r.is_active!==false,managedDepts:r.managed_depts||[],roleTitle:r.role_title||"",retireDate:r.retire_date||"",jobCategory:r.job_category||""}));
+    return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept||"",joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false,isActive:r.is_active!==false,managedDepts:r.managed_depts||[],roleTitle:r.role_title||"",retireDate:r.retire_date||"",jobCategory:r.job_category||"",lineUserId:r.line_user_id||""}));
   },
   async upsertEmployee(emp) {
     // 既存レコードのline_user_idを誤って消さないよう先に取得
@@ -370,7 +370,27 @@ export default function App() {
     upsertCommittee: async c => { await db.upsertCommittee(c); setCommittees(p=>p.map(x=>x.id===c.id?c:x).concat(p.find(x=>x.id===c.id)?[]:[c])); },
     deleteCommittee: async id => { await db.deleteCommittee(id); setCommittees(p=>p.filter(c=>c.id!==id)); setCommitteeMembers(p=>{const n={...p};delete n[id];return n;}); setCommitteeMeetings(p=>p.filter(m=>m.committeeId!==id)); setCommitteeNotices(p=>p.filter(n=>n.committeeId!==id)); },
     setMembersFor: async (cid, empIds) => { await db.setCommitteeMembers(cid,empIds); setCommitteeMembers(p=>({...p,[cid]:empIds})); },
-    upsertMeeting: async m => { await db.upsertCommitteeMeeting(m); setCommitteeMeetings(p=>{ const n=p.filter(x=>x.id!==m.id); return [...n,m].sort((a,b)=>a.scheduledDate.localeCompare(b.scheduledDate)); }); },
+    upsertMeeting: async m => {
+      const isNew = !committeeMeetings.find(x=>x.id===m.id);
+      await db.upsertCommitteeMeeting(m);
+      setCommitteeMeetings(p=>{ const n=p.filter(x=>x.id!==m.id); return [...n,m].sort((a,b)=>a.scheduledDate.localeCompare(b.scheduledDate)); });
+      // 新規登録時のみ、委員メンバーにLINE通知（10:00〜17:00以外はキューに保存され翌日送信）
+      if(isNew){
+        try {
+          const committee = committees.find(c=>c.id===m.committeeId);
+          const memberIds = committeeMembers[m.committeeId]||[];
+          const targets = employees.filter(e=>memberIds.includes(e.id)&&e.lineUserId);
+          if(targets.length>0&&committee){
+            const msg = `📅 【${committee.name}】開催のお知らせ\n\n日時：${formatDate(m.scheduledDate)}${m.startTime?` ${m.startTime}〜`:""}\n${m.location?`場所：${m.location}\n`:""}${m.agenda?`議題：${m.agenda}\n`:""}\n詳細は研修管理システムの委員会タブをご確認ください。`;
+            await fetch("https://nncousuugjntzovtmkvt.supabase.co/functions/v1/line-notify",{
+              method:"POST",
+              headers:{"Content-Type":"application/json"},
+              body:JSON.stringify({notifications:targets.map(t=>({lineUserId:t.lineUserId,message:msg}))})
+            });
+          }
+        } catch(e){ console.warn("LINE通知エラー:",e); }
+      }
+    },
     deleteMeeting: async id => { await db.deleteCommitteeMeeting(id); setCommitteeMeetings(p=>p.filter(m=>m.id!==id)); },
     markRead: async (meetingId, empId) => { await db.markMeetingRead(meetingId,empId); setMeetingReads(p=>({...p,[meetingId]:[...(p[meetingId]||[]).filter(x=>x!==empId),empId]})); },
     upsertNotice: async n => { await db.upsertCommitteeNotice(n); setCommitteeNotices(p=>{const f=p.filter(x=>x.id!==n.id);return [n,...f];}); },
