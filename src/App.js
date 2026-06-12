@@ -1543,61 +1543,6 @@ function SeminarStatusBoard({employees,seminars,getSMV,fiscalYear}){
   );
 }
 
-// 📺 セミナーパネル（水色枠の中に視聴ボタン・視聴チェック・復命書を開いた状態で表示）
-function SeminarPanel({seminar,ym,status,onWatch,onReport,readonly}){
-  const released=!seminar.date||new Date(seminar.date)<=new Date();
-  const mL=ymLabel(ym||currentYM());
-  const innerBox={background:"#fff",borderRadius:10,padding:"12px 14px",border:"1px solid #a5f3fc",marginBottom:8};
-  return(
-    <div style={{background:"#ecfeff",border:"1.5px solid #67e8f9",borderRadius:14,padding:16,marginBottom:16}}>
-      <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:12}}>
-        <span style={{fontSize:26}}>📺</span>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{fontWeight:800,fontSize:15,color:"#0e7490"}}>{seminar.title}</div>
-          <div style={{fontSize:11,color:"#155e75",marginTop:2}}>🏢 {seminar.organizer} ｜ 📅 {mL}配信</div>
-        </div>
-        {!released&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,background:"#f3f4f6",color:"#6b7280",flexShrink:0}}>配信前</span>}
-      </div>
-      {seminar.description&&<div style={{...innerBox,fontSize:13,color:"#374151",whiteSpace:"pre-wrap",lineHeight:1.7}}>{seminar.description}</div>}
-      {!released
-        ?<div style={{...innerBox,color:"#6b7280",fontSize:13}}>🕐 {seminar.date} から視聴できます</div>
-        :!seminar.videoUrl
-          ?<div style={{...innerBox,color:"#9ca3af",fontSize:13}}>視聴URLは準備中です</div>
-          :isEmbedUrl(seminar.videoUrl)
-            ?<div style={{position:"relative",paddingBottom:"56.25%",borderRadius:12,overflow:"hidden",background:"#000",marginBottom:8}}>
-              <iframe style={{position:"absolute",inset:0,width:"100%",height:"100%",border:"none"}} src={seminar.videoUrl} allowFullScreen title={seminar.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"/>
-            </div>
-            :<div style={{marginBottom:8}}>
-              <a href={seminar.videoUrl} target="_blank" rel="noreferrer" style={{...S.watchBtn,display:"block",textAlign:"center",textDecoration:"none",background:"#0e7490",boxSizing:"border-box"}}>▶ 視聴ページを開く</a>
-              <div style={{fontSize:11,color:"#155e75",marginTop:6,textAlign:"center"}}>🔖 視聴ページはブックマークできません。視聴のたびにこのボタンから開いてください。</div>
-            </div>}
-      {released&&seminar.videoUrl&&!readonly&&(
-        <>
-          <div style={innerBox}>
-            <div style={S.sLabel}><span style={{...S.stepNum,background:"#0e7490"}}>1</span> この動画の視聴チェック</div>
-            {status.watched
-              ?<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                <SPill color="#0e7490" bg="#ecfeff" border="#67e8f9">📺 視聴済み</SPill>
-                <button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"3px 10px",cursor:"pointer"}} onClick={()=>onWatch(false)}>取り消す</button>
-              </div>
-              :<button style={{...S.actionBtn,background:"#0e7490"}} onClick={()=>onWatch(true)}>視聴済にする</button>}
-          </div>
-          <div style={{...innerBox,marginBottom:0}}>
-            <div style={S.sLabel}><span style={{...S.stepNum,background:"#2563eb"}}>2</span> 復命書（任意・ポイント対象外）</div>
-            {status.reportSubmitted
-              ?<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                <SPill color="#2563eb" bg="#eff6ff" border="#bfdbfe">📄 提出済み</SPill>
-                <button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"3px 10px",cursor:"pointer"}} onClick={()=>onReport(false)}>取り消す</button>
-              </div>
-              :<button style={{...S.actionBtn,background:"#2563eb"}} onClick={()=>onReport(true)}>復命書を提出した</button>}
-            <div style={{fontSize:11,color:"#9ca3af",marginTop:6}}>提出は任意です。提出した場合は所属長・管理者の画面に表示されます。</div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 // 🔥 連続視聴記録（案D：ストリーク表示）
 function SeminarStreak({fy,empId,seminars,getSMV}){
   const months=fyMonths(fy);
