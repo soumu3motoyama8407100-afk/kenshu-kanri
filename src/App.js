@@ -46,6 +46,8 @@ const currentYM = () => { const d=new Date(); return `${d.getFullYear()}-${Strin
 const ymLabel = ym => `${Number(ym.split("-")[1])}月`;
 const fyMonths = fy => Array.from({length:12},(_,i)=>{ const m=(i+3)%12+1; const y=i<9?fy:fy+1; return {ym:`${y}-${String(m).padStart(2,"0")}`,label:`${m}月`}; });
 const ymOf = d => d ? String(d).slice(0,7) : "";
+// 内部研修の表示対象判定：指定なし＝用務を除く全職員、指定あり＝選択された職員のみ
+const isTargetedFor = (t,e) => ((t.targetEmpIds||[]).length>0 ? t.targetEmpIds.includes(e.id) : (e.dept||"")!=="用務");
 
 const db = {
   async getEmployees() {
@@ -90,9 +92,9 @@ const db = {
   },
   async getInternals() {
     const {data} = await supabase.from("internals").select("*").order("date");
-    return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,date2:r.date2||"",required:r.required,requiredEmpIds:r.required_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||"",endTime:r.end_time||"",noReport:r.no_report===true}));
+    return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,date2:r.date2||"",required:r.required,requiredEmpIds:r.required_emp_ids||[],targetEmpIds:r.target_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||"",endTime:r.end_time||"",noReport:r.no_report===true}));
   },
-  async upsertInternal(t) { await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,date2:t.date2||"",required:t.required,required_emp_ids:t.requiredEmpIds||[],video_url:t.videoUrl,description:t.description,location:t.location||"",start_time:t.startTime||"",end_time:t.endTime||"",no_report:t.noReport===true},{onConflict:"id"}); },
+  async upsertInternal(t) { await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,date2:t.date2||"",required:t.required,required_emp_ids:t.requiredEmpIds||[],target_emp_ids:t.targetEmpIds||[],video_url:t.videoUrl,description:t.description,location:t.location||"",start_time:t.startTime||"",end_time:t.endTime||"",no_report:t.noReport===true},{onConflict:"id"}); },
   async deleteInternal(id) { await supabase.from("internals").delete().eq("id",id); },
   async getExternals() {
     const {data} = await supabase.from("externals").select("*").order("date");
@@ -308,6 +310,7 @@ export default function App() {
       // 2回開催の場合は遅い方の日程が過ぎるまで「未参加（確定）」にしない
       if(!isPast(t.date2&&t.date2>t.date?t.date2:t.date))return;
       employees.forEach(emp=>{
+        if(!isTargetedFor(t,emp))return; // 対象外の職員は欠席扱いにしない
         const cur=iStatuses[emp.id]?.[t.id];
         if(!cur||(cur.attendance!=="参加済"&&cur.attendance!=="未参加（確定）")){
           const next={attendance:"未参加（確定）",report:(cur?.report||"未提出"),video:(cur?.video||"未視聴"),reportConfirmed:(cur?.reportConfirmed||false),attendedSession:(cur?.attendedSession||"")};
@@ -827,7 +830,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
   // お知らせ既読管理（localStorage）
   const [readIds,setReadIds]=useState(()=>{ try{return JSON.parse(localStorage.getItem(`nread_${emp.id}`)||"[]");}catch{return[];} });
   const isCurrentFY=viewFY===fiscalYear;
-  const fyInternals=internals.filter(t=>inFiscalYear(t.date,viewFY)).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const fyInternals=internals.filter(t=>inFiscalYear(t.date,viewFY)&&isTargetedFor(t,emp)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const fyExternals=externals.filter(x=>x.targetEmpIds.includes(emp.id)&&inFiscalYear(x.date,viewFY)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const fySeminars=(seminars||[]).filter(s=>inFiscalYear(s.date,viewFY)).sort((a,b)=>new Date(a.date)-new Date(b.date));
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(null),2500);};
@@ -1087,6 +1090,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
 
   // 未提出バッジ数（復命書必須なのに未提出）
   const unreportedCount=(t)=>employees.filter(e=>{
+    if(!isTargetedFor(t,e))return false;
     const s=getIS(e.id,t.id);
     return isReportRequired(e,t)&&s.report!=="提出済"&&!s.reportConfirmed;
   }).length;
@@ -1102,12 +1106,13 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
   };
 
   // 名前順で固定ソート（操作してもリストが入れ替わらないように）
-  const empList=curT?[...employees].sort((a,b)=>a.name.localeCompare(b.name,"ja")):[];
+  const curTargets=curT?employees.filter(e=>isTargetedFor(curT,e)):[];
+  const empList=curT?[...curTargets].sort((a,b)=>a.name.localeCompare(b.name,"ja")):[];
   const displayList=filterPending&&curT?empList.filter(e=>getEmpStatus(e,curT)!=="done"):empList;
 
-  const reqCount=curT?employees.filter(e=>isReportRequired(e,curT)).length:0;
-  const unreported=curT?employees.filter(e=>isReportRequired(e,curT)&&getIS(e.id,curT.id).report!=="提出済"&&!getIS(e.id,curT.id).reportConfirmed).length:0;
-  const waitConfirm=curT?employees.filter(e=>{const s=getIS(e.id,curT.id);return s.report==="提出済"&&!s.reportConfirmed;}).length:0;
+  const reqCount=curT?curTargets.filter(e=>isReportRequired(e,curT)).length:0;
+  const unreported=curT?curTargets.filter(e=>isReportRequired(e,curT)&&getIS(e.id,curT.id).report!=="提出済"&&!getIS(e.id,curT.id).reportConfirmed).length:0;
+  const waitConfirm=curT?curTargets.filter(e=>{const s=getIS(e.id,curT.id);return s.report==="提出済"&&!s.reportConfirmed;}).length:0;
 
   const initials=name=>name?name.charAt(0):"?";
   const avatarColor=i=>[["#E6F1FB","#185FA5"],["#EAF3DE","#3B6D11"],["#FAEEDA","#854F0B"],["#FCEBEB","#A32D2D"],["#F1EFE8","#5F5E5A"]][i%5];
@@ -2099,15 +2104,17 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
 
   const isReportRequired=(emp,t)=>{ if(t.noReport)return false; const s=getIS(emp.id,t.id); return (t.requiredEmpIds||[]).includes(emp.id)||s.attendance==="参加済"; };
   const getEmpStatus=(emp,t)=>{ const s=getIS(emp.id,t.id); if(s.reportConfirmed) return "done"; if(s.report==="提出済") return "waitConfirm"; if(isReportRequired(emp,t)) return "pending"; return "noReq"; };
-  const unreportedCount=t=>employees.filter(e=>{ const s=getIS(e.id,t.id); return isReportRequired(e,t)&&s.report!=="提出済"&&!s.reportConfirmed; }).length;
+  const targetEmps=t=>employees.filter(e=>isTargetedFor(t,e));
+  const unreportedCount=t=>targetEmps(t).filter(e=>{ const s=getIS(e.id,t.id); return isReportRequired(e,t)&&s.report!=="提出済"&&!s.reportConfirmed; }).length;
   const avatarColor=i=>[["#E6F1FB","#185FA5"],["#EAF3DE","#3B6D11"],["#FAEEDA","#854F0B"],["#FCEBEB","#A32D2D"],["#F1EFE8","#5F5E5A"]][i%5];
   const initials=name=>name?name.charAt(0):"?";
 
-  const reqCount=curT?employees.filter(e=>isReportRequired(e,curT)).length:0;
-  const unreported=curT?employees.filter(e=>isReportRequired(e,curT)&&getIS(e.id,curT.id).report!=="提出済"&&!getIS(e.id,curT.id).reportConfirmed).length:0;
-  const waitConfirm=curT?employees.filter(e=>{ const s=getIS(e.id,curT.id); return s.report==="提出済"&&!s.reportConfirmed; }).length:0;
+  const curTargets=curT?targetEmps(curT):[];
+  const reqCount=curT?curTargets.filter(e=>isReportRequired(e,curT)).length:0;
+  const unreported=curT?curTargets.filter(e=>isReportRequired(e,curT)&&getIS(e.id,curT.id).report!=="提出済"&&!getIS(e.id,curT.id).reportConfirmed).length:0;
+  const waitConfirm=curT?curTargets.filter(e=>{ const s=getIS(e.id,curT.id); return s.report==="提出済"&&!s.reportConfirmed; }).length:0;
 
-  const empList=curT?[...employees].sort((a,b)=>a.name.localeCompare(b.name,"ja")):[];
+  const empList=curT?[...curTargets].sort((a,b)=>a.name.localeCompare(b.name,"ja")):[];
   const displayList=curT?empList.filter(e=>getEmpStatus(e,curT)==="pending"):empList;
 
   return(
@@ -2115,10 +2122,11 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
       {/* 上部サマリーカード（既存のまま） */}
       <div style={{display:"flex",gap:10,overflowX:"auto",padding:"12px 0 16px"}}>
         {fyInternals.map(t=>{
-          const n=employees.length;
-          const attended=employees.filter(e=>getIS(e.id,t.id).attendance==="参加済").length;
-          const watched=employees.filter(e=>getIS(e.id,t.id).video==="視聴済").length;
-          const confirmed=employees.filter(e=>getIS(e.id,t.id).reportConfirmed===true).length;
+          const tgt=targetEmps(t);
+          const n=tgt.length;
+          const attended=tgt.filter(e=>getIS(e.id,t.id).attendance==="参加済").length;
+          const watched=tgt.filter(e=>getIS(e.id,t.id).video==="視聴済").length;
+          const confirmed=tgt.filter(e=>getIS(e.id,t.id).reportConfirmed===true).length;
           return(
             <div key={t.id} style={S.sCard}>
               {t.required&&<span style={S.reqBadge}>必須</span>}
@@ -2220,10 +2228,15 @@ function LocationSelect({value,onChange,accentColor="#C89A55"}){
 function InternalTrainingForm({data,onChange,onSave,onCancel,title,allEmployees}){
   const [selDept,setSelDept]=useState("すべて");
   const [showReqSel,setShowReqSel]=useState((data.requiredEmpIds||[]).length>0);
+  const [showTargetSel,setShowTargetSel]=useState((data.targetEmpIds||[]).length>0);
+  const [selDeptT,setSelDeptT]=useState("すべて");
   const depts=["すべて",...Array.from(new Set((allEmployees||[]).map(e=>e.dept).filter(Boolean))).sort()];
   const filteredEmps=selDept==="すべて"?(allEmployees||[]):(allEmployees||[]).filter(e=>e.dept===selDept);
   const toggle=id=>{ const cur=data.requiredEmpIds||[]; onChange(p=>({...p,requiredEmpIds:cur.includes(id)?cur.filter(x=>x!==id):[...cur,id]})); };
   const toggleDept=()=>{ const ids=filteredEmps.map(e=>e.id); const allSel=ids.every(id=>(data.requiredEmpIds||[]).includes(id)); onChange(p=>({...p,requiredEmpIds:allSel?(p.requiredEmpIds||[]).filter(id=>!ids.includes(id)):[...new Set([...(p.requiredEmpIds||[]),...ids])]})); };
+  const filteredEmpsT=selDeptT==="すべて"?(allEmployees||[]):(allEmployees||[]).filter(e=>e.dept===selDeptT);
+  const toggleTarget=id=>{ const cur=data.targetEmpIds||[]; onChange(p=>({...p,targetEmpIds:cur.includes(id)?cur.filter(x=>x!==id):[...cur,id]})); };
+  const toggleDeptT=()=>{ const ids=filteredEmpsT.map(e=>e.id); const allSel=ids.every(id=>(data.targetEmpIds||[]).includes(id)); onChange(p=>({...p,targetEmpIds:allSel?(p.targetEmpIds||[]).filter(id=>!ids.includes(id)):[...new Set([...(p.targetEmpIds||[]),...ids])]})); };
   return(
     <div style={S.formBox}>
       <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>{title}</div>
@@ -2265,6 +2278,33 @@ function InternalTrainingForm({data,onChange,onSave,onCancel,title,allEmployees}
             <input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={data[f.key]||""} onChange={e=>onChange(p=>({...p,[f.key]:e.target.value}))}/>
           </div>
         ))}
+      {/* 参加者の指定（指定なし＝用務を除く全職員に表示） */}
+      <div style={{marginBottom:12,padding:"10px 12px",background:"#eff6ff",borderRadius:10,border:"1px solid #93c5fd"}}>
+        <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,fontWeight:600,color:"#2563eb"}}>
+          <input type="checkbox" checked={showTargetSel} onChange={e=>{setShowTargetSel(e.target.checked); if(!e.target.checked)onChange(p=>({...p,targetEmpIds:[]}));}} style={{width:16,height:16,accentColor:"#2563eb"}}/>
+          👥 参加者を指定{(data.targetEmpIds||[]).length>0&&`（${(data.targetEmpIds||[]).length}名選択中）`}
+        </label>
+        <div style={{fontSize:11,color:"#6b7280",marginTop:4}}>※ 指定しない場合は用務を除く全職員の研修タブに表示されます</div>
+        {showTargetSel&&<div style={{marginTop:10}}>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
+            {depts.map(d=>(
+              <button key={d} type="button" onClick={()=>setSelDeptT(d)} style={{padding:"3px 10px",borderRadius:14,border:"1.5px solid",borderColor:selDeptT===d?"#2563eb":"#e5e7eb",background:selDeptT===d?"#dbeafe":"#fff",color:selDeptT===d?"#2563eb":"#374151",fontSize:11,fontWeight:selDeptT===d?700:400,cursor:"pointer"}}>{d}</button>
+            ))}
+          </div>
+          <button type="button" onClick={toggleDeptT} style={{fontSize:11,color:"#2563eb",background:"#dbeafe",border:"1px solid #93c5fd",borderRadius:8,padding:"3px 10px",cursor:"pointer",marginBottom:8}}>
+            {filteredEmpsT.every(e=>(data.targetEmpIds||[]).includes(e.id))?"✓ "+selDeptT+"の選択を解除":"＋ "+selDeptT+"を全員選択"}
+          </button>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6,maxHeight:150,overflowY:"auto",padding:"6px",background:"#fff",borderRadius:8,border:"1px solid #93c5fd"}}>
+            {filteredEmpsT.map(e=>{
+              const sel=(data.targetEmpIds||[]).includes(e.id);
+              return(<label key={e.id} style={{display:"flex",alignItems:"center",gap:4,fontSize:12,cursor:"pointer",padding:"3px 8px",borderRadius:16,border:"1.5px solid",borderColor:sel?"#2563eb":"#e5e7eb",background:sel?"#dbeafe":"#fff",color:sel?"#2563eb":"#374151"}}>
+                <input type="checkbox" checked={sel} onChange={()=>toggleTarget(e.id)} style={{display:"none"}}/>{e.name}
+              </label>);
+            })}
+            {filteredEmpsT.length===0&&<div style={{fontSize:11,color:"#9ca3af"}}>この部署の職員はいません</div>}
+          </div>
+        </div>}
+      </div>
       {/* 復命書不要（説明会など） */}
       <div style={{marginBottom:12,padding:"10px 12px",background:"#f0fdf4",borderRadius:10,border:"1px solid #86efac"}}>
         <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,fontWeight:600,color:"#15803d"}}>
