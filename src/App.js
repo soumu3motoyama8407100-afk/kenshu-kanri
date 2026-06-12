@@ -532,7 +532,6 @@ function DualLoginScreen({pendingAttend,internals,employees,onLogin,onManualLogi
             onLogin={(empId,isAdmin,isManager,dept)=>onLogin(empId,isAdmin,isManager||false,dept||"")}/>
           {MANUAL_ENABLED&&<ManualLoginCard employees={employees} onManualLogin={onManualLogin}/>}
         </div>
-        <div style={{marginTop:14,fontSize:11,color:"#9ca3af",textAlign:"center"}}>管理者: ADMIN / admin123</div>
       </div>
     </div>
   );
