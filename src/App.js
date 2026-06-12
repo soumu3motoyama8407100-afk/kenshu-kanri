@@ -213,6 +213,26 @@ const db = {
   async markMeetingRead(meetingId, empId) {
     await supabase.from("committee_meeting_reads").upsert({meeting_id:meetingId,emp_id:empId,read_at:new Date().toISOString()},{onConflict:"meeting_id,emp_id"});
   },
+  async getGeneralNotices() {
+    const {data} = await supabase.from("general_notices").select("*").order("created_at",{ascending:false});
+    return (data||[]).map(r=>({id:r.id,category:r.category||"各種お知らせ",title:r.title,body:r.body||"",fileUrl:r.file_url||null,filePath:r.file_path||null,fileName:r.file_name||null,targetEmpIds:r.target_emp_ids||[],postedBy:r.posted_by||"",createdAt:r.created_at}));
+  },
+  async upsertGeneralNotice(n) {
+    await supabase.from("general_notices").upsert({id:n.id,category:n.category||"各種お知らせ",title:n.title,body:n.body||"",file_url:n.fileUrl||null,file_path:n.filePath||null,file_name:n.fileName||null,target_emp_ids:n.targetEmpIds||[],posted_by:n.postedBy||"ADMIN",updated_at:new Date().toISOString()},{onConflict:"id"});
+  },
+  async uploadGeneralNoticePdf(id,file) {
+    const MAX=20*1024*1024;
+    if(file.size>MAX)throw new Error("20MBを超えるファイルはアップロードできません");
+    const path=`gn_${id}_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._\-]/g,"_")}`;
+    const {error:upErr} = await supabase.storage.from("training-files").upload(path,file,{upsert:true});
+    if(upErr)throw upErr;
+    const {data:{publicUrl}} = supabase.storage.from("training-files").getPublicUrl(path);
+    return {fileUrl:publicUrl,filePath:path,fileName:file.name};
+  },
+  async deleteGeneralNotice(id,filePath) {
+    if(filePath) await supabase.storage.from("training-files").remove([filePath]);
+    await supabase.from("general_notices").delete().eq("id",id);
+  },
   async getSeminars() {
     const {data} = await supabase.from("seminars").select("*").order("date");
     return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,videoUrl:r.video_url||"",description:r.description||"",organizer:r.organizer||"リブドゥ",isPortal:r.is_portal===true}));
@@ -278,6 +298,7 @@ export default function App() {
   const [committeeMeetings,setCommitteeMeetings] = useState([]);
   const [meetingReads,setMeetingReads] = useState({});
   const [committeeNotices,setCommitteeNotices] = useState([]);
+  const [generalNotices,setGeneralNotices] = useState([]);
   const [seminars,setSeminars] = useState([]);
   const [semMonthly,setSemMonthly] = useState({});
 
@@ -299,6 +320,9 @@ export default function App() {
         ]);
         setCommittees(cmts); setCommitteeMembers(cmems); setCommitteeMeetings(cmeets); setMeetingReads(mreads); setCommitteeNotices(notices);
       } catch(e){ console.warn("委員会データ読み込みエラー（テーブル未作成の可能性）:",e); }
+      try {
+        setGeneralNotices(await db.getGeneralNotices());
+      } catch(e){ console.warn("お知らせデータ読み込みエラー（テーブル未作成の可能性）:",e); }
       // セミナーデータも別で読み込む（テーブル未作成でも職員データに影響しない）
       try {
         const [sems,smv] = await Promise.all([db.getSeminars(),db.getSeminarMonthly()]);
@@ -404,6 +428,10 @@ export default function App() {
     deleteMeeting: async id => { await db.deleteCommitteeMeeting(id); setCommitteeMeetings(p=>p.filter(m=>m.id!==id)); },
     markRead: async (meetingId, empId) => { await db.markMeetingRead(meetingId,empId); setMeetingReads(p=>({...p,[meetingId]:[...(p[meetingId]||[]).filter(x=>x!==empId),empId]})); },
     upsertNotice: async n => { await db.upsertCommitteeNotice(n); setCommitteeNotices(p=>{const f=p.filter(x=>x.id!==n.id);return [n,...f];}); },
+    generalNotices,
+    upsertGeneralNotice: async n => { await db.upsertGeneralNotice(n); setGeneralNotices(p=>{const f=p.filter(x=>x.id!==n.id);return [n,...f];}); },
+    deleteGeneralNotice: async id => { const n=generalNotices.find(x=>x.id===id); await db.deleteGeneralNotice(id,n?.filePath||null); setGeneralNotices(p=>p.filter(x=>x.id!==id)); },
+    uploadGeneralNoticePdf: db.uploadGeneralNoticePdf,
     deleteNotice: async id => { await db.deleteCommitteeNotice(id); setCommitteeNotices(p=>p.filter(n=>n.id!==id)); },
   };
 
@@ -3044,44 +3072,171 @@ function CommitteeManageTab({committees,committeeMembers,committeeMeetings,meeti
   );
 }
 
-// ===== 管理者：お知らせ管理タブ（委員会別） =====
-function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice}){
-  const [selectedId,setSelectedId]=useState(committees[0]?.id||null);
+// ===== 管理者：お知らせ管理タブ（事務連絡・研修・アンケート・各種・委員会） =====
+const NOTICE_CATEGORIES=[["事務連絡","📋","#0369a1"],["研修のお知らせ","📚","#C89A55"],["アンケート","📝","#16a34a"],["各種お知らせ","📢","#7c3aed"]];
+function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,employees,generalNotices,upsertGeneralNotice,deleteGeneralNotice,uploadGeneralNoticePdf}){
+  const [cat,setCat]=useState("事務連絡");           // 選択中カテゴリ or "committee"
+  const [selectedId,setSelectedId]=useState(committees[0]?.id||null); // 委員会用
   const [showForm,setShowForm]=useState(false);
   const [form,setForm]=useState({id:"",title:"",body:"",isPublic:false});
+  const [gForm,setGForm]=useState({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[]});
+  const [pdfFile,setPdfFile]=useState(null);
+  const [showTargetSel,setShowTargetSel]=useState(false);
+  const [selDept,setSelDept]=useState("すべて");
   const [saving,setSaving]=useState(false);
+
+  const activeEmps=(employees||[]).filter(e=>e.isActive!==false);
+  const depts=["すべて",...sortDepts(Array.from(new Set(activeEmps.map(e=>e.dept).filter(Boolean))))];
+  const filteredEmps=selDept==="すべて"?activeEmps:activeEmps.filter(e=>e.dept===selDept);
+
+  const catInfo=NOTICE_CATEGORIES.find(c=>c[0]===cat);
+  const catColor=catInfo?catInfo[2]:"#7c3aed";
+  const myGeneral=(generalNotices||[]).filter(n=>n.category===cat);
   const selected=committees.find(c=>c.id===selectedId);
-  const notices=(committeeNotices||[]).filter(n=>n.committeeId===selectedId);
-  const handleSave=async()=>{
+  const myCommNotices=(committeeNotices||[]).filter(n=>n.committeeId===selectedId);
+
+  const resetGForm=()=>{setGForm({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[]});setPdfFile(null);setShowTargetSel(false);setSelDept("すべて");};
+
+  const handleSaveGeneral=async()=>{
+    if(!gForm.title.trim()){alert("タイトルを入力してください");return;}
+    setSaving(true);
+    try{
+      const id=gForm.id||`GN${Date.now()}`;
+      let fileMeta={fileUrl:gForm.fileUrl,filePath:gForm.filePath,fileName:gForm.fileName};
+      if(pdfFile) fileMeta=await uploadGeneralNoticePdf(id,pdfFile);
+      await upsertGeneralNotice({...gForm,...fileMeta,id,category:cat,targetEmpIds:showTargetSel?(gForm.targetEmpIds||[]):[],postedBy:"ADMIN"});
+      setShowForm(false); resetGForm();
+    }catch(e){ alert("保存に失敗しました: "+(e.message||e)); }
+    setSaving(false);
+  };
+  const handleSaveCommittee=async()=>{
     if(!form.title.trim()){alert("タイトルを入力してください");return;}
     setSaving(true);
     await upsertNotice({...form,id:form.id||`N${Date.now()}`,committeeId:selectedId,postedBy:"ADMIN"});
     setSaving(false); setShowForm(false); setForm({id:"",title:"",body:"",isPublic:false});
   };
+  const toggleTarget=id=>setGForm(p=>({...p,targetEmpIds:(p.targetEmpIds||[]).includes(id)?p.targetEmpIds.filter(x=>x!==id):[...(p.targetEmpIds||[]),id]}));
+  const toggleDeptAll=()=>{ const ids=filteredEmps.map(e=>e.id); const all=ids.every(id=>(gForm.targetEmpIds||[]).includes(id)); setGForm(p=>({...p,targetEmpIds:all?(p.targetEmpIds||[]).filter(id=>!ids.includes(id)):[...new Set([...(p.targetEmpIds||[]),...ids])]})); };
+
   return(
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      {/* カテゴリ選択 */}
       <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:14}}>
         <div style={{fontWeight:800,fontSize:14,color:"#4A3020",marginBottom:10}}>📢 お知らせ管理</div>
-        <div style={{fontSize:12,color:"#6b7280",marginBottom:10}}>委員会を選んでお知らせを投稿・管理します</div>
         <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-          {committees.map(c=>(
-            <button key={c.id} onClick={()=>{setSelectedId(c.id);setShowForm(false);}}
-              style={{padding:"7px 14px",borderRadius:20,border:`2px solid ${c.color}`,background:selectedId===c.id?c.color:"#fff",color:selectedId===c.id?"#fff":c.color,fontWeight:700,fontSize:12,cursor:"pointer"}}>
-              {c.name}
+          {NOTICE_CATEGORIES.map(([name,icon,color])=>(
+            <button key={name} onClick={()=>{setCat(name);setShowForm(false);resetGForm();}}
+              style={{padding:"7px 14px",borderRadius:20,border:`2px solid ${color}`,background:cat===name?color:"#fff",color:cat===name?"#fff":color,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+              {icon} {name}
             </button>
           ))}
+          <button onClick={()=>{setCat("committee");setShowForm(false);}}
+            style={{padding:"7px 14px",borderRadius:20,border:"2px solid #1e3a5f",background:cat==="committee"?"#1e3a5f":"#fff",color:cat==="committee"?"#fff":"#1e3a5f",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+            🏛 委員会
+          </button>
         </div>
+        {/* 委員会選択（委員会カテゴリのとき展開） */}
+        {cat==="committee"&&(
+          <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:10,paddingTop:10,borderTop:"1px dashed #e5e7eb"}}>
+            {committees.map(c=>(
+              <button key={c.id} onClick={()=>{setSelectedId(c.id);setShowForm(false);}}
+                style={{padding:"6px 12px",borderRadius:20,border:`2px solid ${c.color}`,background:selectedId===c.id?c.color:"#fff",color:selectedId===c.id?"#fff":c.color,fontWeight:700,fontSize:11,cursor:"pointer"}}>
+                {c.name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
-      {selected&&(
+
+      {/* 一般お知らせ（事務連絡・研修・アンケート・各種） */}
+      {cat!=="committee"&&(
+        <div style={{background:"#fff",border:`1.5px solid ${catColor}33`,borderRadius:14,padding:16}}>
+          <div style={{fontWeight:800,fontSize:14,color:catColor,marginBottom:12}}>{catInfo?.[1]} {cat}</div>
+          <button onClick={()=>{setShowForm(true);resetGForm();}}
+            style={{padding:"7px 16px",background:catColor,color:"#fff",border:"none",borderRadius:20,fontWeight:700,fontSize:12,cursor:"pointer",marginBottom:12}}>
+            ＋ お知らせを投稿
+          </button>
+          {showForm&&(
+            <div style={{background:"#f8fafc",border:`1.5px solid ${catColor}55`,borderRadius:12,padding:14,marginBottom:12}}>
+              <div style={{marginBottom:10}}>
+                <label style={S.label}>タイトル <span style={{color:"#dc2626"}}>*</span></label>
+                <input style={S.input} placeholder="例: 年末調整書類の提出について" value={gForm.title} onChange={e=>setGForm(p=>({...p,title:e.target.value}))}/>
+              </div>
+              <div style={{marginBottom:10}}>
+                <label style={S.label}>内容</label>
+                <textarea rows={4} style={{...S.input,resize:"vertical",fontFamily:"inherit"}} placeholder="お知らせの内容" value={gForm.body} onChange={e=>setGForm(p=>({...p,body:e.target.value}))}/>
+              </div>
+              <div style={{marginBottom:10}}>
+                <label style={S.label}>添付PDF（任意）</label>
+                <label style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,border:"1.5px dashed #cbd5e1",background:"#fff",cursor:"pointer"}}>
+                  <input type="file" accept="application/pdf" style={{display:"none"}} onChange={e=>setPdfFile(e.target.files[0]||null)}/>
+                  <span style={{fontSize:20}}>📄</span>
+                  <span style={{fontSize:13,fontWeight:600,color:"#475569"}}>{pdfFile?"✅ "+pdfFile.name:gForm.fileName?"✅ "+gForm.fileName:"クリックしてPDFをアップロード"}</span>
+                </label>
+              </div>
+              {/* 職員の指定 */}
+              <div style={{marginBottom:12,padding:"10px 12px",background:"#eff6ff",borderRadius:10,border:"1px solid #93c5fd"}}>
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,fontWeight:600,color:"#2563eb"}}>
+                  <input type="checkbox" checked={showTargetSel} onChange={e=>{setShowTargetSel(e.target.checked); if(!e.target.checked)setGForm(p=>({...p,targetEmpIds:[]}));}} style={{width:16,height:16,accentColor:"#2563eb"}}/>
+                  👥 職員を指定{(gForm.targetEmpIds||[]).length>0&&`（${gForm.targetEmpIds.length}名選択中）`}
+                </label>
+                <div style={{fontSize:11,color:"#6b7280",marginTop:4}}>※ 指定しない場合は全職員に配信されます</div>
+                {showTargetSel&&<div style={{marginTop:10}}>
+                  <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
+                    {depts.map(d=>(
+                      <button key={d} type="button" onClick={()=>setSelDept(d)} style={{padding:"3px 10px",borderRadius:14,border:"1.5px solid",borderColor:selDept===d?"#2563eb":"#e5e7eb",background:selDept===d?"#dbeafe":"#fff",color:selDept===d?"#2563eb":"#374151",fontSize:11,fontWeight:selDept===d?700:400,cursor:"pointer"}}>{d}</button>
+                    ))}
+                  </div>
+                  <button type="button" onClick={toggleDeptAll} style={{fontSize:11,color:"#2563eb",background:"#dbeafe",border:"1px solid #93c5fd",borderRadius:8,padding:"3px 10px",cursor:"pointer",marginBottom:8}}>
+                    {filteredEmps.every(e=>(gForm.targetEmpIds||[]).includes(e.id))?"✓ "+selDept+"の選択を解除":"＋ "+selDept+"を全員選択"}
+                  </button>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:6,maxHeight:150,overflowY:"auto",padding:"6px",background:"#fff",borderRadius:8,border:"1px solid #93c5fd"}}>
+                    {filteredEmps.map(e=>{
+                      const sel=(gForm.targetEmpIds||[]).includes(e.id);
+                      return(<label key={e.id} style={{display:"flex",alignItems:"center",gap:4,fontSize:12,cursor:"pointer",padding:"3px 8px",borderRadius:16,border:"1.5px solid",borderColor:sel?"#2563eb":"#e5e7eb",background:sel?"#dbeafe":"#fff",color:sel?"#2563eb":"#374151"}}>
+                        <input type="checkbox" checked={sel} onChange={()=>toggleTarget(e.id)} style={{display:"none"}}/>{e.name}
+                      </label>);
+                    })}
+                  </div>
+                </div>}
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={handleSaveGeneral} disabled={saving} style={{flex:1,padding:"9px",background:catColor,color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>{saving?"保存中…":"投稿する"}</button>
+                <button onClick={()=>{setShowForm(false);resetGForm();}} style={{flex:1,padding:"9px",background:"#f3f4f6",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>キャンセル</button>
+              </div>
+            </div>
+          )}
+          {myGeneral.length===0&&!showForm&&<div style={{textAlign:"center",padding:24,color:"#9ca3af",fontSize:13}}>お知らせなし</div>}
+          {myGeneral.map(n=>(
+            <div key={n.id} style={{border:"1px solid #e5e7eb",borderRadius:10,padding:"11px 14px",marginBottom:8}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:700,fontSize:13,color:"#374151"}}>{n.title}</div>
+                  <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>
+                    {n.createdAt&&new Date(n.createdAt).toLocaleDateString("ja-JP")}
+                    {(n.targetEmpIds||[]).length>0?` ｜ 👥 ${n.targetEmpIds.length}名宛て`:" ｜ 👥 全職員宛て"}
+                  </div>
+                  {n.body&&<div style={{fontSize:12,color:"#6b7280",marginTop:6,whiteSpace:"pre-wrap"}}>{n.body}</div>}
+                  {n.fileUrl&&<a href={n.fileUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:6,fontSize:12,color:"#2563eb",fontWeight:600,textDecoration:"underline"}}>📄 {n.fileName||"添付PDF"}</a>}
+                </div>
+                <button onClick={async()=>{if(window.confirm("削除しますか？"))await deleteGeneralNotice(n.id);}} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #fca5a5",background:"#fff",color:"#dc2626",fontSize:11,fontWeight:600,cursor:"pointer",flexShrink:0}}>削除</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 委員会お知らせ */}
+      {cat==="committee"&&selected&&(
         <div style={{background:"#fff",border:`1.5px solid ${selected.color}33`,borderRadius:14,padding:16}}>
           <div style={{fontWeight:800,fontSize:14,color:selected.color,marginBottom:12}}>{selected.name} のお知らせ</div>
           <button onClick={()=>{setShowForm(true);setForm({id:"",title:"",body:"",isPublic:false});}}
             style={{padding:"7px 16px",background:"#16a34a",color:"#fff",border:"none",borderRadius:20,fontWeight:700,fontSize:12,cursor:"pointer",marginBottom:12}}>
             ＋ お知らせを投稿
           </button>
-          {showForm&&<NoticeForm form={form} onChange={setForm} onSave={handleSave} onCancel={()=>setShowForm(false)} saving={saving}/>}
-          {notices.length===0&&!showForm&&<div style={{textAlign:"center",padding:24,color:"#9ca3af",fontSize:13}}>お知らせなし</div>}
-          {notices.map(n=><NoticeCard key={n.id} n={n} canDelete={true} onDelete={async()=>{if(window.confirm("削除しますか？"))await deleteNotice(n.id);}}/>)}
+          {showForm&&<NoticeForm form={form} onChange={setForm} onSave={handleSaveCommittee} onCancel={()=>setShowForm(false)} saving={saving}/>}
+          {myCommNotices.length===0&&!showForm&&<div style={{textAlign:"center",padding:24,color:"#9ca3af",fontSize:13}}>お知らせなし</div>}
+          {myCommNotices.map(n=><NoticeCard key={n.id} n={n} canDelete={true} onDelete={async()=>{if(window.confirm("削除しますか？"))await deleteNotice(n.id);}}/>)}
         </div>
       )}
     </div>
