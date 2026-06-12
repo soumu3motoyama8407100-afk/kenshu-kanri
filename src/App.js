@@ -814,6 +814,7 @@ function QRScanModal({onScan,onClose}){
 function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminars,getSMV,setSMV,fiscalYear,getCount,onLogout,isManager,deptEmployees,managedDepts,setFiscalYear,committeeProps}){
   const [tab,setTab]=useState("training");
   const [videoT,setVideoT]=useState(null);
+  const [showVideoModal,setShowVideoModal]=useState(false);
   const [toast,setToast]=useState(null);
   const [pdfExt,setPdfExt]=useState(null);
   const [showProfile,setShowProfile]=useState(false);
@@ -854,6 +855,29 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
       {toast&&<div style={S.toast}>{toast}</div>}
       {pdfExt&&<PdfModal ext={pdfExt} onClose={()=>setPdfExt(null)}/>}
       {showProfile&&<ProfileModal emp={emp} onClose={()=>setShowProfile(false)}/>}
+      {/* 動画モーダル（浮動ボタンから開く） */}
+      {showVideoModal&&(
+        <div style={S.overlay} onClick={()=>setShowVideoModal(false)}>
+          <div style={{...S.modal,maxWidth:640,maxHeight:"88vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <div style={{fontWeight:800,fontSize:16,color:"#4A3020"}}>▶ 研修動画</div>
+              <button style={S.logoutBtn} onClick={()=>setShowVideoModal(false)}>✕ 閉じる</button>
+            </div>
+            <VideoTab trainings={fyInternals.filter(t=>t.videoUrl)} selected={videoT||fyInternals.find(t=>t.videoUrl)}
+              onSelect={t=>setVideoT(t)}
+              onMarkWatched={(t,val)=>{ if(isCurrentFY){setIS(emp.id,t.id,"video",val);showToast(val==="視聴済"?"「視聴済」にしました":"未視聴に戻しました");} }}
+              getStatus={t=>getIS(emp.id,t.id)} readonly={!isCurrentFY}/>
+          </div>
+        </div>
+      )}
+      {/* 動画浮動ボタン */}
+      {!showVideoModal&&fyInternals.some(t=>t.videoUrl)&&(
+        <button onClick={()=>setShowVideoModal(true)}
+          style={{position:"fixed",right:18,bottom:22,zIndex:900,width:58,height:58,borderRadius:"50%",border:"none",cursor:"pointer",background:"#C89A55",color:"#fff",boxShadow:"0 6px 20px rgba(200,154,85,.5)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1}}>
+          <span style={{fontSize:20,lineHeight:1}}>▶</span>
+          <span style={{fontSize:9,fontWeight:700}}>動画</span>
+        </button>
+      )}
       {showQRScan&&<QRScanModal onScan={tid=>{setIS(emp.id,tid,"attendance","参加済");setShowQRScan(false);showToast("✅ 参加済に登録しました！");}} onClose={()=>setShowQRScan(false)}/>}
       {/* 実績モーダル */}
       {showScore&&(
@@ -931,7 +955,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
         </div>
         {/* タブバー */}
         <div style={S.tabBar}>
-          {[["training","📚 研修"],["video","▶ 動画"],["seminar","📺 セミナー"],
+          {[["training","📚 研修"],["seminar","📺 セミナー"],
             ...(isManager?[["mgr","📋 部署管理"]]:[]),
             ["chair","🏛 委員会"],
             ["notices","📢 お知らせ"]]
@@ -975,19 +999,13 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                         onReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","提出済");showToast("復命書を提出しました");} }}
                         onCancelReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","未提出");showToast("提出を取り消しました");} }}
                         onVideo={v=>{ if(isCurrentFY){setIS(emp.id,t.id,"video",v);} }}
-                        onWatchVideo={()=>{setVideoT(t);setTab("video");}}/>
+                        onWatchVideo={()=>{setVideoT(t);setShowVideoModal(true);}}/>
                     ))}
                   </div>
                 </div>
               )}
               {fyInternals.length===0&&fyExternals.length===0&&<div style={S.empty}>{viewFY}年度の研修はありません</div>}
             </div>
-          )}
-          {tab==="video"&&(
-            <VideoTab trainings={fyInternals.filter(t=>t.videoUrl)} selected={videoT||fyInternals.find(t=>t.videoUrl)}
-              onSelect={t=>setVideoT(t)}
-              onMarkWatched={(t,val)=>{ if(isCurrentFY){setIS(emp.id,t.id,"video",val);showToast(val==="視聴済"?"「視聴済」にしました":"未視聴に戻しました");} }}
-              getStatus={t=>getIS(emp.id,t.id)} readonly={!isCurrentFY}/>
           )}
           {tab==="seminar"&&(
             <SeminarTab seminars={fySeminars} empId={emp.id} getSMV={getSMV} setSMV={setSMV}
