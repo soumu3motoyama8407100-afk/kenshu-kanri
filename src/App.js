@@ -3095,6 +3095,8 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   const [showTargetSel,setShowTargetSel]=useState(false);
   const [selDept,setSelDept]=useState("すべて");
   const [saving,setSaving]=useState(false);
+  const [toast,setToast]=useState(null);
+  const showToast=(msg,isError)=>{setToast({msg,isError});setTimeout(()=>setToast(null),5000);};
 
   const activeEmps=(employees||[]).filter(e=>e.isActive!==false);
   const depts=["すべて",...sortDepts(Array.from(new Set(activeEmps.map(e=>e.dept).filter(Boolean))))];
@@ -3109,9 +3111,9 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   const resetGForm=()=>{setGForm({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:""});setPdfFile(null);setShowTargetSel(false);setSelDept("すべて");};
 
   const handleSaveGeneral=async()=>{
-    if(!gForm.title.trim()){alert("タイトルを入力してください");return;}
+    if(!gForm.title.trim()){showToast("タイトルを入力してください",true);return;}
     if(!gForm.lineDate||!gForm.lineTime){
-      alert("⚠ LINE配信日時が指定されていません。\n\n即時配信は行われません。必ず配信したい日時を指定してください。\n（配信は10:00〜17:00の間に行われます）");
+      showToast("⚠ LINE配信日時が指定されていません。即時配信は行われません。必ず配信したい日時を指定してください（配信は10:00〜17:00）",true);
       return;
     }
     setSaving(true);
@@ -3131,12 +3133,12 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
           headers:{"Content-Type":"application/json"},
           body:JSON.stringify({notifications:lineTargets.map(t=>({lineUserId:t.lineUserId,message:msg})),sendAfter})
         });
-        alert(`✅ 投稿しました。\nLINEは ${gForm.lineDate} ${gForm.lineTime} 以降に ${lineTargets.length}名へ配信されます。`);
+        showToast(`✅ 投稿しました。LINEは ${gForm.lineDate} ${gForm.lineTime} 以降に ${lineTargets.length}名へ配信されます`);
       } else {
-        alert("✅ 投稿しました。\n（LINE紐づけ済みの対象職員がいないためLINE配信はありません）");
+        showToast("✅ 投稿しました（LINE紐づけ済みの対象職員がいないためLINE配信はありません）");
       }
       setShowForm(false); resetGForm();
-    }catch(e){ alert("保存に失敗しました: "+(e.message||e)); }
+    }catch(e){ showToast("保存に失敗しました: "+(e.message||e),true); }
     setSaving(false);
   };
   const handleSaveCommittee=async()=>{
@@ -3153,6 +3155,12 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
 
   return(
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      {/* トースト通知 */}
+      {toast&&(
+        <div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",zIndex:2000,maxWidth:"90vw",padding:"12px 20px",borderRadius:12,background:toast.isError?"#dc2626":"#15803d",color:"#fff",fontSize:13,fontWeight:600,boxShadow:"0 8px 24px rgba(0,0,0,.25)",lineHeight:1.6}}>
+          {toast.msg}
+        </div>
+      )}
       {/* カテゴリ選択 */}
       <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:14}}>
         <div style={{fontWeight:800,fontSize:14,color:"#4A3020",marginBottom:10}}>📢 お知らせ管理</div>
