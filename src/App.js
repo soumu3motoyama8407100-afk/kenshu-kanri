@@ -48,6 +48,9 @@ const fyMonths = fy => Array.from({length:12},(_,i)=>{ const m=(i+3)%12+1; const
 const ymOf = d => d ? String(d).slice(0,7) : "";
 // 内部研修の表示対象判定：指定なし＝用務を除く全職員、指定あり＝選択された職員のみ
 const isTargetedFor = (t,e) => ((t.targetEmpIds||[]).length>0 ? t.targetEmpIds.includes(e.id) : (e.dept||"")!=="用務");
+// 部署の表示順（この順に並べ、リストにない部署は後ろに付く）
+const DEPT_ORDER = ["ホーム新館","ホーム３F","ホーム４F","医務","サムフォット","小規模","D/Sサイタ","相談室","居宅","総務","用務"];
+const sortDepts = ds => [...ds].sort((a,b)=>{ const ia=DEPT_ORDER.indexOf(a),ib=DEPT_ORDER.indexOf(b); return (ia<0?999:ia)-(ib<0?999:ib)||a.localeCompare(b,"ja"); });
 
 const db = {
   async getEmployees() {
@@ -2230,7 +2233,7 @@ function InternalTrainingForm({data,onChange,onSave,onCancel,title,allEmployees}
   const [showReqSel,setShowReqSel]=useState((data.requiredEmpIds||[]).length>0);
   const [showTargetSel,setShowTargetSel]=useState((data.targetEmpIds||[]).length>0);
   const [selDeptT,setSelDeptT]=useState("すべて");
-  const depts=["すべて",...Array.from(new Set((allEmployees||[]).map(e=>e.dept).filter(Boolean))).sort()];
+  const depts=["すべて",...sortDepts(Array.from(new Set((allEmployees||[]).map(e=>e.dept).filter(Boolean))))];
   const filteredEmps=selDept==="すべて"?(allEmployees||[]):(allEmployees||[]).filter(e=>e.dept===selDept);
   const toggle=id=>{ const cur=data.requiredEmpIds||[]; onChange(p=>({...p,requiredEmpIds:cur.includes(id)?cur.filter(x=>x!==id):[...cur,id]})); };
   const toggleDept=()=>{ const ids=filteredEmps.map(e=>e.id); const allSel=ids.every(id=>(data.requiredEmpIds||[]).includes(id)); onChange(p=>({...p,requiredEmpIds:allSel?(p.requiredEmpIds||[]).filter(id=>!ids.includes(id)):[...new Set([...(p.requiredEmpIds||[]),...ids])]})); };
@@ -2435,7 +2438,7 @@ function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
   const [showAdd,setShowAdd]=useState(false);
   const [newX,setNewX]=useState({title:"",date:"",organizer:"",location:"",targetEmpIds:[],pdfUrl:null,pdfPath:null,pdfName:null});
   const [selDept,setSelDept]=useState("すべて");
-  const depts=["すべて",...Array.from(new Set(employees.map(e=>e.dept).filter(Boolean))).sort()];
+  const depts=["すべて",...sortDepts(Array.from(new Set(employees.map(e=>e.dept).filter(Boolean))))];
   const filteredEmps=selDept==="すべて"?employees:employees.filter(e=>e.dept===selDept);
   const toggleEmp=id=>setNewX(p=>({...p,targetEmpIds:p.targetEmpIds.includes(id)?p.targetEmpIds.filter(x=>x!==id):[...p.targetEmpIds,id]}));
   const toggleDeptAll=()=>{
