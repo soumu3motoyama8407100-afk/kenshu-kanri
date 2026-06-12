@@ -2008,7 +2008,13 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
       </div>
       {importMsg&&<div style={{padding:"8px 14px",background:"#f0fdf4",border:"1px solid #86efac",borderRadius:8,color:"#15803d",marginBottom:12,fontSize:13}}>{importMsg}</div>}
       {showAdd&&<EmpForm data={newE} onChange={setNewE} onSave={saveEmp} onCancel={()=>setShowAdd(false)} isEdit={false} allEmployees={employees}/>}
-      {editEmp&&<EmpForm data={editEmp} onChange={d=>setEditEmp(d)} onSave={saveEmp} onCancel={()=>setEditEmp(null)} isEdit={true} allEmployees={employees}/>}
+      {editEmp&&(
+        <div style={{...S.overlay,zIndex:1500}} onClick={()=>setEditEmp(null)}>
+          <div style={{...S.modal,maxWidth:640,width:"94vw",maxHeight:"88vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+            <EmpForm data={editEmp} onChange={d=>setEditEmp(d)} onSave={saveEmp} onCancel={()=>setEditEmp(null)} isEdit={true} allEmployees={employees}/>
+          </div>
+        </div>
+      )}
       {/* 年度切り替え */}
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap"}}>
         <span style={{fontSize:12,color:"#6b7280"}}>表示年度：</span>
