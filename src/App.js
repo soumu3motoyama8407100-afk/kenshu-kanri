@@ -2269,6 +2269,9 @@ function InternalTrainingForm({data,onChange,onSave,onCancel,title,allEmployees}
   const filteredEmpsT=selDeptT==="すべて"?(allEmployees||[]):(allEmployees||[]).filter(e=>e.dept===selDeptT);
   const toggleTarget=id=>{ const cur=data.targetEmpIds||[]; onChange(p=>({...p,targetEmpIds:cur.includes(id)?cur.filter(x=>x!==id):[...cur,id]})); };
   const toggleDeptT=()=>{ const ids=filteredEmpsT.map(e=>e.id); const allSel=ids.every(id=>(data.targetEmpIds||[]).includes(id)); onChange(p=>({...p,targetEmpIds:allSel?(p.targetEmpIds||[]).filter(id=>!ids.includes(id)):[...new Set([...(p.targetEmpIds||[]),...ids])]})); };
+  const toggleGroupT=ids=>{ const allSel=ids.every(id=>(data.targetEmpIds||[]).includes(id)); onChange(p=>({...p,targetEmpIds:allSel?(p.targetEmpIds||[]).filter(id=>!ids.includes(id)):[...new Set([...(p.targetEmpIds||[]),...ids])]})); };
+  const seishainIdsT=(allEmployees||[]).filter(e=>(e.jobCategory||"")==="正職員").map(e=>e.id);
+  const otherIdsT=(allEmployees||[]).filter(e=>(e.jobCategory||"")!=="正職員").map(e=>e.id);
   return(
     <div style={S.formBox}>
       <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>{title}</div>
@@ -2323,9 +2326,17 @@ function InternalTrainingForm({data,onChange,onSave,onCancel,title,allEmployees}
               <button key={d} type="button" onClick={()=>setSelDeptT(d)} style={{padding:"3px 10px",borderRadius:14,border:"1.5px solid",borderColor:selDeptT===d?"#2563eb":"#e5e7eb",background:selDeptT===d?"#dbeafe":"#fff",color:selDeptT===d?"#2563eb":"#374151",fontSize:11,fontWeight:selDeptT===d?700:400,cursor:"pointer"}}>{d}</button>
             ))}
           </div>
-          <button type="button" onClick={toggleDeptT} style={{fontSize:11,color:"#2563eb",background:"#dbeafe",border:"1px solid #93c5fd",borderRadius:8,padding:"3px 10px",cursor:"pointer",marginBottom:8}}>
-            {filteredEmpsT.every(e=>(data.targetEmpIds||[]).includes(e.id))?"✓ "+selDeptT+"の選択を解除":"＋ "+selDeptT+"を全員選択"}
-          </button>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+            <button type="button" onClick={toggleDeptT} style={{fontSize:11,color:"#2563eb",background:"#dbeafe",border:"1px solid #93c5fd",borderRadius:8,padding:"3px 10px",cursor:"pointer"}}>
+              {filteredEmpsT.every(e=>(data.targetEmpIds||[]).includes(e.id))?"✓ "+selDeptT+"の選択を解除":"＋ "+selDeptT+"を全員選択"}
+            </button>
+            <button type="button" onClick={()=>toggleGroupT(seishainIdsT)} style={{fontSize:11,color:"#7c3aed",background:"#ede9fe",border:"1px solid #c4b5fd",borderRadius:8,padding:"3px 10px",cursor:"pointer"}}>
+              {seishainIdsT.length>0&&seishainIdsT.every(id=>(data.targetEmpIds||[]).includes(id))?"✓ 正職員の選択を解除":"＋ 正職員を一括選択"}
+            </button>
+            <button type="button" onClick={()=>toggleGroupT(otherIdsT)} style={{fontSize:11,color:"#d97706",background:"#fef3c7",border:"1px solid #fcd34d",borderRadius:8,padding:"3px 10px",cursor:"pointer"}}>
+              {otherIdsT.length>0&&otherIdsT.every(id=>(data.targetEmpIds||[]).includes(id))?"✓ 正職員以外の選択を解除":"＋ 正職員以外を一括選択"}
+            </button>
+          </div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6,maxHeight:150,overflowY:"auto",padding:"6px",background:"#fff",borderRadius:8,border:"1px solid #93c5fd"}}>
             {filteredEmpsT.map(e=>{
               const sel=(data.targetEmpIds||[]).includes(e.id);
@@ -3136,6 +3147,9 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   };
   const toggleTarget=id=>setGForm(p=>({...p,targetEmpIds:(p.targetEmpIds||[]).includes(id)?p.targetEmpIds.filter(x=>x!==id):[...(p.targetEmpIds||[]),id]}));
   const toggleDeptAll=()=>{ const ids=filteredEmps.map(e=>e.id); const all=ids.every(id=>(gForm.targetEmpIds||[]).includes(id)); setGForm(p=>({...p,targetEmpIds:all?(p.targetEmpIds||[]).filter(id=>!ids.includes(id)):[...new Set([...(p.targetEmpIds||[]),...ids])]})); };
+  const toggleGroup=ids=>{ const all=ids.every(id=>(gForm.targetEmpIds||[]).includes(id)); setGForm(p=>({...p,targetEmpIds:all?(p.targetEmpIds||[]).filter(id=>!ids.includes(id)):[...new Set([...(p.targetEmpIds||[]),...ids])]})); };
+  const seishainIds=activeEmps.filter(e=>(e.jobCategory||"")==="正職員").map(e=>e.id);
+  const otherIds=activeEmps.filter(e=>(e.jobCategory||"")!=="正職員").map(e=>e.id);
 
   return(
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
@@ -3215,9 +3229,17 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
                       <button key={d} type="button" onClick={()=>setSelDept(d)} style={{padding:"3px 10px",borderRadius:14,border:"1.5px solid",borderColor:selDept===d?"#2563eb":"#e5e7eb",background:selDept===d?"#dbeafe":"#fff",color:selDept===d?"#2563eb":"#374151",fontSize:11,fontWeight:selDept===d?700:400,cursor:"pointer"}}>{d}</button>
                     ))}
                   </div>
-                  <button type="button" onClick={toggleDeptAll} style={{fontSize:11,color:"#2563eb",background:"#dbeafe",border:"1px solid #93c5fd",borderRadius:8,padding:"3px 10px",cursor:"pointer",marginBottom:8}}>
-                    {filteredEmps.every(e=>(gForm.targetEmpIds||[]).includes(e.id))?"✓ "+selDept+"の選択を解除":"＋ "+selDept+"を全員選択"}
-                  </button>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+                    <button type="button" onClick={toggleDeptAll} style={{fontSize:11,color:"#2563eb",background:"#dbeafe",border:"1px solid #93c5fd",borderRadius:8,padding:"3px 10px",cursor:"pointer"}}>
+                      {filteredEmps.every(e=>(gForm.targetEmpIds||[]).includes(e.id))?"✓ "+selDept+"の選択を解除":"＋ "+selDept+"を全員選択"}
+                    </button>
+                    <button type="button" onClick={()=>toggleGroup(seishainIds)} style={{fontSize:11,color:"#7c3aed",background:"#ede9fe",border:"1px solid #c4b5fd",borderRadius:8,padding:"3px 10px",cursor:"pointer"}}>
+                      {seishainIds.length>0&&seishainIds.every(id=>(gForm.targetEmpIds||[]).includes(id))?"✓ 正職員の選択を解除":"＋ 正職員を一括選択"}
+                    </button>
+                    <button type="button" onClick={()=>toggleGroup(otherIds)} style={{fontSize:11,color:"#d97706",background:"#fef3c7",border:"1px solid #fcd34d",borderRadius:8,padding:"3px 10px",cursor:"pointer"}}>
+                      {otherIds.length>0&&otherIds.every(id=>(gForm.targetEmpIds||[]).includes(id))?"✓ 正職員以外の選択を解除":"＋ 正職員以外を一括選択"}
+                    </button>
+                  </div>
                   <div style={{display:"flex",flexWrap:"wrap",gap:6,maxHeight:150,overflowY:"auto",padding:"6px",background:"#fff",borderRadius:8,border:"1px solid #93c5fd"}}>
                     {filteredEmps.map(e=>{
                       const sel=(gForm.targetEmpIds||[]).includes(e.id);
