@@ -1782,7 +1782,7 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
           </div>
         </div>
         <div style={{...S.tabBar,overflowX:"auto"}}>
-          {[["ranking","🏅 ランキング"],["adminNotices","📢 お知らせ"],["iProgress","📊 内部"],["iManage","📚 内部管理"],["xProgress","🌐 外部"],["xManage","✏️ 外部管理"],["semManage","📺 セミナー"],["empManage","👥 職員管理"],["committeeManage","🏛 委員会管理"]].map(([k,l])=>(
+          {[["ranking","🏅 ランキング"],["adminNotices","📢 お知らせ"],["iProgress","📊 内部研修"],["iManage","📚 内部研修管理"],["xProgress","🌐 外部研修"],["xManage","✏️ 外部研修管理"],["semManage","📺 セミナー"],["empManage","👥 職員管理"],["committeeManage","🏛 委員会管理"]].map(([k,l])=>(
             <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{}),fontSize:11,padding:"10px 6px",whiteSpace:"nowrap"}} onClick={()=>setTab(k)}>{l}</button>
           ))}
         </div>
