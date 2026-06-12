@@ -2485,14 +2485,14 @@ function InternalManageTab({internals,setInternals,deleteInternal,employees}){
   const [editT,setEditT]=useState(null);
 
   const add=async()=>{
-    if(!newT.title||!newT.date)return;
+    if(!newT.title||!newT.date){alert("研修名と開催日①は必須です。\n（2回開催でない場合も開催日①に日付を入れてください）");return;}
     const t={...newT,id:"T"+String(Date.now()).slice(-6)};
     await setInternals(p=>[...p,t]);
     setNewT({title:"",date:"",startTime:"17:30",endTime:"18:30",location:"",required:false,requiredEmpIds:[],videoUrl:"",description:""});setShowAdd(false);
   };
   const startEdit=t=>{ setEditId(t.id); setEditT({...t,requiredEmpIds:t.requiredEmpIds||[]}); };
   const saveEdit=async()=>{
-    if(!editT.title||!editT.date)return;
+    if(!editT.title||!editT.date){alert("研修名と開催日①は必須です。");return;}
     await setInternals(p=>p.map(t=>t.id===editId?{...editT}:t));
     setEditId(null); setEditT(null);
   };
