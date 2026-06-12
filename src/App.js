@@ -2131,7 +2131,17 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
   const fyInternals=internals.filter(t=>inFiscalYear(t.date,fiscalYear)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const [selT,setSelT]=useState(null);
   const [filterPending,setFilterPending]=useState(true);
+  const [bulkMode,setBulkMode]=useState(false);
+  const [bulkIds,setBulkIds]=useState([]);
+  const [bulkBusy,setBulkBusy]=useState(false);
   const curT=selT||fyInternals[0]||null;
+  const toggleBulk=id=>setBulkIds(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+  const applyBulk=async patch=>{
+    if(bulkIds.length===0){alert("職員を選択してください");return;}
+    setBulkBusy(true);
+    for(const id of bulkIds){ await setIS(id,curT.id,patch); }
+    setBulkBusy(false); setBulkIds([]);
+  };
 
   const isReportRequired=(emp,t)=>{ if(t.noReport)return false; const s=getIS(emp.id,t.id); return (t.requiredEmpIds||[]).includes(emp.id)||s.attendance==="参加済"; };
   const getEmpStatus=(emp,t)=>{ const s=getIS(emp.id,t.id); if(s.reportConfirmed) return "done"; if(s.report==="提出済") return "waitConfirm"; if(isReportRequired(emp,t)) return "pending"; return "noReq"; };
@@ -2146,8 +2156,8 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
   const waitConfirm=curT?curTargets.filter(e=>{ const s=getIS(e.id,curT.id); return s.report==="提出済"&&!s.reportConfirmed; }).length:0;
 
   const empList=curT?[...curTargets].sort((a,b)=>a.name.localeCompare(b.name,"ja")):[];
-  // 復命書不要の研修は常に全員表示（参加チェックを付けられるように）
-  const displayList=(filterPending&&curT&&!curT.noReport)?empList.filter(e=>getEmpStatus(e,curT)==="pending"):empList;
+  // 復命書不要の研修・一括登録モードは常に全員表示
+  const displayList=(bulkMode||(curT&&curT.noReport))?empList:(filterPending&&curT?empList.filter(e=>getEmpStatus(e,curT)==="pending"):empList);
 
   return(
     <div>
@@ -2201,14 +2211,30 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
           </div>
         </div>
 
-        {/* 表示切り替え */}
-        {!curT.noReport&&(
-          <div style={{display:"flex",gap:6,marginBottom:10}}>
-            {[["未対応のみ",true],["全員表示",false]].map(([l,v])=>(
-              <button key={l} onClick={()=>setFilterPending(v)} style={{padding:"4px 14px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:filterPending===v?"#374151":"#f3f4f6",color:filterPending===v?"#fff":"#6b7280"}}>
-                {l}
-              </button>
-            ))}
+        {/* 表示切り替え・一括登録モード */}
+        <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
+          {!curT.noReport&&!bulkMode&&[["未対応のみ",true],["全員表示",false]].map(([l,v])=>(
+            <button key={l} onClick={()=>setFilterPending(v)} style={{padding:"4px 14px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:filterPending===v?"#374151":"#f3f4f6",color:filterPending===v?"#fff":"#6b7280"}}>
+              {l}
+            </button>
+          ))}
+          <button onClick={()=>{setBulkMode(v=>!v);setBulkIds([]);}} style={{padding:"4px 14px",borderRadius:20,border:"1.5px solid #7c3aed",cursor:"pointer",fontSize:12,fontWeight:700,background:bulkMode?"#7c3aed":"#fff",color:bulkMode?"#fff":"#7c3aed"}}>
+            {bulkMode?"✕ 一括登録を終了":"☑ 一括登録モード"}
+          </button>
+        </div>
+        {/* 一括操作バー */}
+        {bulkMode&&(
+          <div style={{position:"sticky",top:0,zIndex:10,background:"#f5f3ff",border:"1.5px solid #c4b5fd",borderRadius:12,padding:"10px 12px",marginBottom:10}}>
+            <div style={{fontSize:12,fontWeight:700,color:"#7c3aed",marginBottom:8}}>
+              ☑ {bulkIds.length}名選択中 ─ 職員をタップして選択し、下のボタンで一括登録
+              {bulkIds.length>0&&<button onClick={()=>setBulkIds([])} style={{marginLeft:8,fontSize:11,padding:"2px 8px",borderRadius:8,border:"1px solid #c4b5fd",background:"#fff",color:"#7c3aed",cursor:"pointer"}}>選択クリア</button>}
+            </div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              <button disabled={bulkBusy} onClick={()=>applyBulk({attendance:"参加済"})} style={{fontSize:12,padding:"7px 12px",borderRadius:20,border:"none",background:"#16a34a",color:"#fff",fontWeight:700,cursor:"pointer"}}>✅ 参加済にする</button>
+              <button disabled={bulkBusy} onClick={()=>applyBulk({video:"視聴済"})} style={{fontSize:12,padding:"7px 12px",borderRadius:20,border:"none",background:"#7c3aed",color:"#fff",fontWeight:700,cursor:"pointer"}}>▶ 視聴済にする</button>
+              {!curT.noReport&&<button disabled={bulkBusy} onClick={()=>applyBulk({report:"提出済",reportConfirmed:true})} style={{fontSize:12,padding:"7px 12px",borderRadius:20,border:"none",background:"#C89A55",color:"#fff",fontWeight:700,cursor:"pointer"}}>📋 復命書確認済にする</button>}
+              {bulkBusy&&<span style={{fontSize:12,color:"#7c3aed",fontWeight:600,alignSelf:"center"}}>登録中…</span>}
+            </div>
           </div>
         )}
         {/* 職員カードリスト */}
@@ -2220,8 +2246,12 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
             const req=isReportRequired(emp,curT);
             const [bg,fg]=avatarColor(i);
             const isDone=status==="done";
+            const bulkSel=bulkIds.includes(emp.id);
             return(
-              <div key={emp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:isDone?"#f9fafb":"#fff",borderRadius:12,border:`1px solid ${isDone?"#e5e7eb":"#E8D5B0"}`,opacity:isDone?0.6:1}}>
+              <div key={emp.id}
+                onClick={bulkMode?()=>toggleBulk(emp.id):undefined}
+                style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:bulkMode&&bulkSel?"#ede9fe":isDone?"#f9fafb":"#fff",borderRadius:12,border:bulkMode&&bulkSel?"2px solid #7c3aed":`1px solid ${isDone?"#e5e7eb":"#E8D5B0"}`,opacity:bulkMode?1:isDone?0.6:1,cursor:bulkMode?"pointer":"default"}}>
+                {bulkMode&&<div style={{width:22,height:22,borderRadius:6,border:`2px solid ${bulkSel?"#7c3aed":"#d1d5db"}`,background:bulkSel?"#7c3aed":"#fff",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,flexShrink:0}}>{bulkSel?"✓":""}</div>}
                 <div style={{width:32,height:32,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:600,flexShrink:0,background:bg,color:fg}}>{initials(emp.name)}</div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
@@ -2237,10 +2267,10 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
                     {!req&&<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#f3f4f6",color:"#9ca3af"}}>必須外</span>}
                   </div>
                 </div>
-                <div style={{display:"flex",gap:5,flexShrink:0}}>
+                {!bulkMode&&<div style={{display:"flex",gap:5,flexShrink:0}}>
                   {s.attendance!=="参加済"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #16a34a",background:"#f0fdf4",color:"#15803d",cursor:"pointer",fontWeight:600}} onClick={()=>setIS(emp.id,curT.id,"attendance","参加済")}>参加✓</button>}
                   {s.attendance==="参加済"&&s.report!=="提出済"&&status!=="done"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#9ca3af",cursor:"pointer"}} onClick={()=>setIS(emp.id,curT.id,"attendance","未参加")}>取消</button>}
-                </div>
+                </div>}
               </div>
             );
           })}
