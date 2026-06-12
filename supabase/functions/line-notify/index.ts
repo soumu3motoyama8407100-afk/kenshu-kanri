@@ -27,20 +27,33 @@ async function sendPush(lineUserId: string, message: string): Promise<boolean> {
   return res.ok;
 }
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
 serve(async (req) => {
+  // ブラウザからのpreflightリクエストに応答
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   // POSTで新しい通知をキューに追加（アプリから呼ばれる）
   if (req.method === "POST") {
     try {
-      const { notifications } = await req.json();
-      // notifications: [{ lineUserId, message }]
+      const { notifications, sendAfter } = await req.json();
+      // notifications: [{ lineUserId, message }], sendAfter: ISO日時（指定時刻以降に配信）
       if (Array.isArray(notifications) && notifications.length > 0) {
+        const after = sendAfter ? new Date(sendAfter).toISOString() : new Date().toISOString();
         await supabase.from("line_notification_queue").insert(
           notifications.map((n: { lineUserId: string; message: string }) => ({
             line_user_id: n.lineUserId,
             message: n.message,
             status: "pending",
+            send_after: after,
           }))
         );
       }
@@ -50,7 +63,7 @@ serve(async (req) => {
   // 時間内なら送信待ちをすべて送信
   if (!isWithinSendingHours()) {
     return new Response(JSON.stringify({ ok: true, sent: 0, reason: "outside sending hours (10:00-17:00 JST)" }), {
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...CORS_HEADERS },
     });
   }
 
@@ -58,6 +71,7 @@ serve(async (req) => {
     .from("line_notification_queue")
     .select("*")
     .eq("status", "pending")
+    .lte("send_after", new Date().toISOString())
     .order("created_at")
     .limit(100);
 
@@ -72,6 +86,6 @@ serve(async (req) => {
   }
 
   return new Response(JSON.stringify({ ok: true, sent }), {
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });
 });

@@ -3079,7 +3079,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   const [selectedId,setSelectedId]=useState(committees[0]?.id||null); // 委員会用
   const [showForm,setShowForm]=useState(false);
   const [form,setForm]=useState({id:"",title:"",body:"",isPublic:false});
-  const [gForm,setGForm]=useState({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[]});
+  const [gForm,setGForm]=useState({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:""});
   const [pdfFile,setPdfFile]=useState(null);
   const [showTargetSel,setShowTargetSel]=useState(false);
   const [selDept,setSelDept]=useState("すべて");
@@ -3095,16 +3095,35 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   const selected=committees.find(c=>c.id===selectedId);
   const myCommNotices=(committeeNotices||[]).filter(n=>n.committeeId===selectedId);
 
-  const resetGForm=()=>{setGForm({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[]});setPdfFile(null);setShowTargetSel(false);setSelDept("すべて");};
+  const resetGForm=()=>{setGForm({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:""});setPdfFile(null);setShowTargetSel(false);setSelDept("すべて");};
 
   const handleSaveGeneral=async()=>{
     if(!gForm.title.trim()){alert("タイトルを入力してください");return;}
+    if(!gForm.lineDate||!gForm.lineTime){
+      alert("⚠ LINE配信日時が指定されていません。\n\n即時配信は行われません。必ず配信したい日時を指定してください。\n（配信は10:00〜17:00の間に行われます）");
+      return;
+    }
     setSaving(true);
     try{
       const id=gForm.id||`GN${Date.now()}`;
       let fileMeta={fileUrl:gForm.fileUrl,filePath:gForm.filePath,fileName:gForm.fileName};
       if(pdfFile) fileMeta=await uploadGeneralNoticePdf(id,pdfFile);
-      await upsertGeneralNotice({...gForm,...fileMeta,id,category:cat,targetEmpIds:showTargetSel?(gForm.targetEmpIds||[]):[],postedBy:"ADMIN"});
+      const targetIds=showTargetSel?(gForm.targetEmpIds||[]):[];
+      await upsertGeneralNotice({...gForm,...fileMeta,id,category:cat,targetEmpIds:targetIds,postedBy:"ADMIN"});
+      // LINE配信を予約（対象：指定職員 or 全職員のうちLINE紐づけ済みの人）
+      const lineTargets=(targetIds.length>0?activeEmps.filter(e=>targetIds.includes(e.id)):activeEmps).filter(e=>e.lineUserId);
+      if(lineTargets.length>0){
+        const sendAfter=new Date(`${gForm.lineDate}T${gForm.lineTime}:00`).toISOString();
+        const msg=`📢【${cat}】${gForm.title}\n\n${gForm.body?gForm.body+"\n\n":""}${fileMeta.fileUrl?`📄 添付資料：\n${fileMeta.fileUrl}\n\n`:""}詳細は研修管理システムをご確認ください。`;
+        await fetch("https://nncousuugjntzovtmkvt.supabase.co/functions/v1/line-notify",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({notifications:lineTargets.map(t=>({lineUserId:t.lineUserId,message:msg})),sendAfter})
+        });
+        alert(`✅ 投稿しました。\nLINEは ${gForm.lineDate} ${gForm.lineTime} 以降に ${lineTargets.length}名へ配信されます。`);
+      } else {
+        alert("✅ 投稿しました。\n（LINE紐づけ済みの対象職員がいないためLINE配信はありません）");
+      }
       setShowForm(false); resetGForm();
     }catch(e){ alert("保存に失敗しました: "+(e.message||e)); }
     setSaving(false);
@@ -3173,6 +3192,15 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
                   <span style={{fontSize:20}}>📄</span>
                   <span style={{fontSize:13,fontWeight:600,color:"#475569"}}>{pdfFile?"✅ "+pdfFile.name:gForm.fileName?"✅ "+gForm.fileName:"クリックしてPDFをアップロード"}</span>
                 </label>
+              </div>
+              {/* LINE配信日時（必須） */}
+              <div style={{marginBottom:12,padding:"10px 12px",background:"#f0fdf4",borderRadius:10,border:"1.5px solid #4ade80"}}>
+                <div style={{fontSize:13,fontWeight:700,color:"#15803d",marginBottom:8}}>📱 LINE配信日時 <span style={{color:"#dc2626"}}>*必須</span></div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                  <input type="date" style={{...S.input,borderColor:"#86efac"}} value={gForm.lineDate||""} onChange={e=>setGForm(p=>({...p,lineDate:e.target.value}))}/>
+                  <input type="time" style={{...S.input,borderColor:"#86efac"}} value={gForm.lineTime||""} onChange={e=>setGForm(p=>({...p,lineTime:e.target.value}))}/>
+                </div>
+                <div style={{fontSize:11,color:"#6b7280",marginTop:6}}>※ 指定日時以降の10:00〜17:00の間に配信されます（約15分間隔で配信チェック）</div>
               </div>
               {/* 職員の指定 */}
               <div style={{marginBottom:12,padding:"10px 12px",background:"#eff6ff",borderRadius:10,border:"1px solid #93c5fd"}}>
