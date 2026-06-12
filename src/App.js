@@ -98,7 +98,10 @@ const db = {
     const {data} = await supabase.from("internals").select("*").order("date");
     return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,date2:r.date2||"",required:r.required,requiredEmpIds:r.required_emp_ids||[],targetEmpIds:r.target_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||"",endTime:r.end_time||"",noReport:r.no_report===true}));
   },
-  async upsertInternal(t) { await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,date2:t.date2||"",required:t.required,required_emp_ids:t.requiredEmpIds||[],target_emp_ids:t.targetEmpIds||[],video_url:toEmbedUrl(t.videoUrl),description:t.description,location:t.location||"",start_time:t.startTime||"",end_time:t.endTime||"",no_report:t.noReport===true},{onConflict:"id"}); },
+  async upsertInternal(t) {
+    const {error} = await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,date2:t.date2||"",required:t.required===true,required_emp_ids:t.requiredEmpIds||[],target_emp_ids:t.targetEmpIds||[],video_url:toEmbedUrl(t.videoUrl)||"",description:t.description||"",location:t.location||"",start_time:t.startTime||"",end_time:t.endTime||"",no_report:t.noReport===true},{onConflict:"id"});
+    if(error) throw new Error(error.message);
+  },
   async deleteInternal(id) { await supabase.from("internals").delete().eq("id",id); },
   async getExternals() {
     const {data} = await supabase.from("externals").select("*").order("date");
@@ -438,7 +441,19 @@ export default function App() {
 
   if(session.isAdmin) return(
     <AdminScreen employees={employees} setEmployees={setEmployees}
-      internals={internals} setInternals={async fn=>{ const n=typeof fn==="function"?fn(internals):fn; setInternals(n); for(const t of n) await db.upsertInternal(t); }}
+      internals={internals} setInternals={async fn=>{
+        const n=typeof fn==="function"?fn(internals):fn;
+        setInternals(n);
+        // 変更・追加された研修だけ保存し、失敗したらエラーを表示する
+        const prev=new Map(internals.map(t=>[t.id,t]));
+        for(const t of n){
+          const old=prev.get(t.id);
+          if(!old||JSON.stringify(old)!==JSON.stringify(t)){
+            try{ await db.upsertInternal(t); }
+            catch(e){ alert(`研修「${t.title}」の保存に失敗しました:\n${e.message}`); }
+          }
+        }
+      }}
       externals={externals} setExternals={async fn=>{ const n=typeof fn==="function"?fn(externals):fn; setExternals(n); for(const x of n) await db.upsertExternal(x); }}
       deleteInternal={async id=>{ setInternals(p=>p.filter(t=>t.id!==id)); await db.deleteInternal(id); }}
       deleteExternal={async id=>{ const x=externals.find(ex=>ex.id===id); setExternals(p=>p.filter(x=>x.id!==id)); await db.deleteExternal(id,x?.pdfPath||null); }}
