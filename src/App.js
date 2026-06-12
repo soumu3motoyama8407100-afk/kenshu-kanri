@@ -2146,7 +2146,8 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
   const waitConfirm=curT?curTargets.filter(e=>{ const s=getIS(e.id,curT.id); return s.report==="提出済"&&!s.reportConfirmed; }).length:0;
 
   const empList=curT?[...curTargets].sort((a,b)=>a.name.localeCompare(b.name,"ja")):[];
-  const displayList=curT?empList.filter(e=>getEmpStatus(e,curT)==="pending"):empList;
+  // 復命書不要の研修は常に全員表示（参加チェックを付けられるように）
+  const displayList=(filterPending&&curT&&!curT.noReport)?empList.filter(e=>getEmpStatus(e,curT)==="pending"):empList;
 
   return(
     <div>
@@ -2200,6 +2201,16 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
           </div>
         </div>
 
+        {/* 表示切り替え */}
+        {!curT.noReport&&(
+          <div style={{display:"flex",gap:6,marginBottom:10}}>
+            {[["未対応のみ",true],["全員表示",false]].map(([l,v])=>(
+              <button key={l} onClick={()=>setFilterPending(v)} style={{padding:"4px 14px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:filterPending===v?"#374151":"#f3f4f6",color:filterPending===v?"#fff":"#6b7280"}}>
+                {l}
+              </button>
+            ))}
+          </div>
+        )}
         {/* 職員カードリスト */}
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
           {displayList.length===0&&<div style={{textAlign:"center",padding:20,color:"#9ca3af",fontSize:13}}>全員対応済みです ✅</div>}
