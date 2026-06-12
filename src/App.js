@@ -73,11 +73,11 @@ const db = {
   async getIStatuses() {
     const {data} = await supabase.from("i_statuses").select("*");
     const map = {};
-    (data||[]).forEach(r => { if(!map[r.emp_id])map[r.emp_id]={}; map[r.emp_id][r.training_id]={attendance:r.attendance,report:r.report,video:r.video,reportConfirmed:r.report_confirmed}; });
+    (data||[]).forEach(r => { if(!map[r.emp_id])map[r.emp_id]={}; map[r.emp_id][r.training_id]={attendance:r.attendance,report:r.report,video:r.video,reportConfirmed:r.report_confirmed,attendedSession:r.attended_session||""}; });
     return map;
   },
   async setIStatus(empId,tid,fields) {
-    await supabase.from("i_statuses").upsert({emp_id:empId,training_id:tid,attendance:fields.attendance,report:fields.report,video:fields.video,report_confirmed:fields.reportConfirmed,updated_at:new Date().toISOString()},{onConflict:"emp_id,training_id"});
+    await supabase.from("i_statuses").upsert({emp_id:empId,training_id:tid,attendance:fields.attendance,report:fields.report,video:fields.video,report_confirmed:fields.reportConfirmed,attended_session:fields.attendedSession||"",updated_at:new Date().toISOString()},{onConflict:"emp_id,training_id"});
   },
   async getXStatuses() {
     const {data} = await supabase.from("x_statuses").select("*");
@@ -90,9 +90,9 @@ const db = {
   },
   async getInternals() {
     const {data} = await supabase.from("internals").select("*").order("date");
-    return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,required:r.required,requiredEmpIds:r.required_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||"",endTime:r.end_time||""}));
+    return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,date2:r.date2||"",required:r.required,requiredEmpIds:r.required_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||"",endTime:r.end_time||""}));
   },
-  async upsertInternal(t) { await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,required:t.required,required_emp_ids:t.requiredEmpIds||[],video_url:t.videoUrl,description:t.description,location:t.location||"",start_time:t.startTime||"",end_time:t.endTime||""},{onConflict:"id"}); },
+  async upsertInternal(t) { await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,date2:t.date2||"",required:t.required,required_emp_ids:t.requiredEmpIds||[],video_url:t.videoUrl,description:t.description,location:t.location||"",start_time:t.startTime||"",end_time:t.endTime||""},{onConflict:"id"}); },
   async deleteInternal(id) { await supabase.from("internals").delete().eq("id",id); },
   async getExternals() {
     const {data} = await supabase.from("externals").select("*").order("date");
@@ -305,11 +305,12 @@ export default function App() {
   useEffect(()=>{
     if(loading||employees.length===0)return;
     internals.forEach(t=>{
-      if(!isPast(t.date))return;
+      // 2回開催の場合は遅い方の日程が過ぎるまで「未参加（確定）」にしない
+      if(!isPast(t.date2&&t.date2>t.date?t.date2:t.date))return;
       employees.forEach(emp=>{
         const cur=iStatuses[emp.id]?.[t.id];
         if(!cur||(cur.attendance!=="参加済"&&cur.attendance!=="未参加（確定）")){
-          const next={attendance:"未参加（確定）",report:(cur?.report||"未提出"),video:(cur?.video||"未視聴"),reportConfirmed:(cur?.reportConfirmed||false)};
+          const next={attendance:"未参加（確定）",report:(cur?.report||"未提出"),video:(cur?.video||"未視聴"),reportConfirmed:(cur?.reportConfirmed||false),attendedSession:(cur?.attendedSession||"")};
           setIStatuses(p=>({...p,[emp.id]:{...p[emp.id],[t.id]:next}}));
           db.setIStatus(emp.id,t.id,next);
         }
@@ -317,9 +318,11 @@ export default function App() {
     });
   },[internals,loading,employees]);// eslint-disable-line
 
-  const getIS = (empId,tid) => iStatuses[empId]?.[tid]||{attendance:"未参加",report:"未提出",video:"未視聴",reportConfirmed:false};
+  const getIS = (empId,tid) => iStatuses[empId]?.[tid]||{attendance:"未参加",report:"未提出",video:"未視聴",reportConfirmed:false,attendedSession:""};
   const setIS = async(empId,tid,field,val) => {
-    const next={...getIS(empId,tid),[field]:val};
+    // field にオブジェクトを渡すと複数フィールドを同時更新できる
+    const patch=typeof field==="object"?field:{[field]:val};
+    const next={...getIS(empId,tid),...patch};
     setIStatuses(p=>({...p,[empId]:{...p[empId],[tid]:next}}));
     await db.setIStatus(empId,tid,next);
   };
@@ -999,7 +1002,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                         onReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","提出済");showToast("復命書を提出しました");} }}
                         onCancelReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","未提出");showToast("提出を取り消しました");} }}
                         onVideo={v=>{ if(isCurrentFY){setIS(emp.id,t.id,"video",v);} }}
-                        onWatchVideo={()=>{setVideoT(t);setShowVideoModal(true);}}/>
+                        onWatchVideo={()=>{setVideoT(t);setShowVideoModal(true);}}
+                        onAttendSession={async s=>{ if(isCurrentFY){ await setIS(emp.id,t.id,{attendance:"参加済",attendedSession:s}); showToast(`✅ ${s==="1"?"①":"②"}に参加で記録しました`); } }}/>
                     ))}
                   </div>
                 </div>
@@ -1183,7 +1187,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:14,fontWeight:600,color:"#4A3020"}}>{emp.name}</div>
                         <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
-                          {s.attendance==="参加済"?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>参加済</span>
+                          {s.attendance==="参加済"?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>参加済{s.attendedSession==="1"?"①":s.attendedSession==="2"?"②":""}</span>
                             :<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#f3f4f6",color:"#6b7280",fontWeight:600}}>欠席</span>}
                           {req&&(status==="done"?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>確認済</span>
                             :status==="waitConfirm"?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#fef3c7",color:"#92400e",fontWeight:600}}>提出済</span>
@@ -1303,9 +1307,11 @@ function ExternalProgress({status}){
   );
 }
 
-function InternalCard({training,status,empId,onReport,onCancelReport,onVideo,onWatchVideo,readonly}){
+function InternalCard({training,status,empId,onReport,onCancelReport,onVideo,onWatchVideo,onAttendSession,readonly}){
   const [open,setOpen]=useState(false);
   const attended=status.attendance==="参加済";
+  const hasTwoDates=!!training.date2;
+  const sessionMark=status.attendedSession==="1"?"①":status.attendedSession==="2"?"②":"";
   const absentFix=status.attendance==="未参加（確定）";
   const showVideo=!attended;
   // 復命書にアクセスできる条件：参加済み OR 動画視聴済み
@@ -1320,7 +1326,7 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onVideo,onW
           {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
           <div style={S.cardTitle}>{training.title}</div>
           <div style={S.cardDate}>
-            📅 {formatDate(training.date)}
+            📅 {hasTwoDates?<>① {formatDate(training.date)}　② {formatDate(training.date2)}</>:formatDate(training.date)}
             {training.startTime&&<span style={{marginLeft:8}}>🕐 {training.startTime}{training.endTime&&`〜${training.endTime}`}</span>}
             {training.location&&<span style={{marginLeft:8}}>📍 {training.location}</span>}
           </div>
@@ -1332,10 +1338,20 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onVideo,onW
           <p style={{color:"#6b7280",fontSize:13,marginBottom:14}}>{training.description}</p>
           <div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>1</span> 研修参加 または 動画視聴</div>
-            {attended?<SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 参加済（QR認証済）</SPill>
+            {attended?<SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 参加済{hasTwoDates&&sessionMark?`（${sessionMark}に参加）`:"（QR認証済）"}</SPill>
               :absentFix&&status.video==="視聴済"?<SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 動画視聴済み</SPill>
               :absentFix?<SPill color="#7c6a00" bg="#fefce8" border="#fde68a">📹 当日欠席 ─ 動画でフォローできます</SPill>
               :<SPill color="#6b7280" bg="#f9fafb" border="#e5e7eb">🔲 未参加 ─ 当日QRをスキャン</SPill>}
+            {/* 2回開催：どちらに参加したかの記録 */}
+            {hasTwoDates&&!readonly&&onAttendSession&&(!attended||!sessionMark)&&!absentFix&&(
+              <div style={{marginTop:10}}>
+                <div style={{fontSize:11,color:"#6b7280",marginBottom:6}}>{attended?"どちらの日程に参加しましたか？":"参加した日程を選んでください："}</div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  <button style={{fontSize:12,padding:"7px 14px",borderRadius:20,border:"1.5px solid #16a34a",background:"#f0fdf4",color:"#15803d",cursor:"pointer",fontWeight:600}} onClick={()=>onAttendSession("1")}>① {formatDate(training.date)}に参加</button>
+                  <button style={{fontSize:12,padding:"7px 14px",borderRadius:20,border:"1.5px solid #16a34a",background:"#f0fdf4",color:"#15803d",cursor:"pointer",fontWeight:600}} onClick={()=>onAttendSession("2")}>② {formatDate(training.date2)}に参加</button>
+                </div>
+              </div>
+            )}
             {showVideo&&!readonly&&(
               <div style={{marginTop:10}}>
                 <div style={{fontSize:11,color:"#6b7280",marginBottom:6}}>{absentFix?"研修動画を視聴して内容をフォローしましょう：":"または研修動画を視聴:"}</div>
@@ -2159,7 +2175,7 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
                     <span style={{fontSize:11,color:"#9ca3af"}}>{emp.dept}</span>
                   </div>
                   <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
-                    {s.attendance==="参加済"?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>参加済</span>
+                    {s.attendance==="参加済"?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>参加済{s.attendedSession==="1"?"①":s.attendedSession==="2"?"②":""}</span>
                       :<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#f3f4f6",color:"#6b7280",fontWeight:600}}>欠席</span>}
                     {req&&(isDone?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>確認済</span>
                       :status==="waitConfirm"?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#fef3c7",color:"#92400e",fontWeight:600}}>提出済</span>
@@ -2206,13 +2222,23 @@ function InternalTrainingForm({data,onChange,onSave,onCancel,title,allEmployees}
   return(
     <div style={S.formBox}>
       <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>{title}</div>
-      {[{key:"title",label:"研修名",placeholder:"例：コンプライアンス研修"},{key:"date",label:"実施日",type:"date"}]
+      {[{key:"title",label:"研修名",placeholder:"例：コンプライアンス研修"}]
         .map(f=>(
           <div key={f.key} style={{marginBottom:10}}>
             <label style={S.label}>{f.label}</label>
             <input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={data[f.key]||""} onChange={e=>onChange(p=>({...p,[f.key]:e.target.value}))}/>
           </div>
         ))}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+        <div>
+          <label style={S.label}>開催日①</label>
+          <input type="date" style={S.input} value={data.date||""} onChange={e=>onChange(p=>({...p,date:e.target.value}))}/>
+        </div>
+        <div>
+          <label style={S.label}>開催日②（同内容で2回開催する場合）</label>
+          <input type="date" style={S.input} value={data.date2||""} onChange={e=>onChange(p=>({...p,date2:e.target.value}))}/>
+        </div>
+      </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
         <div>
           <label style={S.label}>開始時間</label>
@@ -2295,7 +2321,7 @@ function InternalManageTab({internals,setInternals,deleteInternal,employees}){
           <div style={{...S.card,padding:"12px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{flex:1}}>
               <div style={S.cardTitle}>{t.title}</div>
-              <div style={S.cardDate}>📅 {formatDate(t.date)}
+              <div style={S.cardDate}>📅 {t.date2?<>① {formatDate(t.date)}　② {formatDate(t.date2)}</>:formatDate(t.date)}
                 {(t.requiredEmpIds||[]).length>0&&<span style={{marginLeft:8,fontSize:11,color:"#dc2626",fontWeight:600}}>復命書必須 {(t.requiredEmpIds||[]).length}名</span>}
                 {t.videoUrl?<span style={{marginLeft:8,color:"#7c3aed",fontSize:11}}>▶ 動画あり</span>:<span style={{marginLeft:8,color:"#9ca3af",fontSize:11}}>動画未設定</span>}
               </div>
