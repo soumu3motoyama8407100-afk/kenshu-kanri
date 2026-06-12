@@ -2035,8 +2035,8 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
 
       {/* 在籍職員 */}
       {activeEmps.length===0&&<div style={S.empty}>職員が登録されていません。</div>}
-      {[...new Set(activeEmps.map(e=>e.dept).filter(Boolean))].sort().map(dept=>{
-        const deptEmps=activeEmps.filter(e=>e.dept===dept);
+      {sortDepts([...new Set(activeEmps.map(e=>e.dept).filter(Boolean))]).map(dept=>{
+        const deptEmps=activeEmps.filter(e=>e.dept===dept).sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
         return(
           <div key={dept} style={{marginBottom:20}}>
             <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"7px 14px",background:"#FDF6EC",borderRadius:"8px 8px 0 0",border:"1px solid #E8D5B0",borderBottom:"none"}}>
@@ -3368,9 +3368,9 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
 
 // ===== 部署選択→職員チェックボックス式メンバー選択 =====
 function MemberSelector({employees,selected,onChange}){
-  const depts=[...new Set(employees.filter(e=>e.isActive!==false).map(e=>e.dept).filter(Boolean))].sort();
+  const depts=sortDepts([...new Set(employees.filter(e=>e.isActive!==false).map(e=>e.dept).filter(Boolean))]);
   const [selDept,setSelDept]=useState(depts[0]||"");
-  const deptEmps=employees.filter(e=>e.dept===selDept&&e.isActive!==false);
+  const deptEmps=employees.filter(e=>e.dept===selDept&&e.isActive!==false).sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
   const toggleEmp=id=>{ if(selected.includes(id))onChange(selected.filter(x=>x!==id));else onChange([...selected,id]); };
   const toggleDept=()=>{ const ids=deptEmps.map(e=>e.id); const all=ids.every(id=>selected.includes(id)); if(all)onChange(selected.filter(id=>!ids.includes(id)));else onChange([...new Set([...selected,...ids])]); };
   return(
