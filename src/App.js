@@ -1728,12 +1728,13 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
           </div>
         </div>
         <div style={{...S.tabBar,overflowX:"auto"}}>
-          {[["ranking","🏅 ランキング"],["iProgress","📊 内部"],["iManage","📚 内部管理"],["xProgress","🌐 外部"],["xManage","✏️ 外部管理"],["semManage","📺 セミナー"],["empManage","👥 職員管理"],["committeeManage","🏛 委員会管理"]].map(([k,l])=>(
+          {[["ranking","🏅 ランキング"],["adminNotices","📢 お知らせ"],["iProgress","📊 内部"],["iManage","📚 内部管理"],["xProgress","🌐 外部"],["xManage","✏️ 外部管理"],["semManage","📺 セミナー"],["empManage","👥 職員管理"],["committeeManage","🏛 委員会管理"]].map(([k,l])=>(
             <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{}),fontSize:11,padding:"10px 6px",whiteSpace:"nowrap"}} onClick={()=>setTab(k)}>{l}</button>
           ))}
         </div>
         <div style={{...S.scroll,maxHeight:"calc(100vh - 185px)"}}>
           {tab==="ranking"   &&<RankingTab employees={employees} fiscalYear={fiscalYear} getCount={getCount}/>}
+          {tab==="adminNotices"&&committeeProps&&<AdminNoticesTab {...committeeProps}/>}
           {tab==="iProgress" &&<InternalProgressTab employees={employees} internals={internals} getIS={getIS} setIS={setIS} onQR={setQrT} fiscalYear={fiscalYear}/>}
           {tab==="iManage"   &&<InternalManageTab internals={internals} setInternals={setInternals} deleteInternal={deleteInternal} employees={employees}/>}
           {tab==="xProgress" &&<ExternalProgressTab employees={employees} externals={externals} getXS={getXS} setXS={setXS} fiscalYear={fiscalYear}/>}
@@ -2901,7 +2902,7 @@ function CommitteeManageTab({committees,committeeMembers,committeeMeetings,meeti
   const [showAddForm,setShowAddForm] = useState(false);
   const [saving,setSaving] = useState(false);
   const [selectedMembers,setSelectedMembers] = useState([]);
-  const [innerTab,setInnerTab] = useState("members");
+  const [innerTab,setInnerTab] = useState("meetings");
   const [showMeetingForm,setShowMeetingForm] = useState(false);
   const [meetingForm,setMeetingForm] = useState({id:"",scheduledDate:"",startTime:"17:00",endTime:"17:30",location:"",agenda:""});
   const [showNoticeForm,setShowNoticeForm] = useState(false);
@@ -2960,7 +2961,7 @@ function CommitteeManageTab({committees,committeeMembers,committeeMeetings,meeti
         )}
         <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
           {committees.map(c=>(
-            <button key={c.id} onClick={()=>{setSelectedId(c.id);setEditForm(null);setInnerTab("members");}}
+            <button key={c.id} onClick={()=>{setSelectedId(c.id);setEditForm(null);setInnerTab("meetings");}}
               style={{padding:"7px 14px",borderRadius:20,border:`2px solid ${c.color}`,background:selectedId===c.id?c.color:"#fff",color:selectedId===c.id?"#fff":c.color,fontWeight:700,fontSize:12,cursor:"pointer"}}>
               {c.name}
             </button>
@@ -2992,7 +2993,7 @@ function CommitteeManageTab({committees,committeeMembers,committeeMeetings,meeti
 
             {/* インナータブ */}
             <div style={{display:"flex",gap:0,borderBottom:"2px solid #e5e7eb"}}>
-              {[["members","👥 メンバー"],["meetings","📅 開催予定"],["notices","📢 お知らせ"]].map(([k,l])=>(
+              {[["meetings","📅 開催予定"],["notices","📢 お知らせ"],["members","👥 メンバー"]].map(([k,l])=>(
                 <button key={k} onClick={()=>setInnerTab(k)}
                   style={{padding:"9px 16px",border:"none",background:"transparent",fontWeight:700,fontSize:12,color:innerTab===k?selected.color:"#9ca3af",borderBottom:innerTab===k?`2.5px solid ${selected.color}`:"2.5px solid transparent",cursor:"pointer",marginBottom:-2}}>
                   {l}
@@ -3037,6 +3038,50 @@ function CommitteeManageTab({committees,committeeMembers,committeeMeetings,meeti
               </div>
             )}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== 管理者：お知らせ管理タブ（委員会別） =====
+function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice}){
+  const [selectedId,setSelectedId]=useState(committees[0]?.id||null);
+  const [showForm,setShowForm]=useState(false);
+  const [form,setForm]=useState({id:"",title:"",body:"",isPublic:false});
+  const [saving,setSaving]=useState(false);
+  const selected=committees.find(c=>c.id===selectedId);
+  const notices=(committeeNotices||[]).filter(n=>n.committeeId===selectedId);
+  const handleSave=async()=>{
+    if(!form.title.trim()){alert("タイトルを入力してください");return;}
+    setSaving(true);
+    await upsertNotice({...form,id:form.id||`N${Date.now()}`,committeeId:selectedId,postedBy:"ADMIN"});
+    setSaving(false); setShowForm(false); setForm({id:"",title:"",body:"",isPublic:false});
+  };
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:14}}>
+        <div style={{fontWeight:800,fontSize:14,color:"#4A3020",marginBottom:10}}>📢 お知らせ管理</div>
+        <div style={{fontSize:12,color:"#6b7280",marginBottom:10}}>委員会を選んでお知らせを投稿・管理します</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+          {committees.map(c=>(
+            <button key={c.id} onClick={()=>{setSelectedId(c.id);setShowForm(false);}}
+              style={{padding:"7px 14px",borderRadius:20,border:`2px solid ${c.color}`,background:selectedId===c.id?c.color:"#fff",color:selectedId===c.id?"#fff":c.color,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+              {c.name}
+            </button>
+          ))}
+        </div>
+      </div>
+      {selected&&(
+        <div style={{background:"#fff",border:`1.5px solid ${selected.color}33`,borderRadius:14,padding:16}}>
+          <div style={{fontWeight:800,fontSize:14,color:selected.color,marginBottom:12}}>{selected.name} のお知らせ</div>
+          <button onClick={()=>{setShowForm(true);setForm({id:"",title:"",body:"",isPublic:false});}}
+            style={{padding:"7px 16px",background:"#16a34a",color:"#fff",border:"none",borderRadius:20,fontWeight:700,fontSize:12,cursor:"pointer",marginBottom:12}}>
+            ＋ お知らせを投稿
+          </button>
+          {showForm&&<NoticeForm form={form} onChange={setForm} onSave={handleSave} onCancel={()=>setShowForm(false)} saving={saving}/>}
+          {notices.length===0&&!showForm&&<div style={{textAlign:"center",padding:24,color:"#9ca3af",fontSize:13}}>お知らせなし</div>}
+          {notices.map(n=><NoticeCard key={n.id} n={n} canDelete={true} onDelete={async()=>{if(window.confirm("削除しますか？"))await deleteNotice(n.id);}}/>)}
         </div>
       )}
     </div>
