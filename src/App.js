@@ -89,9 +89,9 @@ const db = {
   },
   async getInternals() {
     const {data} = await supabase.from("internals").select("*").order("date");
-    return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,required:r.required,requiredEmpIds:r.required_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||""}));
+    return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,required:r.required,requiredEmpIds:r.required_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||"",endTime:r.end_time||""}));
   },
-  async upsertInternal(t) { await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,required:t.required,required_emp_ids:t.requiredEmpIds||[],video_url:t.videoUrl,description:t.description,location:t.location||"",start_time:t.startTime||""},{onConflict:"id"}); },
+  async upsertInternal(t) { await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,required:t.required,required_emp_ids:t.requiredEmpIds||[],video_url:t.videoUrl,description:t.description,location:t.location||"",start_time:t.startTime||"",end_time:t.endTime||""},{onConflict:"id"}); },
   async deleteInternal(id) { await supabase.from("internals").delete().eq("id",id); },
   async getExternals() {
     const {data} = await supabase.from("externals").select("*").order("date");
@@ -104,9 +104,9 @@ const db = {
         r.file_url=null; r.file_path=null; r.pdf_name=null;
       }
     }
-    return data.map(r=>({id:r.id,title:r.title,date:r.date,organizer:r.organizer,location:r.location,targetEmpIds:r.target_emp_ids||[],pdfUrl:r.file_url||null,pdfPath:r.file_path||null,pdfName:r.pdf_name,noticePdfUrl:r.notice_file_url||null,noticePdfPath:r.notice_file_path||null,noticePdfName:r.notice_file_name||null}));
+    return data.map(r=>({id:r.id,title:r.title,date:r.date,organizer:r.organizer,location:r.location,startTime:r.start_time||"",endTime:r.end_time||"",targetEmpIds:r.target_emp_ids||[],pdfUrl:r.file_url||null,pdfPath:r.file_path||null,pdfName:r.pdf_name,noticePdfUrl:r.notice_file_url||null,noticePdfPath:r.notice_file_path||null,noticePdfName:r.notice_file_name||null}));
   },
-  async upsertExternal(x) { await supabase.from("externals").upsert({id:x.id,title:x.title,date:x.date,organizer:x.organizer,location:x.location,target_emp_ids:x.targetEmpIds,pdf_name:x.pdfName,file_url:x.pdfUrl,file_path:x.pdfPath,notice_file_url:x.noticePdfUrl||null,notice_file_path:x.noticePdfPath||null,notice_file_name:x.noticePdfName||null},{onConflict:"id"}); },
+  async upsertExternal(x) { await supabase.from("externals").upsert({id:x.id,title:x.title,date:x.date,organizer:x.organizer,location:x.location,start_time:x.startTime||"",end_time:x.endTime||"",target_emp_ids:x.targetEmpIds,pdf_name:x.pdfName,file_url:x.pdfUrl,file_path:x.pdfPath,notice_file_url:x.noticePdfUrl||null,notice_file_path:x.noticePdfPath||null,notice_file_name:x.noticePdfName||null},{onConflict:"id"}); },
   async uploadExternalPdf(xId,file) {
     const MAX=20*1024*1024;
     if(file.size>MAX)throw new Error("20MBを超えるファイルはアップロードできません");
@@ -189,10 +189,10 @@ const db = {
   },
   async getCommitteeMeetings() {
     const {data} = await supabase.from("committee_meetings").select("*").order("scheduled_date",{ascending:true});
-    return (data||[]).map(r=>({id:r.id,committeeId:r.committee_id,scheduledDate:r.scheduled_date,startTime:r.start_time||"",location:r.location||"",agenda:r.agenda||"",notes:r.notes||"",createdAt:r.created_at}));
+    return (data||[]).map(r=>({id:r.id,committeeId:r.committee_id,scheduledDate:r.scheduled_date,startTime:r.start_time||"",endTime:r.end_time||"",location:r.location||"",agenda:r.agenda||"",notes:r.notes||"",createdAt:r.created_at}));
   },
   async upsertCommitteeMeeting(m) {
-    await supabase.from("committee_meetings").upsert({id:m.id,committee_id:m.committeeId,scheduled_date:m.scheduledDate,start_time:m.startTime||"",location:m.location||"",agenda:m.agenda||"",notes:m.notes||"",updated_at:new Date().toISOString()},{onConflict:"id"});
+    await supabase.from("committee_meetings").upsert({id:m.id,committee_id:m.committeeId,scheduled_date:m.scheduledDate,start_time:m.startTime||"",end_time:m.endTime||"",location:m.location||"",agenda:m.agenda||"",notes:m.notes||"",updated_at:new Date().toISOString()},{onConflict:"id"});
   },
   async deleteCommitteeMeeting(id) {
     await supabase.from("committee_meeting_reads").delete().eq("meeting_id",id);
@@ -381,7 +381,7 @@ export default function App() {
           const memberIds = committeeMembers[m.committeeId]||[];
           const targets = employees.filter(e=>memberIds.includes(e.id)&&e.lineUserId);
           if(targets.length>0&&committee){
-            const msg = `📅 【${committee.name}】開催のお知らせ\n\n日時：${formatDate(m.scheduledDate)}${m.startTime?` ${m.startTime}〜`:""}\n${m.location?`場所：${m.location}\n`:""}${m.agenda?`議題：${m.agenda}\n`:""}\n詳細は研修管理システムの委員会タブをご確認ください。`;
+            const msg = `📅 【${committee.name}】開催のお知らせ\n\n日時：${formatDate(m.scheduledDate)}${m.startTime?` ${m.startTime}〜`:""}${m.endTime?`${m.endTime}`:""}\n${m.location?`場所：${m.location}\n`:""}${m.agenda?`議題：${m.agenda}\n`:""}\n詳細は研修管理システムの委員会タブをご確認ください。`;
             await fetch("https://nncousuugjntzovtmkvt.supabase.co/functions/v1/line-notify",{
               method:"POST",
               headers:{"Content-Type":"application/json"},
@@ -1302,7 +1302,7 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onVideo,onW
           <div style={S.cardTitle}>{training.title}</div>
           <div style={S.cardDate}>
             📅 {formatDate(training.date)}
-            {training.startTime&&<span style={{marginLeft:8}}>🕐 {training.startTime}</span>}
+            {training.startTime&&<span style={{marginLeft:8}}>🕐 {training.startTime}{training.endTime&&`〜${training.endTime}`}</span>}
             {training.location&&<span style={{marginLeft:8}}>📍 {training.location}</span>}
           </div>
         </div>
@@ -2161,6 +2161,27 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
   );
 }
 
+const LOCATIONS=["本館２階 ホール","新館３階 会議室","サイタ１階 地域交流ルーム","その他"];
+function LocationSelect({value,onChange,borderColor="#E8D5B0"}){
+  const isPreset=LOCATIONS.slice(0,3).includes(value);
+  const selValue=isPreset?value:(value?"その他":"");
+  return(
+    <div>
+      <select style={{width:"100%",padding:"9px 12px",borderRadius:10,border:`1.5px solid ${borderColor}`,fontSize:13,boxSizing:"border-box",background:"#fff",cursor:"pointer"}}
+        value={selValue}
+        onChange={e=>{ const v=e.target.value; onChange(v==="その他"?"その他":v); }}>
+        <option value="">── 場所を選択 ──</option>
+        {LOCATIONS.map(l=><option key={l} value={l}>{l}</option>)}
+      </select>
+      {selValue==="その他"&&(
+        <input style={{width:"100%",marginTop:6,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${borderColor}`,fontSize:13,boxSizing:"border-box"}}
+          placeholder="場所を入力してください" value={value==="その他"?"":value}
+          onChange={e=>onChange(e.target.value||"その他")}/>
+      )}
+    </div>
+  );
+}
+
 function InternalTrainingForm({data,onChange,onSave,onCancel,title,allEmployees}){
   const [selDept,setSelDept]=useState("すべて");
   const depts=["すべて",...Array.from(new Set((allEmployees||[]).map(e=>e.dept).filter(Boolean))).sort()];
@@ -2170,7 +2191,28 @@ function InternalTrainingForm({data,onChange,onSave,onCancel,title,allEmployees}
   return(
     <div style={S.formBox}>
       <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>{title}</div>
-      {[{key:"title",label:"研修名",placeholder:"例：コンプライアンス研修"},{key:"date",label:"実施日",type:"date"},{key:"startTime",label:"開始時間",type:"time"},{key:"location",label:"場所",placeholder:"例：多目的ホール"},{key:"videoUrl",label:"動画URL（後から追加可）",placeholder:"https://www.youtube.com/embed/..."},{key:"description",label:"説明",placeholder:"研修の概要"}]
+      {[{key:"title",label:"研修名",placeholder:"例：コンプライアンス研修"},{key:"date",label:"実施日",type:"date"}]
+        .map(f=>(
+          <div key={f.key} style={{marginBottom:10}}>
+            <label style={S.label}>{f.label}</label>
+            <input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={data[f.key]||""} onChange={e=>onChange(p=>({...p,[f.key]:e.target.value}))}/>
+          </div>
+        ))}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+        <div>
+          <label style={S.label}>開始時間</label>
+          <input type="time" style={S.input} value={data.startTime||""} onChange={e=>onChange(p=>({...p,startTime:e.target.value}))}/>
+        </div>
+        <div>
+          <label style={S.label}>終了時間</label>
+          <input type="time" style={S.input} value={data.endTime||""} onChange={e=>onChange(p=>({...p,endTime:e.target.value}))}/>
+        </div>
+      </div>
+      <div style={{marginBottom:10}}>
+        <label style={S.label}>場所</label>
+        <LocationSelect value={data.location||""} onChange={v=>onChange(p=>({...p,location:v}))}/>
+      </div>
+      {[{key:"videoUrl",label:"動画URL（後から追加可）",placeholder:"https://www.youtube.com/embed/..."},{key:"description",label:"説明",placeholder:"研修の概要"}]
         .map(f=>(
           <div key={f.key} style={{marginBottom:10}}>
             <label style={S.label}>{f.label}</label>
@@ -2213,14 +2255,14 @@ function InternalTrainingForm({data,onChange,onSave,onCancel,title,allEmployees}
 function InternalManageTab({internals,setInternals,deleteInternal,employees}){
   const [showAdd,setShowAdd]=useState(false);
   const [editId,setEditId]=useState(null);
-  const [newT,setNewT]=useState({title:"",date:"",startTime:"",location:"",required:false,requiredEmpIds:[],videoUrl:"",description:""});
+  const [newT,setNewT]=useState({title:"",date:"",startTime:"17:30",endTime:"18:30",location:"",required:false,requiredEmpIds:[],videoUrl:"",description:""});
   const [editT,setEditT]=useState(null);
 
   const add=async()=>{
     if(!newT.title||!newT.date)return;
     const t={...newT,id:"T"+String(Date.now()).slice(-6)};
     await setInternals(p=>[...p,t]);
-    setNewT({title:"",date:"",startTime:"",location:"",required:false,requiredEmpIds:[],videoUrl:"",description:""});setShowAdd(false);
+    setNewT({title:"",date:"",startTime:"17:30",endTime:"18:30",location:"",required:false,requiredEmpIds:[],videoUrl:"",description:""});setShowAdd(false);
   };
   const startEdit=t=>{ setEditId(t.id); setEditT({...t,requiredEmpIds:t.requiredEmpIds||[]}); };
   const saveEdit=async()=>{
@@ -2343,6 +2385,10 @@ function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
           <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>外部研修を登録</div>
           {[{key:"title",label:"研修名",placeholder:"例：DXセミナー"},{key:"date",label:"実施日",type:"date"},{key:"organizer",label:"主催団体",placeholder:"例：総務省"},{key:"location",label:"場所",placeholder:"例：東京"}]
             .map(f=><div key={f.key} style={{marginBottom:10}}><label style={S.label}>{f.label}</label><input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={newX[f.key]} onChange={e=>setNewX(p=>({...p,[f.key]:e.target.value}))}/></div>)}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+            <div><label style={S.label}>開始時間（任意）</label><input type="time" style={S.input} value={newX.startTime||""} onChange={e=>setNewX(p=>({...p,startTime:e.target.value}))}/></div>
+            <div><label style={S.label}>終了時間（任意）</label><input type="time" style={S.input} value={newX.endTime||""} onChange={e=>setNewX(p=>({...p,endTime:e.target.value}))}/></div>
+          </div>
           <div style={{marginBottom:14}}>
             <label style={S.label}>研修要綱PDF（任意）</label>
             <label style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,border:"1.5px dashed #E8D5B0",background:"#FDF6EC",cursor:"pointer"}}>
@@ -2748,7 +2794,7 @@ function CommitteeManageTab({committees,committeeMembers,committeeMeetings,meeti
   const [selectedMembers,setSelectedMembers] = useState([]);
   const [innerTab,setInnerTab] = useState("members");
   const [showMeetingForm,setShowMeetingForm] = useState(false);
-  const [meetingForm,setMeetingForm] = useState({id:"",scheduledDate:"",startTime:"",location:"",agenda:""});
+  const [meetingForm,setMeetingForm] = useState({id:"",scheduledDate:"",startTime:"17:00",endTime:"17:30",location:"",agenda:""});
   const [showNoticeForm,setShowNoticeForm] = useState(false);
   const [noticeForm,setNoticeForm] = useState({id:"",title:"",body:"",isPublic:false});
 
@@ -2776,7 +2822,7 @@ function CommitteeManageTab({committees,committeeMembers,committeeMeetings,meeti
     if(!meetingForm.scheduledDate){alert("開催日を入力してください");return;}
     setSaving(true);
     await upsertMeeting({...meetingForm,id:meetingForm.id||`M${Date.now()}`,committeeId:selected.id});
-    setSaving(false); setShowMeetingForm(false); setMeetingForm({id:"",scheduledDate:"",startTime:"",location:"",agenda:""});
+    setSaving(false); setShowMeetingForm(false); setMeetingForm({id:"",scheduledDate:"",startTime:"17:00",endTime:"17:30",location:"",agenda:""});
   };
 
   const handleSaveNotice=async()=>{
@@ -2859,7 +2905,7 @@ function CommitteeManageTab({committees,committeeMembers,committeeMeetings,meeti
             {/* 開催予定 */}
             {innerTab==="meetings"&&(
               <div>
-                <button onClick={()=>{setShowMeetingForm(true);setMeetingForm({id:"",scheduledDate:"",startTime:"",location:"",agenda:"",committeeId:selected.id});}}
+                <button onClick={()=>{setShowMeetingForm(true);setMeetingForm({id:"",scheduledDate:"",startTime:"17:00",endTime:"17:30",location:"",agenda:"",committeeId:selected.id});}}
                   style={{padding:"7px 16px",background:selected.color,color:"#fff",border:"none",borderRadius:20,fontWeight:700,fontSize:12,cursor:"pointer",marginBottom:12}}>
                   ＋ 開催予定を追加
                 </button>
@@ -2946,14 +2992,16 @@ function MeetingForm({form,onChange,onSave,onCancel,saving}){
   return(
     <div style={{background:"#f8f5ff",border:"1.5px solid #c4b5fd",borderRadius:12,padding:14,marginBottom:12}}>
       <div style={{fontWeight:700,fontSize:13,color:"#7c3aed",marginBottom:10}}>📅 開催予定を登録</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
         <div><label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>開催日 <span style={{color:"#dc2626"}}>*</span></label>
           <input type="date" style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #c4b5fd",fontSize:13,boxSizing:"border-box"}} value={form.scheduledDate} onChange={e=>onChange({...form,scheduledDate:e.target.value})}/></div>
         <div><label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>開始時刻</label>
           <input type="time" style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #c4b5fd",fontSize:13,boxSizing:"border-box"}} value={form.startTime||""} onChange={e=>onChange({...form,startTime:e.target.value})}/></div>
+        <div><label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>終了時刻</label>
+          <input type="time" style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #c4b5fd",fontSize:13,boxSizing:"border-box"}} value={form.endTime||""} onChange={e=>onChange({...form,endTime:e.target.value})}/></div>
       </div>
       <div style={{marginBottom:10}}><label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>開催場所</label>
-        <input style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #c4b5fd",fontSize:13,boxSizing:"border-box"}} placeholder="例: 第1会議室" value={form.location||""} onChange={e=>onChange({...form,location:e.target.value})}/></div>
+        <LocationSelect value={form.location||""} onChange={v=>onChange({...form,location:v})} borderColor="#c4b5fd"/></div>
       <div style={{marginBottom:12}}><label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>議題・内容</label>
         <textarea rows={3} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #c4b5fd",fontSize:13,boxSizing:"border-box",resize:"vertical"}} placeholder="例: ・令和7年度活動計画の審議" value={form.agenda||""} onChange={e=>onChange({...form,agenda:e.target.value})}/></div>
       <div style={{display:"flex",gap:8}}>
@@ -2971,7 +3019,7 @@ function MeetingCard({m,color,readList,memberCount,onDelete}){
     <div style={{border:"1px solid #e5e7eb",borderRadius:10,padding:"11px 14px",marginBottom:8,opacity:isPast?0.65:1,background:isPast?"#f9fafb":"#fff"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
         <div style={{flex:1}}>
-          <div style={{fontWeight:700,fontSize:13,color:isPast?"#9ca3af":color}}>{formatDate(m.scheduledDate)}{m.startTime&&` ${m.startTime}〜`}</div>
+          <div style={{fontWeight:700,fontSize:13,color:isPast?"#9ca3af":color}}>{formatDate(m.scheduledDate)}{m.startTime&&` ${m.startTime}〜`}{m.endTime&&`${m.endTime}`}</div>
           {m.location&&<div style={{fontSize:12,color:"#6b7280",marginTop:2}}>📍 {m.location}</div>}
           {m.agenda&&<div style={{fontSize:12,color:"#374151",marginTop:4,whiteSpace:"pre-wrap"}}>📋 {m.agenda}</div>}
           {!isPast&&<div style={{fontSize:11,color:"#6b7280",marginTop:4}}>既読: {readList.length}/{memberCount}名</div>}
@@ -3030,7 +3078,7 @@ function ChairCommitteeView({emp,committees,committeeMembers,committeeMeetings,m
   const [selectedMembers,setSelectedMembers]=useState([]);
   const [saving,setSaving]=useState(false);
   const [showMeetingForm,setShowMeetingForm]=useState(false);
-  const [meetingForm,setMeetingForm]=useState({id:"",scheduledDate:"",startTime:"",location:"",agenda:""});
+  const [meetingForm,setMeetingForm]=useState({id:"",scheduledDate:"",startTime:"17:00",endTime:"17:30",location:"",agenda:""});
   const [showNoticeForm,setShowNoticeForm]=useState(false);
   const [noticeForm,setNoticeForm]=useState({id:"",title:"",body:"",isPublic:false});
 
@@ -3045,7 +3093,7 @@ function ChairCommitteeView({emp,committees,committeeMembers,committeeMeetings,m
   const currentMembers=committeeMembers[myCommittee.id]||[];
 
   const handleSaveMembers=async()=>{ setSaving(true); await setMembersFor(myCommittee.id,selectedMembers); setSaving(false); alert("メンバーを保存しました"); };
-  const handleSaveMeeting=async()=>{ if(!meetingForm.scheduledDate){alert("開催日を入力してください");return;} setSaving(true); await upsertMeeting({...meetingForm,id:meetingForm.id||`M${Date.now()}`,committeeId:myCommittee.id}); setSaving(false); setShowMeetingForm(false); setMeetingForm({id:"",scheduledDate:"",startTime:"",location:"",agenda:""}); };
+  const handleSaveMeeting=async()=>{ if(!meetingForm.scheduledDate){alert("開催日を入力してください");return;} setSaving(true); await upsertMeeting({...meetingForm,id:meetingForm.id||`M${Date.now()}`,committeeId:myCommittee.id}); setSaving(false); setShowMeetingForm(false); setMeetingForm({id:"",scheduledDate:"",startTime:"17:00",endTime:"17:30",location:"",agenda:""}); };
   const handleSaveNotice=async()=>{ if(!noticeForm.title.trim()){alert("タイトルを入力してください");return;} setSaving(true); await upsertNotice({...noticeForm,id:noticeForm.id||`N${Date.now()}`,committeeId:myCommittee.id,postedBy:emp.id}); setSaving(false); setShowNoticeForm(false); setNoticeForm({id:"",title:"",body:"",isPublic:false}); };
 
   return(
@@ -3071,7 +3119,7 @@ function ChairCommitteeView({emp,committees,committeeMembers,committeeMeetings,m
       )}
       {innerTab==="meetings"&&(
         <div>
-          <button onClick={()=>{setShowMeetingForm(true);setMeetingForm({id:"",scheduledDate:"",startTime:"",location:"",agenda:"",committeeId:myCommittee.id});}}
+          <button onClick={()=>{setShowMeetingForm(true);setMeetingForm({id:"",scheduledDate:"",startTime:"17:00",endTime:"17:30",location:"",agenda:"",committeeId:myCommittee.id});}}
             style={{padding:"7px 16px",background:color,color:"#fff",border:"none",borderRadius:20,fontWeight:700,fontSize:12,cursor:"pointer",marginBottom:12}}>
             ＋ 開催予定を追加
           </button>
