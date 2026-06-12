@@ -49,8 +49,10 @@ const ymOf = d => d ? String(d).slice(0,7) : "";
 // 内部研修の表示対象判定：指定なし＝用務・休職中を除く全職員、指定あり＝選択された職員のみ
 const isTargetedFor = (t,e) => ((t.targetEmpIds||[]).length>0 ? t.targetEmpIds.includes(e.id) : ((e.dept||"")!=="用務"&&e.onLeave!==true));
 // 部署の表示順（この順に並べ、リストにない部署は後ろに付く）
-const DEPT_ORDER = ["ホーム新館","ホーム3F","ホーム4F","医務","サムフォット","小規模サイタ","D/Sサイタ","相談室","居宅ポム","総務","用務"];
+const DEPT_ORDER = ["ホーム1F","ホーム2F","ホーム3F","ホーム4F","医務","サムフォット","小規模サイタ","D/Sサイタ","相談室","居宅ポム","総務","用務"];
 const sortDepts = ds => [...ds].sort((a,b)=>{ const ia=DEPT_ORDER.indexOf(a),ib=DEPT_ORDER.indexOf(b); return (ia<0?999:ia)-(ib<0?999:ib)||a.localeCompare(b,"ja"); });
+// 役職の表示優先度（小さいほど上）
+const roleRank = e => { const r=e.roleTitle||""; if(!r)return 9; if(r.includes("施設長"))return 0; if(r.includes("管理者"))return 1; if(r.includes("副主任"))return 3; if(r.includes("主任"))return 2; return 4; };
 
 const db = {
   async getEmployees() {
@@ -2051,7 +2053,7 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
       {/* 在籍職員 */}
       {activeEmps.length===0&&<div style={S.empty}>職員が登録されていません。</div>}
       {sortDepts([...new Set(activeEmps.map(e=>e.dept).filter(Boolean))]).map(dept=>{
-        const deptEmps=activeEmps.filter(e=>e.dept===dept).sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
+        const deptEmps=activeEmps.filter(e=>e.dept===dept).sort((a,b)=>roleRank(a)-roleRank(b)||String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
         return(
           <div key={dept} style={{marginBottom:20}}>
             <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"7px 14px",background:"#FDF6EC",borderRadius:"8px 8px 0 0",border:"1px solid #E8D5B0",borderBottom:"none"}}>
@@ -2196,7 +2198,7 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
 
   // 部署順（固定順）→ 職員番号順で並べる
   const deptIdx=d=>{const i=DEPT_ORDER.indexOf(d);return i<0?999:i;};
-  const empList=curT?[...curTargets].sort((a,b)=>deptIdx(a.dept)-deptIdx(b.dept)||String(a.id).localeCompare(String(b.id),undefined,{numeric:true})):[];
+  const empList=curT?[...curTargets].sort((a,b)=>deptIdx(a.dept)-deptIdx(b.dept)||roleRank(a)-roleRank(b)||String(a.id).localeCompare(String(b.id),undefined,{numeric:true})):[];
   // 復命書不要の研修・一括登録モードは常に全員表示
   const displayList=(bulkMode||(curT&&curT.noReport))?empList:(filterPending&&curT?empList.filter(e=>getEmpStatus(e,curT)==="pending"):empList);
 
