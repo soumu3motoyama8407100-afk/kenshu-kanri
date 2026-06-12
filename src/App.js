@@ -210,9 +210,9 @@ const db = {
   },
   async getSeminars() {
     const {data} = await supabase.from("seminars").select("*").order("date");
-    return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,videoUrl:r.video_url||"",description:r.description||"",organizer:r.organizer||"リブドゥ"}));
+    return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,videoUrl:r.video_url||"",description:r.description||"",organizer:r.organizer||"リブドゥ",isPortal:r.is_portal===true}));
   },
-  async upsertSeminar(s) { await supabase.from("seminars").upsert({id:s.id,title:s.title,date:s.date,video_url:s.videoUrl||"",description:s.description||"",organizer:s.organizer||"リブドゥ",updated_at:new Date().toISOString()},{onConflict:"id"}); },
+  async upsertSeminar(s) { await supabase.from("seminars").upsert({id:s.id,title:s.title,date:s.date,video_url:s.videoUrl||"",description:s.description||"",organizer:s.organizer||"リブドゥ",is_portal:s.isPortal===true,updated_at:new Date().toISOString()},{onConflict:"id"}); },
   async deleteSeminar(id) {
     await supabase.from("seminar_monthly_views").delete().eq("seminar_id",id);
     await supabase.from("seminars").delete().eq("id",id);
@@ -1430,7 +1430,7 @@ const isEmbedUrl = u => /youtube\.com\/embed|youtube-nocookie\.com\/embed|player
 function SeminarStampRow({fy,empId,seminars,getSMV}){
   const months=fyMonths(fy);
   const nowYM=currentYM();
-  const watchedOf=ym=>{ const ms=(seminars||[]).filter(s=>ymOf(s.date)===ym); return ms.length>0&&ms.every(s=>getSMV(empId,s.id,ym).watched); };
+  const watchedOf=ym=>{ const ms=(seminars||[]).filter(s=>!s.isPortal&&ymOf(s.date)===ym); return ms.length>0&&ms.every(s=>getSMV(empId,s.id,ym).watched); };
   const n=months.filter(m=>watchedOf(m.ym)).length;
   return(
     <div>
@@ -1465,7 +1465,7 @@ function SeminarStatusBoard({employees,seminars,getSMV,fiscalYear}){
   const months=allMonths.filter(m=>m.ym<=nowYM);
   const [selYM,setSelYM]=useState(months.length?months[months.length-1].ym:allMonths[0].ym);
   if(fySems.length===0) return <div style={S.empty}>{fiscalYear}年度のオンラインセミナーは登録されていません</div>;
-  const monthSems=fySems.filter(s=>ymOf(s.date)===selYM);
+  const monthSems=fySems.filter(s=>!s.isPortal&&ymOf(s.date)===selYM);
   const agg=eid=>{
     const wCnt=monthSems.filter(s=>getSMV(eid,s.id,selYM).watched).length;
     const rCnt=monthSems.filter(s=>getSMV(eid,s.id,selYM).reportSubmitted).length;
@@ -1585,7 +1585,7 @@ function SeminarStreak({fy,empId,seminars,getSMV}){
   const months=fyMonths(fy);
   const nowYM=currentYM();
   const past=months.filter(m=>m.ym<=nowYM);
-  const watchedOf=ym=>{ const ms=(seminars||[]).filter(s=>ymOf(s.date)===ym); return ms.length>0&&ms.every(s=>getSMV(empId,s.id,ym).watched); };
+  const watchedOf=ym=>{ const ms=(seminars||[]).filter(s=>!s.isPortal&&ymOf(s.date)===ym); return ms.length>0&&ms.every(s=>getSMV(empId,s.id,ym).watched); };
   const total=months.filter(m=>watchedOf(m.ym)).length;
   // 連続記録：今月から遡って数える（今月が未視聴でも先月までの連続は維持）
   let streak=0;
@@ -1622,37 +1622,60 @@ function SeminarStreak({fy,empId,seminars,getSMV}){
 
 function SeminarTab({seminars,empId,getSMV,setSMV,readonly,fiscalYear,showToast}){
   const nowYM=currentYM();
-  const allMonths=fyMonths(fiscalYear);
-  const months=allMonths.filter(m=>m.ym<=nowYM);
-  const [selYM,setSelYM]=useState(months.length?months[months.length-1].ym:allMonths[0].ym);
-  const monthSems=seminars.filter(s=>ymOf(s.date)===selYM);
+  const portal=seminars.find(s=>s.isPortal)||seminars.find(s=>s.videoUrl);
+  const monthVideos=seminars.filter(s=>!s.isPortal&&ymOf(s.date)===nowYM);
+  const innerBox={background:"#fff",borderRadius:10,padding:"12px 14px",border:"1px solid #a5f3fc",marginBottom:8};
+  if(seminars.length===0) return <div style={S.empty}>{fiscalYear}年度のオンラインセミナーはまだ登録されていません</div>;
   return(
     <div>
-      {seminars.length===0
-        ?<div style={S.empty}>{fiscalYear}年度のオンラインセミナーはまだ登録されていません</div>
-        :<>
-          {/* 月セレクター */}
-          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-            {(months.length?months:allMonths.slice(0,1)).map(m=>{
-              const cnt=seminars.filter(s=>ymOf(s.date)===m.ym).length;
-              return(
-                <button key={m.ym} onClick={()=>setSelYM(m.ym)} style={{padding:"5px 12px",borderRadius:16,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:selYM===m.ym?"#0e7490":"#f3f4f6",color:selYM===m.ym?"#fff":cnt>0?"#374151":"#c4c8cf"}}>
-                  {m.label}{cnt>0?` (${cnt})`:""}
-                </button>
-              );
-            })}
+      <div style={{background:"#ecfeff",border:"1.5px solid #67e8f9",borderRadius:14,padding:16,marginBottom:16}}>
+        {/* ヘッダー */}
+        <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:12}}>
+          <span style={{fontSize:26}}>📺</span>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:800,fontSize:15,color:"#0e7490"}}>{portal?portal.title:"オンラインセミナー"}</div>
+            <div style={{fontSize:11,color:"#155e75",marginTop:2}}>🏢 {portal?.organizer||"リブドゥ"} ｜ 動画は毎月更新されます</div>
           </div>
-          {monthSems.length===0
-            ?<div style={S.empty}>{ymLabel(selYM)}のセミナー動画は登録されていません</div>
-            :monthSems.map(s=>(
-              <SeminarPanel key={s.id} seminar={s} ym={selYM} status={getSMV(empId,s.id,selYM)} readonly={readonly}
-                onWatch={val=>{setSMV(empId,s.id,selYM,{watched:val});showToast(val?`📺 「${s.title}」を視聴済にしました！`:"未視聴に戻しました");}}
-                onReport={val=>{setSMV(empId,s.id,selYM,{reportSubmitted:val});showToast(val?"📄 復命書を提出済にしました":"提出を取り消しました");}}/>
-            ))}
-          <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16}}>
-            <SeminarStreak fy={fiscalYear} empId={empId} seminars={seminars} getSMV={getSMV}/>
+        </div>
+        {/* 視聴ページボタン */}
+        {portal&&portal.videoUrl&&(
+          <div style={{marginBottom:10}}>
+            <a href={portal.videoUrl} target="_blank" rel="noreferrer" style={{...S.watchBtn,display:"block",textAlign:"center",textDecoration:"none",background:"#0e7490",boxSizing:"border-box"}}>▶ 視聴ページを開く</a>
+            <div style={{fontSize:11,color:"#155e75",marginTop:6,textAlign:"center"}}>🔖 視聴ページはブックマークできません。視聴のたびにこのボタンから開いてください。</div>
           </div>
-        </>}
+        )}
+        {/* 今月の動画リスト */}
+        <div style={{fontWeight:700,fontSize:13,color:"#0e7490",margin:"12px 0 8px"}}>🎬 今月（{ymLabel(nowYM)}）の配信動画{monthVideos.length>0?`（${monthVideos.length}本）`:""}</div>
+        {monthVideos.length===0&&<div style={{...innerBox,color:"#9ca3af",fontSize:13,marginBottom:0}}>今月の動画はまだ登録されていません</div>}
+        {monthVideos.map(v=>{
+          const st=getSMV(empId,v.id,nowYM);
+          return(
+            <div key={v.id} style={innerBox}>
+              <div style={{fontWeight:700,fontSize:13,color:"#374151",lineHeight:1.5,marginBottom:4}}>{v.title}</div>
+              {v.description&&<div style={{fontSize:11,color:"#6b7280",marginBottom:8,lineHeight:1.6}}>{v.description}</div>}
+              {!readonly&&(
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                  <ToggleChip label={st.watched?"📺 視聴済み ✓":"📺 視聴済みにする"} active={st.watched} color="#0e7490"
+                    onClick={()=>{setSMV(empId,v.id,nowYM,{watched:!st.watched});showToast(!st.watched?"📺 視聴済にしました！":"未視聴に戻しました");}}/>
+                  <ToggleChip label={st.reportSubmitted?"📄 復命書 提出済 ✓":"📄 復命書を提出した"} active={st.reportSubmitted} color="#2563eb"
+                    onClick={()=>{setSMV(empId,v.id,nowYM,{reportSubmitted:!st.reportSubmitted});showToast(!st.reportSubmitted?"📄 復命書を提出済にしました":"提出を取り消しました");}}/>
+                </div>
+              )}
+              {readonly&&(
+                <div style={{display:"flex",gap:6}}>
+                  {st.watched&&<SPill color="#0e7490" bg="#ecfeff" border="#67e8f9">📺 視聴済み</SPill>}
+                  {st.reportSubmitted&&<SPill color="#2563eb" bg="#eff6ff" border="#bfdbfe">📄 提出済み</SPill>}
+                  {!st.watched&&!st.reportSubmitted&&<span style={{fontSize:12,color:"#9ca3af"}}>未視聴</span>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <div style={{fontSize:11,color:"#155e75",marginTop:4}}>※ 復命書の提出は任意です（ポイント対象外）</div>
+      </div>
+      <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16}}>
+        <SeminarStreak fy={fiscalYear} empId={empId} seminars={seminars} getSMV={getSMV}/>
+      </div>
     </div>
   );
 }
@@ -2499,7 +2522,13 @@ function SeminarForm({data,onChange,onSave,onCancel,title}){
               :<input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={data[f.key]||""} onChange={e=>onChange(p=>({...p,[f.key]:e.target.value}))}/>}
           </div>
         ))}
-      <div style={{fontSize:11,color:"#9ca3af",marginBottom:12,lineHeight:1.7}}>💡 YouTube・Vimeoの埋め込みURLはアプリ内で再生されます。それ以外のURL（リブドゥの視聴ページ等）は「視聴ページを開く」ボタンとして表示されます。<br/>💡 リブドゥはログインが必要なため、説明欄にログイン方法を書いておくと職員が迷いません。</div>
+      <div style={{marginBottom:12,padding:"10px 12px",background:"#ecfeff",borderRadius:10,border:"1px solid #67e8f9"}}>
+        <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,fontWeight:600,color:"#0e7490"}}>
+          <input type="checkbox" checked={data.isPortal||false} onChange={e=>onChange(p=>({...p,isPortal:e.target.checked}))} style={{width:16,height:16,accentColor:"#0e7490"}}/>
+          🚪 視聴ページの入口として登録（リブドゥのトップページ等・月の動画リストには表示されません）
+        </label>
+      </div>
+      <div style={{fontSize:11,color:"#9ca3af",marginBottom:12,lineHeight:1.7}}>💡 入口は1件だけ登録し、毎月の動画はタイトル＋配信月（例: 6月配信→6/1）で1本ずつ登録してください。<br/>💡 リブドゥはログインが必要なため、説明欄にログイン方法を書いておくと職員が迷いません。</div>
       <div style={{display:"flex",gap:8}}>
         <button style={S.btn} onClick={onSave}>保存する</button>
         <button style={{...S.btn,background:"#f3f4f6",color:"#374151"}} onClick={onCancel}>キャンセル</button>
@@ -2511,7 +2540,7 @@ function SeminarForm({data,onChange,onSave,onCancel,title}){
 function SeminarManageTab({seminars,upsertSeminar,deleteSeminar,employees,getSMV,fiscalYear}){
   const [showAdd,setShowAdd]=useState(false);
   const [editId,setEditId]=useState(null);
-  const emptySem={title:"",date:"",organizer:"リブドゥ",videoUrl:"",description:""};
+  const emptySem={title:"",date:"",organizer:"リブドゥ",videoUrl:"",description:"",isPortal:false};
   const [newS,setNewS]=useState(emptySem);
   const [editS,setEditS]=useState(null);
   const activeEmps=(employees||[]).filter(e=>e.isActive!==false&&(!e.retireDate||new Date(e.retireDate)>new Date()));
@@ -2537,15 +2566,15 @@ function SeminarManageTab({seminars,upsertSeminar,deleteSeminar,employees,getSMV
       <button style={{...S.btn,marginBottom:16}} onClick={()=>{setShowAdd(!showAdd);setEditId(null);}}>＋ セミナーを追加</button>
       {showAdd&&<SeminarForm data={newS} onChange={setNewS} onSave={add} onCancel={()=>setShowAdd(false)} title="新しいオンラインセミナーを登録"/>}
       {seminars.length===0&&<div style={S.empty}>オンラインセミナーはまだ登録されていません</div>}
-      {[...seminars].sort((a,b)=>String(a.date).localeCompare(String(b.date))).map((s,i,arr)=>{
-        const showMonthHeader=i===0||ymOf(arr[i-1].date)!==ymOf(s.date);
+      {[...seminars].sort((a,b)=>(b.isPortal?1:0)-(a.isPortal?1:0)||String(a.date).localeCompare(String(b.date))).map((s,i,arr)=>{
+        const showMonthHeader=!s.isPortal&&(i===0||arr[i-1].isPortal||ymOf(arr[i-1].date)!==ymOf(s.date));
         return(
           <div key={s.id}>
-            {showMonthHeader&&<div style={{fontWeight:800,fontSize:13,color:"#0e7490",margin:"14px 0 6px",borderBottom:"2px solid #67e8f9",paddingBottom:4}}>📅 {ymOf(s.date).replace("-","年")}月（{arr.filter(x=>ymOf(x.date)===ymOf(s.date)).length}本）</div>}
+            {showMonthHeader&&<div style={{fontWeight:800,fontSize:13,color:"#0e7490",margin:"14px 0 6px",borderBottom:"2px solid #67e8f9",paddingBottom:4}}>📅 {ymOf(s.date).replace("-","年")}月（{arr.filter(x=>!x.isPortal&&ymOf(x.date)===ymOf(s.date)).length}本）</div>}
             <div style={{...S.card,padding:"12px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
               <div style={{flex:1,minWidth:0}}>
-                <div style={S.cardTitle}>{s.title}</div>
-                <div style={S.cardDate}>📅 {ymLabel(ymOf(s.date))}配信 ｜ 🏢 {s.organizer}
+                <div style={S.cardTitle}>{s.isPortal&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:10,background:"#ecfeff",color:"#0e7490",marginRight:6,border:"1px solid #67e8f9"}}>🚪 入口</span>}{s.title}</div>
+                <div style={S.cardDate}>📅 {s.isPortal?"通年":`${ymLabel(ymOf(s.date))}配信`} ｜ 🏢 {s.organizer}
                   {s.videoUrl?<span style={{marginLeft:8,color:"#0e7490",fontSize:11}}>▶ URLあり</span>:<span style={{marginLeft:8,color:"#dc2626",fontSize:11}}>URL未設定</span>}
                 </div>
               </div>
