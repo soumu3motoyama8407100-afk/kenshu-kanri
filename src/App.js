@@ -49,7 +49,7 @@ const ymOf = d => d ? String(d).slice(0,7) : "";
 // 内部研修の表示対象判定：指定なし＝用務を除く全職員、指定あり＝選択された職員のみ
 const isTargetedFor = (t,e) => ((t.targetEmpIds||[]).length>0 ? t.targetEmpIds.includes(e.id) : (e.dept||"")!=="用務");
 // 部署の表示順（この順に並べ、リストにない部署は後ろに付く）
-const DEPT_ORDER = ["ホーム新館","ホーム３F","ホーム４F","医務","サムフォット","小規模","D/Sサイタ","相談室","居宅","総務","用務"];
+const DEPT_ORDER = ["ホーム新館","ホーム3F","ホーム4F","医務","サムフォット","小規模サイタ","D/Sサイタ","相談室","居宅ポム","総務","用務"];
 const sortDepts = ds => [...ds].sort((a,b)=>{ const ia=DEPT_ORDER.indexOf(a),ib=DEPT_ORDER.indexOf(b); return (ia<0?999:ia)-(ib<0?999:ib)||a.localeCompare(b,"ja"); });
 
 const db = {
