@@ -90,9 +90,9 @@ const db = {
   },
   async getInternals() {
     const {data} = await supabase.from("internals").select("*").order("date");
-    return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,date2:r.date2||"",required:r.required,requiredEmpIds:r.required_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||"",endTime:r.end_time||""}));
+    return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,date2:r.date2||"",required:r.required,requiredEmpIds:r.required_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||"",endTime:r.end_time||"",noReport:r.no_report===true}));
   },
-  async upsertInternal(t) { await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,date2:t.date2||"",required:t.required,required_emp_ids:t.requiredEmpIds||[],video_url:t.videoUrl,description:t.description,location:t.location||"",start_time:t.startTime||"",end_time:t.endTime||""},{onConflict:"id"}); },
+  async upsertInternal(t) { await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,date2:t.date2||"",required:t.required,required_emp_ids:t.requiredEmpIds||[],video_url:t.videoUrl,description:t.description,location:t.location||"",start_time:t.startTime||"",end_time:t.endTime||"",no_report:t.noReport===true},{onConflict:"id"}); },
   async deleteInternal(id) { await supabase.from("internals").delete().eq("id",id); },
   async getExternals() {
     const {data} = await supabase.from("externals").select("*").order("date");
@@ -1080,6 +1080,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
 
   // 復命書必須の職員かどうか判定
   const isReportRequired=(emp,t)=>{
+    if(t.noReport)return false;
     const s=getIS(emp.id,t.id);
     return (t.requiredEmpIds||[]).includes(emp.id)||s.attendance==="参加済";
   };
@@ -1267,11 +1268,13 @@ function internalStepsDone(status){
   return[s1,s2,s3];
 }
 
-function InternalProgress({status}){
+function InternalProgress({status,noReport}){
   const [s1,s2,s3]=internalStepsDone(status);
-  const steps=[{label:"参加/動画",done:s1,active:!s1,color:"#16a34a",bg:"#dcfce7"},{label:"復命書",done:s2,active:s1&&!s2,color:"#2563eb",bg:"#dbeafe"},{label:"確認",done:s3,active:s2&&!s3,color:"#7c3aed",bg:"#ede9fe"}];
-  const dc=[s1,s2,s3].filter(Boolean).length; const pct=Math.round(dc/3*100);
-  const bc=dc===3?"#16a34a":dc===0?"#e5e7eb":"#C89A55";
+  const steps=noReport
+    ?[{label:"参加/動画",done:s1,active:!s1,color:"#16a34a",bg:"#dcfce7"}]
+    :[{label:"参加/動画",done:s1,active:!s1,color:"#16a34a",bg:"#dcfce7"},{label:"復命書",done:s2,active:s1&&!s2,color:"#2563eb",bg:"#dbeafe"},{label:"確認",done:s3,active:s2&&!s3,color:"#7c3aed",bg:"#ede9fe"}];
+  const dc=steps.filter(s=>s.done).length; const pct=Math.round(dc/steps.length*100);
+  const bc=dc===steps.length?"#16a34a":dc===0?"#e5e7eb":"#C89A55";
   return(
     <div style={{minWidth:130}}>
       <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}>
@@ -1316,8 +1319,8 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onVideo,onW
   const showVideo=!attended;
   // 復命書にアクセスできる条件：参加済み OR 動画視聴済み
   const canAccessReport=attended||status.video==="視聴済";
-  // 復命書必須の表示条件：training.required=true OR 参加済み
-  const showReqBadge=(training.requiredEmpIds||[]).includes(empId)||attended||canAccessReport;
+  // 復命書必須の表示条件：training.required=true OR 参加済み（復命書不要の研修では出さない）
+  const showReqBadge=!training.noReport&&((training.requiredEmpIds||[]).includes(empId)||attended||canAccessReport);
   return(
     <div style={S.card}>
       <div style={S.cardHead} onClick={()=>setOpen(!open)}>
@@ -1331,7 +1334,7 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onVideo,onW
             {training.location&&<span style={{marginLeft:8}}>📍 {training.location}</span>}
           </div>
         </div>
-        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}><InternalProgress status={status}/><span style={{color:"#d1d5db",fontSize:14}}>{open?"▲":"▼"}</span></div>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}><InternalProgress status={status} noReport={training.noReport}/><span style={{color:"#d1d5db",fontSize:14}}>{open?"▲":"▼"}</span></div>
       </div>
       {open&&(
         <div style={S.cardBody}>
@@ -1362,7 +1365,7 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onVideo,onW
               </div>
             )}
           </div>
-          <div style={S.sBlock}>
+          {!training.noReport&&<div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書提出</div>
             {!canAccessReport
               ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">🔒 参加または動画視聴後に提出できます</SPill>
@@ -1377,7 +1380,8 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onVideo,onW
                     ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">未提出</SPill>
                     : <button style={{...S.actionBtn,background:"#2563eb"}} onClick={onReport}>復命書を提出する</button>
             }
-          </div>
+          </div>}
+          {training.noReport&&<div style={{fontSize:12,color:"#15803d",background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"8px 12px"}}>📋 この研修は復命書の提出は不要です（参加記録のみ）</div>}
         </div>
       )}
     </div>
@@ -2093,7 +2097,7 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
   const [filterPending,setFilterPending]=useState(true);
   const curT=selT||fyInternals[0]||null;
 
-  const isReportRequired=(emp,t)=>{ const s=getIS(emp.id,t.id); return (t.requiredEmpIds||[]).includes(emp.id)||s.attendance==="参加済"; };
+  const isReportRequired=(emp,t)=>{ if(t.noReport)return false; const s=getIS(emp.id,t.id); return (t.requiredEmpIds||[]).includes(emp.id)||s.attendance==="参加済"; };
   const getEmpStatus=(emp,t)=>{ const s=getIS(emp.id,t.id); if(s.reportConfirmed) return "done"; if(s.report==="提出済") return "waitConfirm"; if(isReportRequired(emp,t)) return "pending"; return "noReq"; };
   const unreportedCount=t=>employees.filter(e=>{ const s=getIS(e.id,t.id); return isReportRequired(e,t)&&s.report!=="提出済"&&!s.reportConfirmed; }).length;
   const avatarColor=i=>[["#E6F1FB","#185FA5"],["#EAF3DE","#3B6D11"],["#FAEEDA","#854F0B"],["#FCEBEB","#A32D2D"],["#F1EFE8","#5F5E5A"]][i%5];
@@ -2260,8 +2264,15 @@ function InternalTrainingForm({data,onChange,onSave,onCancel,title,allEmployees}
             <input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={data[f.key]||""} onChange={e=>onChange(p=>({...p,[f.key]:e.target.value}))}/>
           </div>
         ))}
+      {/* 復命書不要（説明会など） */}
+      <div style={{marginBottom:12,padding:"10px 12px",background:"#f0fdf4",borderRadius:10,border:"1px solid #86efac"}}>
+        <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,fontWeight:600,color:"#15803d"}}>
+          <input type="checkbox" checked={data.noReport||false} onChange={e=>onChange(p=>({...p,noReport:e.target.checked}))} style={{width:16,height:16,accentColor:"#16a34a"}}/>
+          📋 復命書不要（参加のみ記録する説明会など）
+        </label>
+      </div>
       {/* 復命書必須対象者 */}
-      <div style={{marginBottom:12,padding:"12px",background:"#fef2f2",borderRadius:10,border:"1px solid #fca5a5"}}>
+      {!data.noReport&&<div style={{marginBottom:12,padding:"12px",background:"#fef2f2",borderRadius:10,border:"1px solid #fca5a5"}}>
         <div style={{fontSize:12,fontWeight:600,color:"#dc2626",marginBottom:8}}>📋 復命書必須の対象者（{(data.requiredEmpIds||[]).length}名選択中）</div>
         <div style={{fontSize:11,color:"#9ca3af",marginBottom:8}}>※ 参加済みの職員には自動で必須になります</div>
         {/* 部署フィルター */}
@@ -2284,7 +2295,7 @@ function InternalTrainingForm({data,onChange,onSave,onCancel,title,allEmployees}
           })}
           {filteredEmps.length===0&&<div style={{fontSize:11,color:"#9ca3af"}}>この部署の職員はいません</div>}
         </div>
-      </div>
+      </div>}
       <div style={{display:"flex",gap:8}}>
         <button style={S.btn} onClick={onSave}>保存する</button>
         <button style={{...S.btn,background:"#f3f4f6",color:"#374151"}} onClick={onCancel}>キャンセル</button>
