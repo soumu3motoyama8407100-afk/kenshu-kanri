@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -2179,7 +2179,9 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
   const unreported=curT?curTargets.filter(e=>isReportRequired(e,curT)&&getIS(e.id,curT.id).report!=="提出済"&&!getIS(e.id,curT.id).reportConfirmed).length:0;
   const waitConfirm=curT?curTargets.filter(e=>{ const s=getIS(e.id,curT.id); return s.report==="提出済"&&!s.reportConfirmed; }).length:0;
 
-  const empList=curT?[...curTargets].sort((a,b)=>a.name.localeCompare(b.name,"ja")):[];
+  // 部署順（固定順）→ 職員番号順で並べる
+  const deptIdx=d=>{const i=DEPT_ORDER.indexOf(d);return i<0?999:i;};
+  const empList=curT?[...curTargets].sort((a,b)=>deptIdx(a.dept)-deptIdx(b.dept)||String(a.id).localeCompare(String(b.id),undefined,{numeric:true})):[];
   // 復命書不要の研修・一括登録モードは常に全員表示
   const displayList=(bulkMode||(curT&&curT.noReport))?empList:(filterPending&&curT?empList.filter(e=>getEmpStatus(e,curT)==="pending"):empList);
 
@@ -2271,8 +2273,11 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
             const [bg,fg]=avatarColor(i);
             const isDone=status==="done";
             const bulkSel=bulkIds.includes(emp.id);
+            const showDeptHeader=i===0||displayList[i-1].dept!==emp.dept;
             return(
-              <div key={emp.id}
+              <React.Fragment key={emp.id}>
+              {showDeptHeader&&<div style={{fontSize:12,fontWeight:800,color:"#1e3a5f",background:"#eef2f7",borderRadius:8,padding:"5px 12px",marginTop:i===0?0:6}}>🏢 {emp.dept||"部署未設定"}（{displayList.filter(e=>e.dept===emp.dept).length}名）</div>}
+              <div
                 onClick={bulkMode?()=>toggleBulk(emp.id):undefined}
                 style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:bulkMode&&bulkSel?"#ede9fe":isDone?"#f9fafb":"#fff",borderRadius:12,border:bulkMode&&bulkSel?"2px solid #7c3aed":`1px solid ${isDone?"#e5e7eb":"#E8D5B0"}`,opacity:bulkMode?1:isDone?0.6:1,cursor:bulkMode?"pointer":"default"}}>
                 {bulkMode&&<div style={{width:22,height:22,borderRadius:6,border:`2px solid ${bulkSel?"#7c3aed":"#d1d5db"}`,background:bulkSel?"#7c3aed":"#fff",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,flexShrink:0}}>{bulkSel?"✓":""}</div>}
@@ -2296,6 +2301,7 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
                   {s.attendance==="参加済"&&s.report!=="提出済"&&status!=="done"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#9ca3af",cursor:"pointer"}} onClick={()=>setIS(emp.id,curT.id,"attendance","未参加")}>取消</button>}
                 </div>}
               </div>
+              </React.Fragment>
             );
           })}
         </div>
