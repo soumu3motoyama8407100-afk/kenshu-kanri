@@ -97,7 +97,7 @@ const db = {
     const {data} = await supabase.from("internals").select("*").order("date");
     return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,date2:r.date2||"",required:r.required,requiredEmpIds:r.required_emp_ids||[],targetEmpIds:r.target_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||"",endTime:r.end_time||"",noReport:r.no_report===true}));
   },
-  async upsertInternal(t) { await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,date2:t.date2||"",required:t.required,required_emp_ids:t.requiredEmpIds||[],target_emp_ids:t.targetEmpIds||[],video_url:t.videoUrl,description:t.description,location:t.location||"",start_time:t.startTime||"",end_time:t.endTime||"",no_report:t.noReport===true},{onConflict:"id"}); },
+  async upsertInternal(t) { await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,date2:t.date2||"",required:t.required,required_emp_ids:t.requiredEmpIds||[],target_emp_ids:t.targetEmpIds||[],video_url:toEmbedUrl(t.videoUrl),description:t.description,location:t.location||"",start_time:t.startTime||"",end_time:t.endTime||"",no_report:t.noReport===true},{onConflict:"id"}); },
   async deleteInternal(id) { await supabase.from("internals").delete().eq("id",id); },
   async getExternals() {
     const {data} = await supabase.from("externals").select("*").order("date");
@@ -1485,7 +1485,7 @@ function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus,readonly}
       {cur?.videoUrl&&<>
         <div style={{fontWeight:700,color:"#4A3020",marginBottom:8}}>{cur.title}</div>
         <div style={{position:"relative",paddingBottom:"56.25%",borderRadius:12,overflow:"hidden",background:"#000"}}>
-          <iframe style={{position:"absolute",inset:0,width:"100%",height:"100%",border:"none"}} src={cur.videoUrl} allowFullScreen title={cur.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"/>
+          <iframe style={{position:"absolute",inset:0,width:"100%",height:"100%",border:"none"}} src={toEmbedUrl(cur.videoUrl)} allowFullScreen title={cur.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"/>
         </div>
         {s?.video==="視聴済"&&(
           <div style={{marginTop:12,padding:"10px 14px",background:"#f0fdf4",borderRadius:10,color:"#15803d",fontSize:13,fontWeight:600,textAlign:"center"}}>
@@ -1498,6 +1498,15 @@ function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus,readonly}
 }
 
 const isEmbedUrl = u => /youtube\.com\/embed|youtube-nocookie\.com\/embed|player\.vimeo\.com/.test(u||"");
+// YouTubeの通常URL（watch?v= / youtu.be / shorts / live）を埋め込みURLに自動変換
+const toEmbedUrl = u => {
+  if(!u) return u;
+  const m = String(u).match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
+  if(m) return `https://www.youtube.com/embed/${m[1]}`;
+  const v = String(u).match(/vimeo\.com\/(\d+)/);
+  if(v && !String(u).includes("player.vimeo")) return `https://player.vimeo.com/video/${v[1]}`;
+  return u;
+};
 
 // 📺 セミナー視聴スタンプ（年度の12ヶ月分・視聴した月にスタンプ）
 function SeminarStampRow({fy,empId,seminars,getSMV}){
