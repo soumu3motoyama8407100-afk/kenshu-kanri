@@ -2162,22 +2162,18 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
 }
 
 const LOCATIONS=["本館２階 ホール","新館３階 会議室","サイタ１階 地域交流ルーム","その他"];
-function LocationSelect({value,onChange,borderColor="#E8D5B0"}){
-  const isPreset=LOCATIONS.slice(0,3).includes(value);
-  const selValue=isPreset?value:(value?"その他":"");
+function LocationSelect({value,onChange,accentColor="#C89A55"}){
   return(
-    <div>
-      <select style={{width:"100%",padding:"9px 12px",borderRadius:10,border:`1.5px solid ${borderColor}`,fontSize:13,boxSizing:"border-box",background:"#fff",cursor:"pointer"}}
-        value={selValue}
-        onChange={e=>{ const v=e.target.value; onChange(v==="その他"?"その他":v); }}>
-        <option value="">── 場所を選択 ──</option>
-        {LOCATIONS.map(l=><option key={l} value={l}>{l}</option>)}
-      </select>
-      {selValue==="その他"&&(
-        <input style={{width:"100%",marginTop:6,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${borderColor}`,fontSize:13,boxSizing:"border-box"}}
-          placeholder="場所を入力してください" value={value==="その他"?"":value}
-          onChange={e=>onChange(e.target.value||"その他")}/>
-      )}
+    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+      {LOCATIONS.map(l=>{
+        const sel=value===l;
+        return(
+          <button key={l} type="button" onClick={()=>onChange(sel?"":l)}
+            style={{padding:"8px 14px",borderRadius:20,border:`2px solid ${sel?accentColor:"#e5e7eb"}`,background:sel?accentColor:"#fff",color:sel?"#fff":"#374151",fontWeight:sel?700:500,fontSize:12,cursor:"pointer"}}>
+            {sel?"✓ ":""}{l}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -3001,7 +2997,7 @@ function MeetingForm({form,onChange,onSave,onCancel,saving}){
           <input type="time" style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #c4b5fd",fontSize:13,boxSizing:"border-box"}} value={form.endTime||""} onChange={e=>onChange({...form,endTime:e.target.value})}/></div>
       </div>
       <div style={{marginBottom:10}}><label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>開催場所</label>
-        <LocationSelect value={form.location||""} onChange={v=>onChange({...form,location:v})} borderColor="#c4b5fd"/></div>
+        <LocationSelect value={form.location||""} onChange={v=>onChange({...form,location:v})} accentColor="#7c3aed"/></div>
       <div style={{marginBottom:12}}><label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>議題・内容</label>
         <textarea rows={3} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #c4b5fd",fontSize:13,boxSizing:"border-box",resize:"vertical"}} placeholder="例: ・令和7年度活動計画の審議" value={form.agenda||""} onChange={e=>onChange({...form,agenda:e.target.value})}/></div>
       <div style={{display:"flex",gap:8}}>
