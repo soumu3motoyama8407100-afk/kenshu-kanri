@@ -1613,11 +1613,20 @@ function SeminarStreak({fy,empId,seminars,getSMV}){
     else{break;}
   }
   const curWatched=past.length>0&&watchedOf(past[past.length-1].ym);
-  const msg=streak>=2?`🔥 ${streak}ヶ月連続視聴中！`
-    :streak===1?(curWatched?"📺 視聴スタート！この調子！":"📺 連続記録 1ヶ月")
-    :total>0?"今月から再スタートしましょう！"
-    :"今月から視聴を始めましょう！";
-  const sub=curWatched?`今年度合計 ${total}ヶ月`:`今年度合計 ${total}ヶ月 ・ 今月分を視聴して${streak>=1?"記録をつなげよう！":"スタート！"}`;
+  // 今月の進み具合（1本見るごとにコメントが変わる）
+  const curMonthSems=(seminars||[]).filter(s=>!s.isPortal&&ymOf(s.date)===nowYM);
+  const curWCnt=curMonthSems.filter(s=>getSMV(empId,s.id,nowYM).watched).length;
+  const curTotal=curMonthSems.length;
+  const remaining=curTotal-curWCnt;
+  const msg=
+    curTotal>0&&curWCnt===curTotal?(streak>=2?`🎉 今月コンプリート！🔥 ${streak}ヶ月連続視聴中！`:"🎉 今月の動画コンプリート！すばらしい！")
+    :curWCnt>0?`🔥 今月 ${curWCnt}/${curTotal}本視聴！あと${remaining}本でコンプリート！`
+    :streak>=2?`🔥 ${streak}ヶ月連続視聴中！今月もつなげよう！`
+    :total>0?"📺 今月の動画を見て記録をつなげよう！"
+    :"📺 まずは1本、見てみましょう！";
+  const sub=curWatched?`今年度合計 ${total}ヶ月`
+    :curWCnt>0?`いい調子！今年度合計 ${total}ヶ月 ・ 全部見るとスタンプが付きます`
+    :`今年度合計 ${total}ヶ月 ・ 1本見るだけでもOK！まず再生してみよう`;
   return(
     <div style={{display:"flex",alignItems:"center",gap:14}}>
       <div style={{width:64,height:64,borderRadius:"50%",background:streak>=2?"#ffedd5":"#ecfeff",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0,border:`1.5px solid ${streak>=2?"#fdba74":"#67e8f9"}`}}>
