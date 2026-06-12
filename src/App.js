@@ -2219,6 +2219,7 @@ function LocationSelect({value,onChange,accentColor="#C89A55"}){
 
 function InternalTrainingForm({data,onChange,onSave,onCancel,title,allEmployees}){
   const [selDept,setSelDept]=useState("すべて");
+  const [showReqSel,setShowReqSel]=useState((data.requiredEmpIds||[]).length>0);
   const depts=["すべて",...Array.from(new Set((allEmployees||[]).map(e=>e.dept).filter(Boolean))).sort()];
   const filteredEmps=selDept==="すべて"?(allEmployees||[]):(allEmployees||[]).filter(e=>e.dept===selDept);
   const toggle=id=>{ const cur=data.requiredEmpIds||[]; onChange(p=>({...p,requiredEmpIds:cur.includes(id)?cur.filter(x=>x!==id):[...cur,id]})); };
@@ -2271,9 +2272,13 @@ function InternalTrainingForm({data,onChange,onSave,onCancel,title,allEmployees}
           📋 復命書不要（参加のみ記録する説明会など）
         </label>
       </div>
-      {/* 復命書必須対象者 */}
-      {!data.noReport&&<div style={{marginBottom:12,padding:"12px",background:"#fef2f2",borderRadius:10,border:"1px solid #fca5a5"}}>
-        <div style={{fontSize:12,fontWeight:600,color:"#dc2626",marginBottom:8}}>📋 復命書必須の対象者（{(data.requiredEmpIds||[]).length}名選択中）</div>
+      {/* 復命書必須対象者（チェックで選択画面を表示） */}
+      {!data.noReport&&<div style={{marginBottom:12,padding:"10px 12px",background:"#fef2f2",borderRadius:10,border:"1px solid #fca5a5"}}>
+        <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,fontWeight:600,color:"#dc2626"}}>
+          <input type="checkbox" checked={showReqSel} onChange={e=>{setShowReqSel(e.target.checked); if(!e.target.checked)onChange(p=>({...p,requiredEmpIds:[]}));}} style={{width:16,height:16,accentColor:"#dc2626"}}/>
+          📋 復命書必須の対象者を指定{(data.requiredEmpIds||[]).length>0&&`（${(data.requiredEmpIds||[]).length}名選択中）`}
+        </label>
+        {showReqSel&&<div style={{marginTop:10}}>
         <div style={{fontSize:11,color:"#9ca3af",marginBottom:8}}>※ 参加済みの職員には自動で必須になります</div>
         {/* 部署フィルター */}
         <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
@@ -2295,6 +2300,7 @@ function InternalTrainingForm({data,onChange,onSave,onCancel,title,allEmployees}
           })}
           {filteredEmps.length===0&&<div style={{fontSize:11,color:"#9ca3af"}}>この部署の職員はいません</div>}
         </div>
+        </div>}
       </div>}
       <div style={{display:"flex",gap:8}}>
         <button style={S.btn} onClick={onSave}>保存する</button>
