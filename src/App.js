@@ -46,8 +46,8 @@ const currentYM = () => { const d=new Date(); return `${d.getFullYear()}-${Strin
 const ymLabel = ym => `${Number(ym.split("-")[1])}月`;
 const fyMonths = fy => Array.from({length:12},(_,i)=>{ const m=(i+3)%12+1; const y=i<9?fy:fy+1; return {ym:`${y}-${String(m).padStart(2,"0")}`,label:`${m}月`}; });
 const ymOf = d => d ? String(d).slice(0,7) : "";
-// 内部研修の表示対象判定：指定なし＝用務を除く全職員、指定あり＝選択された職員のみ
-const isTargetedFor = (t,e) => ((t.targetEmpIds||[]).length>0 ? t.targetEmpIds.includes(e.id) : (e.dept||"")!=="用務");
+// 内部研修の表示対象判定：指定なし＝用務・休職中を除く全職員、指定あり＝選択された職員のみ
+const isTargetedFor = (t,e) => ((t.targetEmpIds||[]).length>0 ? t.targetEmpIds.includes(e.id) : ((e.dept||"")!=="用務"&&e.onLeave!==true));
 // 部署の表示順（この順に並べ、リストにない部署は後ろに付く）
 const DEPT_ORDER = ["ホーム新館","ホーム3F","ホーム4F","医務","サムフォット","小規模サイタ","D/Sサイタ","相談室","居宅ポム","総務","用務"];
 const sortDepts = ds => [...ds].sort((a,b)=>{ const ia=DEPT_ORDER.indexOf(a),ib=DEPT_ORDER.indexOf(b); return (ia<0?999:ia)-(ib<0?999:ib)||a.localeCompare(b,"ja"); });
@@ -55,7 +55,7 @@ const sortDepts = ds => [...ds].sort((a,b)=>{ const ia=DEPT_ORDER.indexOf(a),ib=
 const db = {
   async getEmployees() {
     const {data} = await supabase.from("employees").select("*").order("sort_order").order("id");
-    return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept||"",joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false,isActive:r.is_active!==false,managedDepts:r.managed_depts||[],roleTitle:r.role_title||"",retireDate:r.retire_date||"",jobCategory:r.job_category||"",lineUserId:r.line_user_id||""}));
+    return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept||"",joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false,isActive:r.is_active!==false,managedDepts:r.managed_depts||[],roleTitle:r.role_title||"",retireDate:r.retire_date||"",jobCategory:r.job_category||"",lineUserId:r.line_user_id||"",onLeave:r.on_leave===true}));
   },
   async upsertEmployee(emp) {
     // 既存レコードのline_user_idを誤って消さないよう先に取得
@@ -66,6 +66,7 @@ const db = {
       cert_trainings:emp.certTrainings||[],is_manager:emp.isManager||false,
       is_active:emp.isActive!==false,managed_depts:emp.managedDepts||[],role_title:emp.roleTitle||"",retire_date:emp.retireDate||null,
       job_category:emp.jobCategory||"",
+      on_leave:emp.onLeave===true,
       line_user_id:existing?.line_user_id||null,
       updated_at:new Date().toISOString()
     },{onConflict:"id"});
@@ -413,7 +414,7 @@ export default function App() {
         try {
           const committee = committees.find(c=>c.id===m.committeeId);
           const memberIds = committeeMembers[m.committeeId]||[];
-          const targets = employees.filter(e=>memberIds.includes(e.id)&&e.lineUserId);
+          const targets = employees.filter(e=>memberIds.includes(e.id)&&e.lineUserId&&e.onLeave!==true);
           if(targets.length>0&&committee){
             const msg = `📅 【${committee.name}】開催のお知らせ\n\n日時：${formatDate(m.scheduledDate)}${m.startTime?` ${m.startTime}〜`:""}${m.endTime?`${m.endTime}`:""}\n${m.location?`場所：${m.location}\n`:""}${m.agenda?`議題：${m.agenda}\n`:""}\n詳細は研修管理システムの委員会タブをご確認ください。`;
             await fetch("https://nncousuugjntzovtmkvt.supabase.co/functions/v1/line-notify",{
@@ -1807,6 +1808,12 @@ function EmpForm({data,onChange,onSave,onCancel,isEdit,allEmployees}){
         <input type="date" style={S.input} value={data.retireDate||""} onChange={e=>onChange({...data,retireDate:e.target.value})}/>
         {data.retireDate&&<div style={{fontSize:11,color:"#d97706",marginTop:4}}>⚠ {data.retireDate} 以降ログインできなくなります</div>}
       </div>
+      <div style={{marginBottom:10,padding:"10px 12px",background:"#fffbeb",borderRadius:10,border:"1px solid #fcd34d"}}>
+        <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,fontWeight:600,color:"#92400e"}}>
+          <input type="checkbox" checked={data.onLeave||false} onChange={e=>onChange({...data,onLeave:e.target.checked})} style={{width:16,height:16,accentColor:"#d97706"}}/>
+          🌙 休職中（研修・お知らせ・LINE配信の対象から外れます）
+        </label>
+      </div>
       <div style={{marginBottom:14}}>
         <label style={{...S.label,display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
           <input type="checkbox" checked={data.isManager||false} onChange={e=>onChange({...data,isManager:e.target.checked})} style={{width:16,height:16,accentColor:"#C89A55"}}/>
@@ -1872,6 +1879,8 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
       managedDepts:emp.managedDepts||[],
       isActive:emp.isActive!==false,
       retireDate:emp.retireDate||"",
+      jobCategory:emp.jobCategory||"",
+      onLeave:emp.onLeave===true,
     };
     if(!e.id||!e.password||!e.name||!e.dept)return;
     await db.upsertEmployee(e);
@@ -2047,7 +2056,7 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
                 {deptEmps.map((emp,i)=>(
                   <tr key={emp.id} style={{background:i%2===0?"#fff":"#FDFAF5"}}>
                     <td style={{padding:"8px 12px",color:"#9ca3af",fontSize:12,borderBottom:"1px solid #F0E8D8",whiteSpace:"nowrap"}}>{emp.id}</td>
-                    <td style={{padding:"8px 12px",fontWeight:700,color:"#4A3020",borderBottom:"1px solid #F0E8D8",whiteSpace:"nowrap"}}>{emp.name}</td>
+                    <td style={{padding:"8px 12px",fontWeight:700,color:"#4A3020",borderBottom:"1px solid #F0E8D8",whiteSpace:"nowrap"}}>{emp.name}{emp.onLeave&&<span style={{marginLeft:6,fontSize:11,padding:"1px 8px",borderRadius:10,background:"#fef3c7",color:"#92400e",fontWeight:600}}>🌙 休職中</span>}</td>
                     <td style={{padding:"8px 12px",borderBottom:"1px solid #F0E8D8"}}>
                       {emp.roleTitle
                         ? <span style={{fontSize:12,fontWeight:600,color:"#92400e"}}>{emp.roleTitle}</span>
@@ -3153,7 +3162,8 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   const [toast,setToast]=useState(null);
   const showToast=(msg,isError)=>{setToast({msg,isError});setTimeout(()=>setToast(null),5000);};
 
-  const activeEmps=(employees||[]).filter(e=>e.isActive!==false);
+  // 休職中はお知らせ・LINE配信の対象外
+  const activeEmps=(employees||[]).filter(e=>e.isActive!==false&&e.onLeave!==true);
   const depts=["すべて",...sortDepts(Array.from(new Set(activeEmps.map(e=>e.dept).filter(Boolean))))];
   const filteredEmps=selDept==="すべて"?activeEmps:activeEmps.filter(e=>e.dept===selDept);
 
