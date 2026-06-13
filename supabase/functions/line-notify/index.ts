@@ -5,11 +5,32 @@ const LINE_CHANNEL_ACCESS_TOKEN = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-// 日本時間で10:00〜16:59の間だけ送信する
-function isWithinSendingHours(): boolean {
+// 日本の祝日判定（holidays-jp API）
+async function isJapaneseHoliday(dateStr: string): Promise<boolean> {
+  try {
+    const year = dateStr.slice(0, 4);
+    const res = await fetch(`https://holidays-jp.github.io/api/v1/${year}/date.json`);
+    if (!res.ok) return false;
+    const holidays: Record<string, string> = await res.json();
+    return dateStr in holidays;
+  } catch {
+    return false;
+  }
+}
+
+// 日本時間で平日かつ10:00〜16:59の間だけ送信する
+async function isWithinSendingHours(): Promise<boolean> {
   const nowJST = new Date(Date.now() + 9 * 60 * 60 * 1000); // UTC→JST
   const hour = nowJST.getUTCHours();
-  return hour >= 10 && hour < 17;
+  if (hour < 10 || hour >= 17) return false;
+
+  const dow = nowJST.getUTCDay(); // 0=日, 6=土
+  if (dow === 0 || dow === 6) return false;
+
+  const dateStr = nowJST.toISOString().slice(0, 10); // "YYYY-MM-DD"
+  if (await isJapaneseHoliday(dateStr)) return false;
+
+  return true;
 }
 
 async function sendPush(lineUserId: string, message: string): Promise<boolean> {
@@ -61,8 +82,8 @@ serve(async (req) => {
   }
 
   // 時間内なら送信待ちをすべて送信
-  if (!isWithinSendingHours()) {
-    return new Response(JSON.stringify({ ok: true, sent: 0, reason: "outside sending hours (10:00-17:00 JST)" }), {
+  if (!await isWithinSendingHours()) {
+    return new Response(JSON.stringify({ ok: true, sent: 0, reason: "outside sending hours (weekday 10:00-17:00 JST, excl. holidays)" }), {
       headers: { "Content-Type": "application/json", ...CORS_HEADERS },
     });
   }
