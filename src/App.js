@@ -1015,7 +1015,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
             ["chair","🏛 委員会"],
             ["notices","📢 お知らせ"]]
             .map(([k,l])=>{
-              const isLocked=k==="notices"||k==="chair";
+              const isLocked=k==="chair";
               return(
               <button key={k}
                 disabled={isLocked}
@@ -1083,11 +1083,48 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
           {tab==="notices"&&(
             <div>
               <div style={{fontWeight:700,fontSize:14,color:"#1e3a5f",marginBottom:14}}>📢 お知らせ</div>
-              <div style={{textAlign:"center",padding:"48px 24px",color:"#9ca3af"}}>
-                <div style={{fontSize:40,marginBottom:12}}>🚧</div>
-                <div style={{fontSize:15,fontWeight:700,color:"#6b7280",marginBottom:6}}>このタブは現在準備中です</div>
-                <div style={{fontSize:13,color:"#9ca3af"}}>近日公開予定です。しばらくお待ちください。</div>
-              </div>
+              {/* 復命書 未提出アラート（常時表示） */}
+              {(()=>{
+                const pending=internals.filter(t=>{
+                  if(!inFiscalYear(t.date,fiscalYear)||t.noReport||!isTargetedFor(t,emp))return false;
+                  const s=getIS(emp.id,t.id);
+                  const required=(t.requiredEmpIds||[]).includes(emp.id)||s.attendance==="参加済"||s.video==="視聴済";
+                  return required&&s.report!=="提出済"&&!s.reportConfirmed;
+                }).sort((a,b)=>new Date(a.date)-new Date(b.date));
+                if(pending.length===0)return null;
+                return(
+                  <div style={{background:"#fef2f2",border:"2px solid #fca5a5",borderRadius:14,padding:"14px 16px",marginBottom:16}}>
+                    <div style={{fontWeight:800,fontSize:14,color:"#dc2626",marginBottom:6}}>⚠ 復命書が未提出の研修があります（{pending.length}件）</div>
+                    <div style={{fontSize:12,color:"#7f1d1d",marginBottom:10,lineHeight:1.7}}>復命書は<b>原則、研修のあった当月中に提出</b>してください。間に合わない場合や月末の研修は、良識の範囲内で速やかにお願いします。</div>
+                    {pending.map(t=>(
+                      <div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,background:"#fff",border:"1px solid #fca5a5",borderRadius:10,padding:"9px 12px",marginBottom:6}}>
+                        <div>
+                          <div style={{fontWeight:700,fontSize:13,color:"#4A3020"}}>{t.title}</div>
+                          <div style={{fontSize:11,color:"#9ca3af"}}>📅 {formatDate(t.date)}{t.date2&&` / ${formatDate(t.date2)}`}</div>
+                        </div>
+                        <button onClick={()=>switchTab("training")} style={{flexShrink:0,fontSize:11,fontWeight:700,padding:"6px 12px",borderRadius:16,border:"none",background:"#dc2626",color:"#fff",cursor:"pointer"}}>提出する →</button>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+              {/* 自分宛のお知らせ */}
+              {(()=>{
+                const myNotices=(committeeProps?.generalNotices||[]).filter(n=>(n.targetEmpIds||[]).length===0||(n.targetEmpIds||[]).includes(emp.id));
+                const catColor=c=>({"事務連絡":"#0369a1","研修のお知らせ":"#C89A55","アンケート":"#16a34a"})[c]||"#7c3aed";
+                if(myNotices.length===0)return <div style={{textAlign:"center",padding:32,color:"#9ca3af",fontSize:13}}>現在お知らせはありません</div>;
+                return myNotices.map(n=>(
+                  <div key={n.id} style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:12,padding:"12px 14px",marginBottom:8}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
+                      <span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:10,background:`${catColor(n.category)}18`,color:catColor(n.category)}}>{n.category}</span>
+                      <span style={{fontWeight:700,fontSize:14,color:"#1e3a5f"}}>{n.title}</span>
+                    </div>
+                    {n.body&&<div style={{fontSize:13,color:"#374151",whiteSpace:"pre-wrap",lineHeight:1.7,marginBottom:6}}>{n.body}</div>}
+                    {n.fileUrl&&<a href={n.fileUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:12,color:"#2563eb",fontWeight:600,textDecoration:"underline",marginBottom:4}}>📄 {n.fileName||"添付PDF"}</a>}
+                    <div style={{fontSize:11,color:"#9ca3af"}}>{n.createdAt?new Date(n.createdAt).toLocaleDateString("ja-JP"):""}</div>
+                  </div>
+                ));
+              })()}
               {false&&visibleNotices.length===0&&<div style={{textAlign:"center",padding:40,color:"#9ca3af",fontSize:13}}>現在お知らせはありません</div>}
               {false&&visibleNotices.map(n=>{
                 const c=committeeProps?.committees?.find(x=>x.id===n.committeeId);
@@ -1790,7 +1827,7 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
         <div style={{...S.scroll,maxHeight:"calc(100vh - 185px)"}}>
           {tab==="ranking"   &&<RankingTab employees={employees} fiscalYear={fiscalYear} getCount={getCount}/>}
           {tab==="adminNotices"&&committeeProps&&<AdminNoticesTab {...committeeProps}/>}
-          {tab==="iProgress" &&<InternalProgressTab employees={employees} internals={internals} getIS={getIS} setIS={setIS} onQR={setQrT} fiscalYear={fiscalYear}/>}
+          {tab==="iProgress" &&<InternalProgressTab employees={employees} internals={internals} externals={externals} getXS={getXS} getIS={getIS} setIS={setIS} onQR={setQrT} fiscalYear={fiscalYear}/>}
           {tab==="iManage"   &&<InternalManageTab internals={internals} setInternals={setInternals} deleteInternal={deleteInternal} employees={employees}/>}
           {tab==="xProgress" &&<ExternalProgressTab employees={employees} externals={externals} getXS={getXS} setXS={setXS} fiscalYear={fiscalYear}/>}
           {tab==="xManage"   &&<ExternalManageTab employees={employees} externals={externals} setExternals={setExternals} deleteExternal={deleteExternal}/>}
@@ -2023,48 +2060,6 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
     URL.revokeObjectURL(url);
   };
 
-  const exportHTML=()=>{
-    const today=new Date().toLocaleDateString("ja-JP");
-    const depts=[...new Set(employees.map(e=>e.dept))];
-    let html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${ORG_NAME} 職員研修履歴</title>
-    <style>body{font-family:'游ゴシック',sans-serif;margin:0;padding:20px;color:#222;}
-    h1{background:#C89A55;color:#fff;padding:12px 20px;margin:0 0 4px;font-size:18px;}
-    h2{background:#A07840;color:#fff;padding:8px 16px;margin:20px 0 0;font-size:14px;}
-    .sub{background:#FDF6EC;padding:4px 16px;font-size:11px;color:#A07840;margin-bottom:12px;}
-    table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:24px;}
-    th{background:#C89A55;color:#fff;padding:8px 10px;text-align:left;font-weight:600;}
-    td{padding:6px 10px;border-bottom:1px solid #E8D5B0;}
-    tr:nth-child(even) td{background:#FDF6EC;}
-    .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;margin:1px;}
-    .q{background:#dbeafe;color:#1e40af;}.c{background:#ede9fe;color:#7c3aed;}.t{background:#dcfce7;color:#15803d;}
-    @media print{h2{page-break-before:always;}}</style></head><body>
-    <h1>${ORG_NAME}　職員研修履歴　${fiscalYear}年度</h1>
-    <div class="sub">出力日：${today}　　対象人数：${employees.length}名</div>`;
-
-    const makeTable=(emps,title)=>{
-      const rows=emps.map((emp,i)=>{
-        const yrs=calcYears(emp.joinDate);
-        const iT=internals.filter(t=>inFiscalYear(t.date,fiscalYear)&&getIS(emp.id,t.id).attendance==="参加済");
-        const xT=externals.filter(x=>inFiscalYear(x.date,fiscalYear)&&x.targetEmpIds.includes(emp.id)&&getXS(emp.id,x.id).attended);
-        const all=[...iT.map(t=>t.title),...xT.map(x=>x.title)];
-        return `<tr><td>${i+1}</td><td>${emp.id}</td><td><strong>${emp.name}</strong>${emp.isManager?' <span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:10px;">部署長</span>':''}</td><td>${emp.dept}</td><td>${yrs||"─"}</td>
-        <td>${(emp.qualifications||[]).map(q=>`<span class="badge q">${q}</span>`).join("")||"─"}</td>
-        <td>${(emp.certTrainings||[]).map(c=>`<span class="badge c">${c}</span>`).join("")||"─"}</td>
-        <td>${all.map(t=>`<span class="badge t">${t}</span>`).join("")||"─"}</td></tr>`;
-      }).join("");
-      return `<h2>${title}（${emps.length}名）</h2>
-      <table><thead><tr><th>No.</th><th>ID</th><th>氏名</th><th>部署</th><th>勤続年数</th><th>保有資格</th><th>認定研修</th><th>参加済み研修（${fiscalYear}年度）</th></tr></thead><tbody>${rows}</tbody></table>`;
-    };
-
-    html+=makeTable(employees,"全員一覧");
-    depts.forEach(dept=>{ html+=makeTable(employees.filter(e=>e.dept===dept),dept); });
-    html+="</body></html>";
-    const blob=new Blob([html],{type:"text/html;charset=utf-8;"});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement("a");a.href=url;a.download=`職員研修履歴_${fiscalYear}年度.html`;a.click();
-    URL.revokeObjectURL(url);
-  };
-
 
   return(
     <div style={{padding:4}}>
@@ -2074,7 +2069,6 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
           <input type="file" accept=".csv" style={{display:"none"}} onChange={handleCSV}/>📥 CSVインポート
         </label>
         <button style={{...S.btn,width:"auto",padding:"8px 16px",background:"#d97706"}} onClick={downloadCSV}>📤 CSV出力</button>
-        <button style={{...S.btn,width:"auto",padding:"8px 16px",background:"#7c3aed"}} onClick={exportHTML}>📊 研修履歴出力</button>
       </div>
       {importMsg&&<div style={{padding:"8px 14px",background:"#f0fdf4",border:"1px solid #86efac",borderRadius:8,color:"#15803d",marginBottom:12,fontSize:13}}>{importMsg}</div>}
       {showAdd&&<EmpForm data={newE} onChange={setNewE} onSave={saveEmp} onCancel={()=>setShowAdd(false)} isEdit={false} allEmployees={employees}/>}
@@ -2212,7 +2206,48 @@ function RankingTab({employees,fiscalYear,getCount}){
   );
 }
 
-function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
+// 職員研修履歴（HTML・印刷用）の出力
+function exportTrainingHistory({employees,internals,externals,getIS,getXS,fiscalYear}){
+  const today=new Date().toLocaleDateString("ja-JP");
+  const depts=sortDepts([...new Set(employees.map(e=>e.dept).filter(Boolean))]);
+  let html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${ORG_NAME} 職員研修履歴</title>
+  <style>body{font-family:'游ゴシック',sans-serif;margin:0;padding:20px;color:#222;}
+  h1{background:#C89A55;color:#fff;padding:12px 20px;margin:0 0 4px;font-size:18px;}
+  h2{background:#A07840;color:#fff;padding:8px 16px;margin:20px 0 0;font-size:14px;}
+  .sub{background:#FDF6EC;padding:4px 16px;font-size:11px;color:#A07840;margin-bottom:12px;}
+  table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:24px;}
+  th{background:#C89A55;color:#fff;padding:8px 10px;text-align:left;font-weight:600;}
+  td{padding:6px 10px;border-bottom:1px solid #E8D5B0;}
+  tr:nth-child(even) td{background:#FDF6EC;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;margin:1px;}
+  .q{background:#dbeafe;color:#1e40af;}.c{background:#ede9fe;color:#7c3aed;}.t{background:#dcfce7;color:#15803d;}
+  @media print{h2{page-break-before:always;}}</style></head><body>
+  <h1>${ORG_NAME}　職員研修履歴　${fiscalYear}年度</h1>
+  <div class="sub">出力日：${today}　　対象人数：${employees.length}名</div>`;
+  const makeTable=(emps,title)=>{
+    const rows=emps.map((emp,i)=>{
+      const yrs=calcYears(emp.joinDate);
+      const iT=internals.filter(t=>inFiscalYear(t.date,fiscalYear)&&getIS(emp.id,t.id).attendance==="参加済");
+      const xT=(externals||[]).filter(x=>inFiscalYear(x.date,fiscalYear)&&x.targetEmpIds.includes(emp.id)&&getXS(emp.id,x.id).attended);
+      const all=[...iT.map(t=>t.title),...xT.map(x=>x.title)];
+      return `<tr><td>${i+1}</td><td>${emp.id}</td><td><strong>${emp.name}</strong>${emp.isManager?' <span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:10px;">部署長</span>':''}</td><td>${emp.dept}</td><td>${yrs||"─"}</td>
+      <td>${(emp.qualifications||[]).map(q=>`<span class="badge q">${q}</span>`).join("")||"─"}</td>
+      <td>${(emp.certTrainings||[]).map(c=>`<span class="badge c">${c}</span>`).join("")||"─"}</td>
+      <td>${all.map(t=>`<span class="badge t">${t}</span>`).join("")||"─"}</td></tr>`;
+    }).join("");
+    return `<h2>${title}（${emps.length}名）</h2>
+    <table><thead><tr><th>No.</th><th>ID</th><th>氏名</th><th>部署</th><th>勤続年数</th><th>保有資格</th><th>認定研修</th><th>参加済み研修（${fiscalYear}年度）</th></tr></thead><tbody>${rows}</tbody></table>`;
+  };
+  html+=makeTable(employees,"全員一覧");
+  depts.forEach(dept=>{ html+=makeTable(employees.filter(e=>e.dept===dept),dept); });
+  html+="</body></html>";
+  const blob=new Blob([html],{type:"text/html;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download=`職員研修履歴_${fiscalYear}年度.html`;a.click();
+  URL.revokeObjectURL(url);
+}
+
+function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,onQR,fiscalYear}){
   const fyInternals=internals.filter(t=>inFiscalYear(t.date,fiscalYear)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const [selT,setSelT]=useState(null);
   const [filterPending,setFilterPending]=useState(true);
@@ -2290,11 +2325,16 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
 
   return(
     <div>
-      {fyInternals.length>0&&(
-        <button onClick={exportExcel} style={{padding:"8px 18px",borderRadius:20,border:"1.5px solid #16a34a",background:"#f0fdf4",color:"#15803d",fontWeight:700,fontSize:13,cursor:"pointer"}}>
-          📥 研修実績をExcel出力（研修ごとにシート分け）
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        {fyInternals.length>0&&(
+          <button onClick={exportExcel} style={{padding:"8px 18px",borderRadius:20,border:"1.5px solid #16a34a",background:"#f0fdf4",color:"#15803d",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+            📥 研修実績をExcel出力（研修ごとにシート分け）
+          </button>
+        )}
+        <button onClick={()=>exportTrainingHistory({employees,internals,externals,getIS,getXS,fiscalYear})} style={{padding:"8px 18px",borderRadius:20,border:"1.5px solid #7c3aed",background:"#f5f3ff",color:"#7c3aed",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+          📊 研修履歴出力
         </button>
-      )}
+      </div>
       {/* 上部サマリーカード（既存のまま） */}
       <div style={{display:"flex",gap:10,overflowX:"auto",padding:"12px 0 16px"}}>
         {fyInternals.map(t=>{
