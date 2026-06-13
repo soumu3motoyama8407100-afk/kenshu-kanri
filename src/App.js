@@ -1795,7 +1795,7 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
           {tab==="xProgress" &&<ExternalProgressTab employees={employees} externals={externals} getXS={getXS} setXS={setXS} fiscalYear={fiscalYear}/>}
           {tab==="xManage"   &&<ExternalManageTab employees={employees} externals={externals} setExternals={setExternals} deleteExternal={deleteExternal}/>}
           {tab==="semManage" &&<SeminarManageTab seminars={seminars} upsertSeminar={upsertSeminar} deleteSeminar={deleteSeminar} employees={employees} getSMV={getSMV} fiscalYear={fiscalYear}/>}
-          {tab==="empManage" &&<EmployeeManageTab employees={employees} setEmployees={setEmployees} internals={internals} getIS={getIS} getXS={getXS} externals={externals} fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}/>}
+          {tab==="empManage" &&<EmployeeManageTab employees={employees} setEmployees={setEmployees} internals={internals} getIS={getIS} getXS={getXS} externals={externals} fiscalYear={fiscalYear} setFiscalYear={setFiscalYear} committees={committeeProps?.committees||[]} committeeMembers={committeeProps?.committeeMembers||{}} setMembersFor={committeeProps?.setMembersFor}/>}
           {tab==="committeeManage"&&committeeProps&&<CommitteeManageTab {...committeeProps}/>}
         </div>
       </div>
@@ -1872,7 +1872,7 @@ function EmpForm({data,onChange,onSave,onCancel,isEdit,allEmployees}){
   );
 }
 
-function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externals,fiscalYear,setFiscalYear}){
+function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externals,fiscalYear,setFiscalYear,committees,committeeMembers,setMembersFor}){
   // 年度の開始・終了日
   const fyStart=new Date(fiscalYear,3,1); // 4月1日
   const fyEnd=new Date(fiscalYear+1,2,31,23,59,59); // 翌3月31日
@@ -1941,6 +1941,7 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
       const rows=parseCSVRows(ev.target.result);
       let count=0, errors=[];
       const csvIds=new Set();
+      const committeeMap={}; // 委員会名 → 職員IDリスト
       for(const cols of rows.slice(4)){
         if(cols.length<4||!cols[0])continue;
         // 例示行・ヘッダー行をスキップ
@@ -1966,6 +1967,13 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
           csvIds.add(emp.id);
           setEmployees(p=>{const idx=p.findIndex(x=>x.id===emp.id);return idx>=0?p.map(x=>x.id===emp.id?emp:x):[...p,emp];});
           count++;
+          // 14列目: 委員会（|区切り）
+          if(cols[13]){
+            cols[13].split("|").map(s=>s.trim()).filter(Boolean).forEach(cname=>{
+              if(!committeeMap[cname])committeeMap[cname]=[];
+              committeeMap[cname].push(emp.id);
+            });
+          }
         }catch(err){ errors.push(`${emp.id} ${emp.name}: ${err.message}`); }
       }
       // CSVに含まれない既存職員を削除（完全上書き）
@@ -1976,10 +1984,23 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
           setEmployees(p=>p.filter(e=>csvIds.has(e.id)));
         }
       }
+      // 委員会メンバーの自動登録（CSVに委員会名があった委員会のみ上書き）
+      let committeeMsg="";
+      if(setMembersFor&&Object.keys(committeeMap).length>0){
+        const unknown=[];
+        for(const [cname,ids] of Object.entries(committeeMap)){
+          const c=(committees||[]).find(x=>x.name===cname);
+          if(c){ await setMembersFor(c.id,ids); }
+          else{ unknown.push(cname); }
+        }
+        const okCount=Object.keys(committeeMap).length-unknown.length;
+        committeeMsg=`／委員会${okCount}件のメンバーを更新`;
+        if(unknown.length>0) alert(`⚠ 次の委員会名はアプリに登録されていないためスキップしました:\n${unknown.join("\n")}\n（委員会管理タブの名前と完全一致させてください）`);
+      }
       if(errors.length>0){
         alert(`⚠ ${errors.length}件の取り込みに失敗しました:\n`+errors.slice(0,10).join("\n"));
       }
-      setImportMsg(`✅ ${count}名のデータを取り込みました${errors.length>0?`（失敗${errors.length}件）`:""}`);
+      setImportMsg(`✅ ${count}名のデータを取り込みました${committeeMsg}${errors.length>0?`（失敗${errors.length}件）`:""}`);
       setTimeout(()=>setImportMsg(""),4000);
     };
     reader.readAsText(file,"UTF-8");
@@ -1987,13 +2008,14 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
   };
 
   const downloadCSV=()=>{
-    // インポートと同じ13列形式で出力
-    const header="職員ID,パスワード,姓,名前,入社日,役職名,職員区分,所属,管理部署,保有資格,認定研修,部署長,在籍状態\n";
+    // インポートと同じ14列形式で出力（委員会列を含む）
+    const header="職員ID,パスワード,姓,名前,入社日,役職名,職員区分,所属,管理部署,保有資格,認定研修,部署長,在籍状態,委員会\n";
     const rows=employees.map(e=>{
       const sp=(e.name||"").indexOf(" ");
       const sei=sp>0?e.name.slice(0,sp):(e.name||"");
       const mei=sp>0?e.name.slice(sp+1):"";
-      return `${e.id},${e.password},${sei},${mei},${e.joinDate||""},${e.roleTitle||""},${e.jobCategory||""},${e.dept||""},${(e.managedDepts||[]).join("|")},${(e.qualifications||[]).join("|")},${(e.certTrainings||[]).join("|")},${e.isManager?1:""},${e.isActive===false?"退職":""}`;
+      const myCommittees=(committees||[]).filter(c=>((committeeMembers||{})[c.id]||[]).includes(e.id)).map(c=>c.name).join("|");
+      return `${e.id},${e.password},${sei},${mei},${e.joinDate||""},${e.roleTitle||""},${e.jobCategory||""},${e.dept||""},${(e.managedDepts||[]).join("|")},${(e.qualifications||[]).join("|")},${(e.certTrainings||[]).join("|")},${e.isManager?1:""},${e.isActive===false?"退職":""},${myCommittees}`;
     }).join("\n");
     const blob=new Blob(["\uFEFF"+header+rows],{type:"text/csv;charset=utf-8;"});
     const url=URL.createObjectURL(blob);
@@ -2213,6 +2235,48 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
   const avatarColor=i=>[["#E6F1FB","#185FA5"],["#EAF3DE","#3B6D11"],["#FAEEDA","#854F0B"],["#FCEBEB","#A32D2D"],["#F1EFE8","#5F5E5A"]][i%5];
   const initials=name=>name?name.charAt(0):"?";
 
+  // 研修実績Excel出力（研修ごとにシートを分ける）
+  const exportExcel=()=>{
+    const esc=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    const cell=(v,t="String")=>`<Cell><Data ss:Type="${t}">${esc(v)}</Data></Cell>`;
+    const mkRow=cells=>`<Row>${cells.join("")}</Row>`;
+    const used=new Set();
+    const safeName=t=>{ let n=String(t).replace(/[\\/?*[\]:：]/g," ").slice(0,25).trim()||"研修"; const base=n; let i=2; while(used.has(n)){n=`${base}${i++}`;} used.add(n); return n; };
+    const deptIdx2=d=>{const i=DEPT_ORDER.indexOf(d);return i<0?999:i;};
+    const sortEmps=arr=>[...arr].sort((a,b)=>deptIdx2(a.dept)-deptIdx2(b.dept)||roleRank(a)-roleRank(b)||String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
+    const summaryRows=[mkRow([cell("研修名"),cell("開催日"),cell("対象者数"),cell("当日参加"),cell("動画視聴"),cell("参加率（当日）"),cell("フォロー率（参加＋動画）"),cell("復命書提出"),cell("確認済")])];
+    const sheets=[];
+    fyInternals.forEach(t=>{
+      const tgt=sortEmps(targetEmps(t));
+      const att=tgt.filter(e=>getIS(e.id,t.id).attendance==="参加済").length;
+      const wat=tgt.filter(e=>getIS(e.id,t.id).video==="視聴済").length;
+      const followed=tgt.filter(e=>{const s=getIS(e.id,t.id);return s.attendance==="参加済"||s.video==="視聴済";}).length;
+      const sub=tgt.filter(e=>{const s=getIS(e.id,t.id);return s.report==="提出済"||s.reportConfirmed;}).length;
+      const conf=tgt.filter(e=>getIS(e.id,t.id).reportConfirmed===true).length;
+      const pct=(n,d)=>d?`${Math.round(n/d*100)}%`:"-";
+      summaryRows.push(mkRow([cell(t.title),cell(formatDate(t.date)+(t.date2?` / ${formatDate(t.date2)}`:"")),cell(tgt.length,"Number"),cell(att,"Number"),cell(wat,"Number"),cell(pct(att,tgt.length)),cell(pct(followed,tgt.length)),cell(sub,"Number"),cell(conf,"Number")]));
+      const rs=[
+        mkRow([cell(`${t.title}（${formatDate(t.date)}${t.date2?` / ${formatDate(t.date2)}`:""}）`)]),
+        mkRow([cell(`対象 ${tgt.length}名 ／ 当日参加 ${att}名（${pct(att,tgt.length)}） ／ 動画視聴 ${wat}名 ／ フォロー率 ${pct(followed,tgt.length)}`)]),
+        mkRow([cell("")]),
+        mkRow([cell("職員ID"),cell("氏名"),cell("部署"),cell("当日参加"),cell("動画視聴"),cell("復命書")]),
+      ];
+      tgt.forEach(e=>{
+        const s=getIS(e.id,t.id);
+        const a=s.attendance==="参加済"?(s.attendedSession==="1"?"○（①）":s.attendedSession==="2"?"○（②）":"○"):"✕";
+        const v=s.video==="視聴済"?"○":"－";
+        const r=t.noReport?"不要":s.reportConfirmed?"確認済":s.report==="提出済"?"提出済":"未提出";
+        rs.push(mkRow([cell(e.id),cell(e.name),cell(e.dept),cell(a),cell(v),cell(r)]));
+      });
+      sheets.push(`<Worksheet ss:Name="${esc(safeName(t.title))}"><Table>${rs.join("")}</Table></Worksheet>`);
+    });
+    const xml=`<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="まとめ"><Table>${summaryRows.join("")}</Table></Worksheet>${sheets.join("")}</Workbook>`;
+    const blob=new Blob(["﻿"+xml],{type:"application/vnd.ms-excel"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download=`研修実績_${fiscalYear}年度.xls`;a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const curTargets=curT?targetEmps(curT):[];
   const reqCount=curT?curTargets.filter(e=>isReportRequired(e,curT)).length:0;
   const unreported=curT?curTargets.filter(e=>isReportRequired(e,curT)&&getIS(e.id,curT.id).report!=="提出済"&&!getIS(e.id,curT.id).reportConfirmed).length:0;
@@ -2226,6 +2290,11 @@ function InternalProgressTab({employees,internals,getIS,setIS,onQR,fiscalYear}){
 
   return(
     <div>
+      {fyInternals.length>0&&(
+        <button onClick={exportExcel} style={{padding:"8px 18px",borderRadius:20,border:"1.5px solid #16a34a",background:"#f0fdf4",color:"#15803d",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+          📥 研修実績をExcel出力（研修ごとにシート分け）
+        </button>
+      )}
       {/* 上部サマリーカード（既存のまま） */}
       <div style={{display:"flex",gap:10,overflowX:"auto",padding:"12px 0 16px"}}>
         {fyInternals.map(t=>{
