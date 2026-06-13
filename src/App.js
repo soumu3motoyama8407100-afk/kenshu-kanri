@@ -61,8 +61,8 @@ const db = {
   },
   async upsertEmployee(emp) {
     // 既存レコードのline_user_idを誤って消さないよう先に取得
-    const {data:existing} = await supabase.from("employees").select("line_user_id").eq("id",emp.id).single();
-    await supabase.from("employees").upsert({
+    const {data:existing} = await supabase.from("employees").select("line_user_id").eq("id",emp.id).maybeSingle();
+    const {error} = await supabase.from("employees").upsert({
       id:emp.id,password:emp.password,name:emp.name,dept:emp.dept||"",
       join_date:emp.joinDate||null,qualifications:emp.qualifications||[],
       cert_trainings:emp.certTrainings||[],is_manager:emp.isManager||false,
@@ -72,6 +72,7 @@ const db = {
       line_user_id:existing?.line_user_id||null,
       updated_at:new Date().toISOString()
     },{onConflict:"id"});
+    if(error) throw new Error(error.message);
   },
   async setEmployeeActive(id,isActive) {
     await supabase.from("employees").update({is_active:isActive,updated_at:new Date().toISOString()}).eq("id",id);
@@ -1938,7 +1939,8 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
     const reader=new FileReader();
     reader.onload=async ev=>{
       const rows=parseCSVRows(ev.target.result);
-      let count=0;
+      let count=0, errors=[];
+      const csvIds=new Set();
       for(const cols of rows.slice(4)){
         if(cols.length<4||!cols[0])continue;
         // 例示行・ヘッダー行をスキップ
@@ -1946,7 +1948,7 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
         if((cols[2]||"").includes("例")||(cols[3]||"").includes("例"))continue;
         // 列順: 職員ID,パスワード,姓,名前,入社日,役職名,職員区分,所属,管理部署,保有資格,認定研修,部署長,在籍状態
         const emp={
-          id:cols[0], password:cols[1]||"pass001",
+          id:cols[0].trim(), password:cols[1]||"pass001",
           name:(cols[2].trim()+" "+cols[3].trim()).trim(),
           joinDate:cols[4]||"",
           roleTitle:cols[5]||"",
@@ -1959,11 +1961,25 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
           isActive:cols[12]!=="0"&&cols[12]!=="退職",
           retireDate:"",
         };
-        await db.upsertEmployee(emp);
-        setEmployees(p=>{const idx=p.findIndex(x=>x.id===emp.id);return idx>=0?p.map(x=>x.id===emp.id?emp:x):[...p,emp];});
-        count++;
+        try{
+          await db.upsertEmployee(emp);
+          csvIds.add(emp.id);
+          setEmployees(p=>{const idx=p.findIndex(x=>x.id===emp.id);return idx>=0?p.map(x=>x.id===emp.id?emp:x):[...p,emp];});
+          count++;
+        }catch(err){ errors.push(`${emp.id} ${emp.name}: ${err.message}`); }
       }
-      setImportMsg(`✅ ${count}名のデータを取り込みました`);
+      // CSVに含まれない既存職員を削除（完全上書き）
+      const removed=employees.filter(e=>!csvIds.has(e.id));
+      if(count>0&&removed.length>0){
+        if(window.confirm(`CSVに含まれていない既存の職員 ${removed.length}名 を削除しますか？\n（完全上書きする場合は OK）\n\n${removed.slice(0,10).map(e=>`・${e.id} ${e.name}`).join("\n")}${removed.length>10?`\n…他${removed.length-10}名`:""}`)){
+          for(const e of removed){ await db.deleteEmployee(e.id); }
+          setEmployees(p=>p.filter(e=>csvIds.has(e.id)));
+        }
+      }
+      if(errors.length>0){
+        alert(`⚠ ${errors.length}件の取り込みに失敗しました:\n`+errors.slice(0,10).join("\n"));
+      }
+      setImportMsg(`✅ ${count}名のデータを取り込みました${errors.length>0?`（失敗${errors.length}件）`:""}`);
       setTimeout(()=>setImportMsg(""),4000);
     };
     reader.readAsText(file,"UTF-8");
