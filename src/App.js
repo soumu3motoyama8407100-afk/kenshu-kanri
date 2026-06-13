@@ -3308,7 +3308,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   const [selectedId,setSelectedId]=useState(committees[0]?.id||null); // 委員会用
   const [showForm,setShowForm]=useState(false);
   const [form,setForm]=useState({id:"",title:"",body:"",isPublic:false});
-  const [gForm,setGForm]=useState({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:""});
+  const [gForm,setGForm]=useState({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:"",lineMessage:"",lineMessageEdited:false});
   const [pdfFile,setPdfFile]=useState(null);
   const [showTargetSel,setShowTargetSel]=useState(false);
   const [selDept,setSelDept]=useState("すべて");
@@ -3327,7 +3327,13 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   const selected=committees.find(c=>c.id===selectedId);
   const myCommNotices=(committeeNotices||[]).filter(n=>n.committeeId===selectedId);
 
-  const resetGForm=()=>{setGForm({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:""});setPdfFile(null);setShowTargetSel(false);setSelDept("すべて");};
+  const resetGForm=()=>{setGForm({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:"",lineMessage:"",lineMessageEdited:false});setPdfFile(null);setShowTargetSel(false);setSelDept("すべて");};
+  const buildAutoMsg=(title,body,cat2)=>`📢【${cat2||cat}】${title}\n\n${body?body+"\n\n":""}詳細は研修管理システムをご確認ください。`;
+  useEffect(()=>{
+    if(!gForm.lineMessageEdited){
+      setGForm(p=>({...p,lineMessage:buildAutoMsg(p.title,p.body,cat)}));
+    }
+  },[gForm.title,gForm.body,cat,gForm.lineMessageEdited]);
 
   const handleSaveGeneral=async()=>{
     if(!gForm.title.trim()){showToast("タイトルを入力してください",true);return;}
@@ -3346,7 +3352,8 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
       const lineTargets=(targetIds.length>0?activeEmps.filter(e=>targetIds.includes(e.id)):activeEmps).filter(e=>e.lineUserId);
       if(lineTargets.length>0){
         const sendAfter=new Date(`${gForm.lineDate}T${gForm.lineTime}:00`).toISOString();
-        const msg=`📢【${cat}】${gForm.title}\n\n${gForm.body?gForm.body+"\n\n":""}${fileMeta.fileUrl?`📄 添付資料：\n${fileMeta.fileUrl}\n\n`:""}詳細は研修管理システムをご確認ください。`;
+        const baseMsg=gForm.lineMessage||buildAutoMsg(gForm.title,gForm.body,cat);
+        const msg=fileMeta.fileUrl?baseMsg.replace("詳細は研修管理システムをご確認ください。",`📄 添付資料：\n${fileMeta.fileUrl}\n\n詳細は研修管理システムをご確認ください。`):baseMsg;
         await fetch("https://nncousuugjntzovtmkvt.supabase.co/functions/v1/line-notify",{
           method:"POST",
           headers:{"Content-Type":"application/json"},
@@ -3433,6 +3440,38 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
                   <span style={{fontSize:20}}>📄</span>
                   <span style={{fontSize:13,fontWeight:600,color:"#475569"}}>{pdfFile?"✅ "+pdfFile.name:gForm.fileName?"✅ "+gForm.fileName:"クリックしてPDFをアップロード"}</span>
                 </label>
+              </div>
+              {/* LINEメッセージプレビュー＆編集 */}
+              <div style={{marginBottom:12,padding:"12px",background:"#f0f9ff",borderRadius:10,border:"1.5px solid #7dd3fc"}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                  <div style={{fontSize:13,fontWeight:700,color:"#0369a1"}}>📱 LINEメッセージ</div>
+                  {gForm.lineMessageEdited&&(
+                    <button type="button" onClick={()=>setGForm(p=>({...p,lineMessage:buildAutoMsg(p.title,p.body,cat),lineMessageEdited:false}))}
+                      style={{fontSize:11,color:"#6b7280",background:"#e5e7eb",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer"}}>
+                      自動生成に戻す
+                    </button>
+                  )}
+                </div>
+                {/* スマホ風プレビュー */}
+                <div style={{background:"#e8f5e9",borderRadius:10,padding:"10px 12px",marginBottom:8,position:"relative"}}>
+                  <div style={{fontSize:10,color:"#388e3c",fontWeight:700,marginBottom:4}}>プレビュー（LINEでの表示イメージ）</div>
+                  <div style={{display:"flex",alignItems:"flex-end",gap:6}}>
+                    <div style={{width:32,height:32,borderRadius:"50%",background:"#06c755",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      <span style={{fontSize:16}}>🏥</span>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:"0 12px 12px 12px",padding:"8px 12px",maxWidth:"80%",boxShadow:"0 1px 3px rgba(0,0,0,.1)"}}>
+                      <div style={{fontSize:12,color:"#222",whiteSpace:"pre-wrap",lineHeight:1.6,wordBreak:"break-all"}}>
+                        {gForm.lineMessage||"（タイトルを入力するとプレビューが表示されます）"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {/* 編集エリア */}
+                <textarea rows={5} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #7dd3fc",fontSize:12,boxSizing:"border-box",resize:"vertical",fontFamily:"inherit",lineHeight:1.6}}
+                  value={gForm.lineMessage}
+                  onChange={e=>setGForm(p=>({...p,lineMessage:e.target.value,lineMessageEdited:true}))}
+                  placeholder="LINEに送るメッセージを入力（タイトル・本文から自動生成されます）"/>
+                <div style={{fontSize:11,color:"#6b7280",marginTop:4}}>※ 直接編集できます。「自動生成に戻す」で元に戻せます。</div>
               </div>
               {/* LINE配信日時（必須） */}
               <div style={{marginBottom:12,padding:"10px 12px",background:"#f0fdf4",borderRadius:10,border:"1.5px solid #4ade80"}}>
