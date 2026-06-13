@@ -1971,8 +1971,14 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
   };
 
   const downloadCSV=()=>{
-    const header="職員ID,パスワード,氏名,部署,入社年月日,保有資格,受講済み認定研修,部署長(1=YES),管理部署(|区切り),在籍状態(0=退職),役職\n";
-    const rows=employees.map(e=>`${e.id},${e.password},${e.name},${e.dept},${e.joinDate||""},${(e.qualifications||[]).join("|")},${(e.certTrainings||[]).join("|")},${e.isManager?1:0},${(e.managedDepts||[]).join("|")},${e.isActive===false?0:1},${e.roleTitle||""}`).join("\n");
+    // インポートと同じ13列形式で出力
+    const header="職員ID,パスワード,姓,名前,入社日,役職名,職員区分,所属,管理部署,保有資格,認定研修,部署長,在籍状態\n";
+    const rows=employees.map(e=>{
+      const sp=(e.name||"").indexOf(" ");
+      const sei=sp>0?e.name.slice(0,sp):(e.name||"");
+      const mei=sp>0?e.name.slice(sp+1):"";
+      return `${e.id},${e.password},${sei},${mei},${e.joinDate||""},${e.roleTitle||""},${e.jobCategory||""},${e.dept||""},${(e.managedDepts||[]).join("|")},${(e.qualifications||[]).join("|")},${(e.certTrainings||[]).join("|")},${e.isManager?1:""},${e.isActive===false?"退職":""}`;
+    }).join("\n");
     const blob=new Blob(["\uFEFF"+header+rows],{type:"text/csv;charset=utf-8;"});
     const url=URL.createObjectURL(blob);
     const a=document.createElement("a");a.href=url;a.download="職員名簿.csv";a.click();
