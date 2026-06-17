@@ -551,6 +551,11 @@ function DualLoginScreen({pendingAttend,internals,employees,onLogin,onManualLogi
             onLogin={(empId,isAdmin,isManager,dept)=>onLogin(empId,isAdmin,isManager||false,dept||"")}/>
           {MANUAL_ENABLED&&<ManualLoginCard employees={employees} onManualLogin={onManualLogin}/>}
         </div>
+        <div style={{textAlign:"center",marginTop:20}}>
+          <a href="/line-privacy.html" target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,color:"#A07840",textDecoration:"none",background:"#fff",border:"1px solid #E8D5B0",borderRadius:20,padding:"7px 16px"}}>
+            💬 公式LINEについて（安全性のご案内）
+          </a>
+        </div>
       </div>
     </div>
   );
