@@ -311,15 +311,17 @@ export default function App() {
 
   useEffect(()=>{ const p=new URLSearchParams(window.location.search);const a=p.get("attend");if(a)setPendingAttend(a); },[]);
 
-  useEffect(()=>{
-    (async()=>{
-      setLoading(true);
+  const [refreshing,setRefreshing] = useState(false);
+  // データを再取得する（初回ロード・手動更新・自動更新で共用）
+  const loadAllData = async(isInitial=false) => {
+    if(isInitial)setLoading(true); else setRefreshing(true);
+    try {
       // 職員・研修データは必須 → 先に確実に読み込む
       const [emps,iS,xS,int,ext] = await Promise.all([
         db.getEmployees(),db.getIStatuses(),db.getXStatuses(),db.getInternals(),db.getExternals()
       ]);
       setEmployees(emps); setIStatuses(iS); setXStatuses(xS); setInternals(int); setExternals(ext);
-      setLoading(false);
+      if(isInitial)setLoading(false);
       // 委員会データは別で読み込む（失敗しても職員データに影響しない）
       try {
         const [cmts,cmems,cmeets,mreads,notices] = await Promise.all([
@@ -335,8 +337,17 @@ export default function App() {
         const [sems,smv] = await Promise.all([db.getSeminars(),db.getSeminarMonthly()]);
         setSeminars(sems); setSemMonthly(smv);
       } catch(e){ console.warn("セミナーデータ読み込みエラー（テーブル未作成の可能性）:",e); }
-    })();
-  },[]);
+    } finally { if(isInitial)setLoading(false); setRefreshing(false); }
+  };
+
+  useEffect(()=>{ loadAllData(true); },[]);// eslint-disable-line
+
+  // ログイン中は30秒ごとに自動更新（他端末での提出などを反映）
+  useEffect(()=>{
+    if(!session&&!manualSession)return;
+    const id=setInterval(()=>{ if(!document.hidden) loadAllData(false); },30000);
+    return ()=>clearInterval(id);
+  },[session,manualSession]);// eslint-disable-line
 
   useEffect(()=>{
     if(loading||employees.length===0)return;
@@ -467,6 +478,7 @@ export default function App() {
       getIS={getIS} setIS={setIS} getXS={getXS} setXS={setXS}
       fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}
       getCount={getCount} onLogout={handleLogout}
+      onRefresh={()=>loadAllData(false)} refreshing={refreshing}
       committeeProps={committeeProps}/>
   );
 
@@ -485,6 +497,7 @@ export default function App() {
         deptEmployees={employees.filter(e=>managedDepts.includes(e.dept))}
         managedDepts={managedDepts}
         setFiscalYear={setFiscalYear}
+        onRefresh={()=>loadAllData(false)} refreshing={refreshing}
         committeeProps={committeeProps}/>
     );
   }
@@ -498,6 +511,7 @@ export default function App() {
       seminars={seminars} getSMV={getSMV} setSMV={setSMV}
       fiscalYear={fiscalYear} getCount={getCount}
       onLogout={handleLogout}
+      onRefresh={()=>loadAllData(false)} refreshing={refreshing}
       committeeProps={committeeProps}/>
   );
 }
@@ -866,7 +880,7 @@ function QRScanModal({onScan,onClose}){
   );
 }
 
-function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminars,getSMV,setSMV,fiscalYear,getCount,onLogout,isManager,deptEmployees,managedDepts,setFiscalYear,committeeProps}){
+function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminars,getSMV,setSMV,fiscalYear,getCount,onLogout,onRefresh,refreshing,isManager,deptEmployees,managedDepts,setFiscalYear,committeeProps}){
   const [tab,setTab]=useState("training");
   const [videoT,setVideoT]=useState(null);
   const [showVideoModal,setShowVideoModal]=useState(false);
@@ -1007,6 +1021,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
             {[fiscalYear-2,fiscalYear-1,fiscalYear].map(y=><option key={y} value={y}>{y}年度{y===fiscalYear?"（今年度）":""}</option>)}
           </select>
           {!isCurrentFY&&<span style={{fontSize:11,color:"#d97706",fontWeight:600,background:"#fef3c7",padding:"2px 8px",borderRadius:20}}>過去年度閲覧中</span>}
+          {onRefresh&&<button onClick={onRefresh} disabled={refreshing} style={{fontSize:12,fontWeight:600,padding:"4px 12px",borderRadius:8,border:"1px solid #67e8f9",background:refreshing?"#e0f2fe":"#ecfeff",color:"#0e7490",cursor:refreshing?"default":"pointer"}}>{refreshing?"更新中…":"🔄 更新"}</button>}
         </div>
         {/* タブバー */}
         <div style={S.tabBar}>
@@ -1800,7 +1815,7 @@ function PdfModal({ext,onClose}){
   );
 }
 
-function AdminScreen({employees,setEmployees,internals,setInternals,externals,setExternals,deleteInternal,deleteExternal,seminars,upsertSeminar,deleteSeminar,getSMV,getIS,setIS,getXS,setXS,fiscalYear,setFiscalYear,getCount,onLogout,committeeProps}){
+function AdminScreen({employees,setEmployees,internals,setInternals,externals,setExternals,deleteInternal,deleteExternal,seminars,upsertSeminar,deleteSeminar,getSMV,getIS,setIS,getXS,setXS,fiscalYear,setFiscalYear,getCount,onLogout,onRefresh,refreshing,committeeProps}){
   const [tab,setTab]=useState("ranking");
   const [qrT,setQrT]=useState(null);
   return(
@@ -1815,6 +1830,7 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
             <select value={fiscalYear} onChange={e=>setFiscalYear(Number(e.target.value))} style={{padding:"4px 8px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:12,cursor:"pointer",background:"#fff"}}>
               {[currentFY()-1,currentFY(),currentFY()+1].map(y=><option key={y} value={y}>{y}年度</option>)}
             </select>
+            {onRefresh&&<button style={{...S.logoutBtn,background:"#0e7490",color:"#fff",borderColor:"#0e7490",opacity:refreshing?0.6:1}} onClick={onRefresh} disabled={refreshing}>{refreshing?"更新中…":"🔄 更新"}</button>}
             <button style={{...S.logoutBtn,background:"#C89A55",color:"#fff",borderColor:"#C89A55"}} onClick={()=>window.print()}>🖨 印刷</button>
             <button style={S.logoutBtn} onClick={onLogout}>ログアウト</button>
           </div>
