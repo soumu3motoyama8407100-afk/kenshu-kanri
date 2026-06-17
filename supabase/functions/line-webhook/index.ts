@@ -122,7 +122,7 @@ serve(async (req) => {
 
           await replyMessage(
             event.replyToken,
-            `✅ 登録が完了しました！\n\n${emp?.name} さん、よろしくお願いします。\n委員会の開催予定などをこちらからお知らせします。`
+            `✅ 登録が完了しました！\n\n${emp?.name} さん、よろしくお願いします。\n\nこの公式LINEは、研修や法人からのお知らせをお届けするための専用公式アカウントです。\n\n・こちらへのメッセージ送信はお控えください\n・ブロックはせず、通知を止めたいときはLINEの通知オフ設定をご利用ください（災害時の連絡にも使います）\n\n詳しくはこちら↓\nhttps://kenshu-kanri.vercel.app/line-privacy.html`
           );
 
         } else if (text === "いいえ" || text === "NO" || text === "no") {
