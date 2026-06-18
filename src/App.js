@@ -1350,7 +1350,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
   const unreportedCount=(t)=>employees.filter(e=>{
     if(!isTargetedFor(t,e))return false;
     const s=getIS(e.id,t.id);
-    return isReportRequired(e,t)&&s.report!=="提出済"&&!s.reportConfirmed;
+    return isReportRequired(e,t)&&!s.reportConfirmed;
   }).length;
 
   // 対象職員の状態分類
@@ -1371,7 +1371,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
   const displayList=!curT?[]:(filterPending?empList.filter(e=>getEmpStatus(e,curT)!=="done"):deptAll);
 
   const reqCount=curT?curTargets.filter(e=>isReportRequired(e,curT)).length:0;
-  const unreported=curT?curTargets.filter(e=>isReportRequired(e,curT)&&getIS(e.id,curT.id).report!=="提出済"&&!getIS(e.id,curT.id).reportConfirmed).length:0;
+  const unreported=curT?curTargets.filter(e=>isReportRequired(e,curT)&&!getIS(e.id,curT.id).reportConfirmed).length:0;
   const waitConfirm=curT?curTargets.filter(e=>{const s=getIS(e.id,curT.id);return s.report==="提出済"&&!s.reportConfirmed;}).length:0;
 
   const initials=name=>name?name.charAt(0):"?";
@@ -1423,7 +1423,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
               {/* サマリーカード */}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
                 <div style={{padding:"10px 12px",background:"#fef2f2",borderRadius:12,textAlign:"center",border:"1px solid #fca5a5"}}>
-                  <div style={{fontSize:11,color:"#9ca3af",marginBottom:2}}>復命書 未提出</div>
+                  <div style={{fontSize:11,color:"#9ca3af",marginBottom:2}}>復命書 未完了</div>
                   <div style={{fontSize:22,fontWeight:700,color:"#dc2626"}}>{unreported}<span style={{fontSize:12,fontWeight:400,color:"#9ca3af"}}>/{reqCount}名</span></div>
                 </div>
                 <div style={{padding:"10px 12px",background:"#fffbeb",borderRadius:12,textAlign:"center",border:"1px solid #fcd34d"}}>
@@ -2477,7 +2477,7 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
   const isReportRequired=(emp,t)=>{ if(t.noReport)return false; const s=getIS(emp.id,t.id); return (t.requiredEmpIds||[]).includes(emp.id)||s.attendance==="参加済"; };
   const getEmpStatus=(emp,t)=>{ const s=getIS(emp.id,t.id); if(s.reportConfirmed) return "done"; if(s.report==="提出済") return "waitConfirm"; if(isReportRequired(emp,t)) return "pending"; return "noReq"; };
   const targetEmps=t=>employees.filter(e=>isTargetedFor(t,e));
-  const unreportedCount=t=>targetEmps(t).filter(e=>{ const s=getIS(e.id,t.id); return isReportRequired(e,t)&&s.report!=="提出済"&&!s.reportConfirmed; }).length;
+  const unreportedCount=t=>targetEmps(t).filter(e=>{ const s=getIS(e.id,t.id); return isReportRequired(e,t)&&!s.reportConfirmed; }).length;
   const avatarColor=i=>[["#E6F1FB","#185FA5"],["#EAF3DE","#3B6D11"],["#FAEEDA","#854F0B"],["#FCEBEB","#A32D2D"],["#F1EFE8","#5F5E5A"]][i%5];
   const initials=name=>name?name.charAt(0):"?";
 
@@ -2525,7 +2525,7 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
 
   const curTargets=curT?targetEmps(curT):[];
   const reqCount=curT?curTargets.filter(e=>isReportRequired(e,curT)).length:0;
-  const unreported=curT?curTargets.filter(e=>isReportRequired(e,curT)&&getIS(e.id,curT.id).report!=="提出済"&&!getIS(e.id,curT.id).reportConfirmed).length:0;
+  const unreported=curT?curTargets.filter(e=>isReportRequired(e,curT)&&!getIS(e.id,curT.id).reportConfirmed).length:0;
   const waitConfirm=curT?curTargets.filter(e=>{ const s=getIS(e.id,curT.id); return s.report==="提出済"&&!s.reportConfirmed; }).length:0;
 
   // 部署順（固定順）→ 職員番号順で並べる
@@ -2591,7 +2591,7 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
         {/* サマリー */}
         <div style={{marginBottom:12}}>
           <div style={{padding:"10px 12px",background:"#fef2f2",borderRadius:12,textAlign:"center",border:"1px solid #fca5a5"}}>
-            <div style={{fontSize:11,color:"#9ca3af",marginBottom:2}}>復命書 未提出</div>
+            <div style={{fontSize:11,color:"#9ca3af",marginBottom:2}}>復命書 未完了</div>
             <div style={{fontSize:22,fontWeight:700,color:"#dc2626"}}>{unreported}<span style={{fontSize:12,fontWeight:400,color:"#9ca3af"}}>/{reqCount}名</span></div>
           </div>
         </div>
