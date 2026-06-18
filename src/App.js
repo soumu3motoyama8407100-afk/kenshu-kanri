@@ -1889,18 +1889,23 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
     <div className="rsp-page" style={S.page}>
       {qrT&&<QRModal training={qrT} onClose={()=>setQrT(null)}/>}
       <div style={{...S.appWrap,maxWidth:1200}}>
-        <div style={S.header}>
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <div><div style={S.headerName}>🛡 管理者ダッシュボード</div><div style={S.headerSub}>{ORG_NAME}</div></div>
+        <div style={{background:"#C89A55",color:"#fff",padding:"10px 16px",display:"block",boxSizing:"border-box"}}>
+          {/* 上段：タイトル＋ログアウト */}
+          <div style={{display:"flex",flexDirection:"row",alignItems:"center",gap:8,width:"100%"}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:16,fontWeight:800,color:"#fff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>🛡 管理者ダッシュボード</div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,.8)",marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{ORG_NAME}</div>
+            </div>
+            <button style={{flexShrink:0,padding:"5px 12px",borderRadius:8,border:"1px solid rgba(255,255,255,.5)",background:"rgba(255,255,255,.15)",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:600,whiteSpace:"nowrap"}} onClick={onLogout}>ログアウト</button>
           </div>
-          <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            <select value={fiscalYear} onChange={e=>setFiscalYear(Number(e.target.value))} style={{padding:"4px 8px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:12,cursor:"pointer",background:"#fff"}}>
+          {/* 下段：年度・操作ボタン群 */}
+          <div style={{display:"flex",flexDirection:"row",alignItems:"center",gap:6,marginTop:8,width:"100%"}}>
+            <select value={fiscalYear} onChange={e=>setFiscalYear(Number(e.target.value))} style={{padding:"4px 8px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:12,cursor:"pointer",background:"#fff",flexShrink:0}}>
               {[currentFY()-1,currentFY(),currentFY()+1].map(y=><option key={y} value={y}>{y}年度</option>)}
             </select>
-            {onRefresh&&<button style={{...S.logoutBtn,background:"#0e7490",color:"#fff",borderColor:"#0e7490",opacity:refreshing?0.6:1}} onClick={onRefresh} disabled={refreshing}>{refreshing?"更新中…":"🔄 更新"}</button>}
-            {onSwitchToEmployee&&<button style={{...S.logoutBtn,background:"#059669",color:"#fff",borderColor:"#059669"}} onClick={onSwitchToEmployee}>👤 職員画面へ</button>}
-            <button style={{...S.logoutBtn,background:"#C89A55",color:"#fff",borderColor:"#C89A55"}} onClick={()=>window.print()}>🖨 印刷</button>
-            <button style={S.logoutBtn} onClick={onLogout}>ログアウト</button>
+            {onRefresh&&<button style={{flexShrink:0,padding:"5px 10px",borderRadius:8,border:"1px solid rgba(255,255,255,.5)",background:"#0e7490",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:600,opacity:refreshing?0.6:1,whiteSpace:"nowrap"}} onClick={onRefresh} disabled={refreshing}>{refreshing?"更新中…":"🔄 更新"}</button>}
+            {onSwitchToEmployee&&<button style={{flexShrink:0,padding:"5px 10px",borderRadius:8,border:"1px solid rgba(255,255,255,.5)",background:"#059669",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:600,whiteSpace:"nowrap"}} onClick={onSwitchToEmployee}>👤 職員画面へ</button>}
+            <button style={{flexShrink:0,padding:"5px 10px",borderRadius:8,border:"1px solid rgba(255,255,255,.5)",background:"rgba(255,255,255,.15)",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:600,whiteSpace:"nowrap",marginLeft:"auto"}} onClick={()=>window.print()}>🖨 印刷</button>
           </div>
         </div>
         <div style={{...S.tabBar,overflowX:"auto"}}>
