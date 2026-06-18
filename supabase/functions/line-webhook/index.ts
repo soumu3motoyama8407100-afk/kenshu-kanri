@@ -155,9 +155,14 @@ serve(async (req) => {
       }
 
       // ── 職員番号の入力 ──
-      // 英数字のみ（例: E001, 158, 0158）を職員番号として受け付ける
-      const empIdMatch = text.match(/^([A-Za-z0-9]+)$/);
-      if (empIdMatch) {
+      // メッセージから職員番号の候補を抽出（「003」だけでなく「003です」「番号は003」等にも対応）
+      const trimmed = text.replace(/\s/g, "");
+      const candidates: string[] = [];
+      if (/^[A-Za-z0-9]+$/.test(trimmed)) candidates.push(trimmed.toUpperCase()); // 文字列そのまま（E001等）
+      for (const d of (text.match(/\d+/g) || [])) candidates.push(d);             // 文中の数字のかたまり
+      const uniqCandidates = [...new Set(candidates)];
+
+      if (uniqCandidates.length > 0) {
         // すでに登録済みの場合は上書きしない
         const { data: alreadyRegistered } = await supabase
           .from("employees")
@@ -173,19 +178,23 @@ serve(async (req) => {
           continue;
         }
 
-        const empId = empIdMatch[1].toUpperCase();
-        const { data: emp } = await supabase
-          .from("employees")
-          .select("id, name")
-          .eq("id", empId)
-          .single();
+        // 候補を順に照合し、最初に一致した職員を採用
+        let emp: { id: string; name: string } | null = null;
+        for (const c of uniqCandidates) {
+          const { data } = await supabase
+            .from("employees")
+            .select("id, name")
+            .eq("id", c)
+            .maybeSingle();
+          if (data) { emp = data; break; }
+        }
 
         if (emp) {
-          // 確認待ち状態を保存
+          // 確認待ち状態を保存（名前で本人確認するので誤抽出は「いいえ」で止められる）
           await supabase
             .from("pending_line_users")
             .upsert(
-              { line_user_id: lineUserId, pending_emp_id: empId },
+              { line_user_id: lineUserId, pending_emp_id: emp.id },
               { onConflict: "line_user_id" }
             );
 
@@ -197,14 +206,14 @@ serve(async (req) => {
         } else {
           await replyMessage(
             event.replyToken,
-            `職員番号「${empId}」は見つかりませんでした。\n\nもう一度、正しい職員番号を送ってください。\n\n例）E001`
+            `職員番号が確認できませんでした。\n\nお手数ですが、職員番号（数字）だけを送ってください。\n\n例）003`
           );
         }
       } else {
-        // 番号の形式が合わない
+        // 数字が含まれていない
         await replyMessage(
           event.replyToken,
-          "職員番号を送信してください。\n\n例）E001"
+          "職員番号を送信してください。\n\n例）003"
         );
       }
     }
