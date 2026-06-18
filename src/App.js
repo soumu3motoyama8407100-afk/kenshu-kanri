@@ -1450,25 +1450,32 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
                   const req=isReportRequired(emp,curT);
                   const [bg,fg]=avatarColor(i);
                   const isDone=status==="done";
+                  const attended=s.attendance==="参加済";
+                  const watched=s.video==="視聴済";
+                  const repState=s.reportConfirmed?"確認":(s.report==="提出済"?"提出":"未提出");
+                  const chip=(active,col,bgc)=>({fontSize:11,fontWeight:700,padding:"6px 10px",borderRadius:20,border:`1.5px solid ${active?col:"#e5e7eb"}`,background:active?bgc:"#fff",color:active?col:"#9ca3af",cursor:readonly?"default":"pointer",whiteSpace:"nowrap"});
+                  const cycleReport=()=>{
+                    if(s.reportConfirmed) setIS(emp.id,curT.id,{report:"未提出",reportConfirmed:false});
+                    else if(s.report==="提出済") setIS(emp.id,curT.id,{reportConfirmed:true});
+                    else setIS(emp.id,curT.id,{report:"提出済"});
+                  };
                   return(
-                    <div key={emp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:isDone?"#f9fafb":"#fff",borderRadius:12,border:`1px solid ${isDone?"#e5e7eb":"#E8D5B0"}`,opacity:isDone?0.6:1}}>
+                    <div key={emp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:isDone?"#f9fafb":"#fff",borderRadius:12,border:`1px solid ${isDone?"#e5e7eb":"#E8D5B0"}`,opacity:isDone?0.7:1}}>
                       <div style={{width:32,height:32,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:600,flexShrink:0,background:bg,color:fg}}>{initials(emp.name)}</div>
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:14,fontWeight:600,color:"#4A3020"}}>{emp.name}</div>
-                        <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
-                          {s.attendance==="参加済"?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>参加済{s.attendedSession==="1"?"①":s.attendedSession==="2"?"②":""}</span>
-                            :<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#f3f4f6",color:"#6b7280",fontWeight:600}}>欠席</span>}
-                          {req&&(status==="done"?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>確認済</span>
-                            :status==="waitConfirm"?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#fef3c7",color:"#92400e",fontWeight:600}}>提出済</span>
-                            :<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#fee2e2",color:"#dc2626",fontWeight:600}}>未提出</span>)}
-                          {!req&&<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#f3f4f6",color:"#9ca3af"}}>必須外</span>}
+                        <div style={{fontSize:14,fontWeight:600,color:"#4A3020",marginBottom:6}}>{emp.name}{!req&&<span style={{fontSize:10,color:"#9ca3af",marginLeft:6,fontWeight:400}}>必須外</span>}</div>
+                        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                          <button disabled={readonly} onClick={()=>!readonly&&setIS(emp.id,curT.id,{attendance:attended?"未参加":"参加済"})} style={chip(attended,"#16a34a","#dcfce7")}>
+                            {attended?`✓ 参加${s.attendedSession==="1"?"①":s.attendedSession==="2"?"②":""}`:"未参加"}
+                          </button>
+                          <button disabled={readonly} onClick={()=>!readonly&&setIS(emp.id,curT.id,{video:watched?"未視聴":"視聴済"})} style={chip(watched,"#7c3aed","#ede9fe")}>
+                            {watched?"✓ 動画視聴":"動画未視聴"}
+                          </button>
+                          <button disabled={readonly} onClick={()=>!readonly&&cycleReport()} style={chip(repState!=="未提出",repState==="確認"?"#16a34a":"#d97706",repState==="確認"?"#dcfce7":"#fef3c7")}>
+                            {repState==="確認"?"✓ 復命書確認":repState==="提出"?"復命書提出":"復命書未提出"}
+                          </button>
                         </div>
                       </div>
-                      {!readonly&&<div style={{display:"flex",gap:5,flexShrink:0}}>
-                        {s.attendance!=="参加済"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #16a34a",background:"#f0fdf4",color:"#15803d",cursor:"pointer",fontWeight:600}} onClick={()=>setIS(emp.id,curT.id,"attendance","参加済")}>参加✓</button>}
-                        {s.attendance==="参加済"&&status!=="done"&&s.report!=="提出済"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#9ca3af",cursor:"pointer"}} onClick={()=>setIS(emp.id,curT.id,"attendance","未参加")}>取消</button>}
-                        {status==="waitConfirm"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #d97706",background:"#fef3c7",color:"#92400e",cursor:"pointer",fontWeight:600}} onClick={()=>setIS(emp.id,curT.id,"reportConfirmed",true)}>確認✓</button>}
-                      </div>}
                     </div>
                   );
                 })}
