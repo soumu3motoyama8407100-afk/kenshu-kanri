@@ -1366,7 +1366,9 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
   // 名前順で固定ソート（操作してもリストが入れ替わらないように）
   const curTargets=curT?employees.filter(e=>isTargetedFor(curT,e)):[];
   const empList=curT?[...curTargets].sort((a,b)=>a.name.localeCompare(b.name,"ja")):[];
-  const displayList=filterPending&&curT?empList.filter(e=>getEmpStatus(e,curT)!=="done"):empList;
+  // 「全員」選択時は、研修の対象者だけでなく部署の在籍者全員を表示する
+  const deptAll=[...employees].filter(e=>e.isActive!==false&&(!e.retireDate||new Date(e.retireDate)>new Date())).sort((a,b)=>a.name.localeCompare(b.name,"ja"));
+  const displayList=!curT?[]:(filterPending?empList.filter(e=>getEmpStatus(e,curT)!=="done"):deptAll);
 
   const reqCount=curT?curTargets.filter(e=>isReportRequired(e,curT)).length:0;
   const unreported=curT?curTargets.filter(e=>isReportRequired(e,curT)&&getIS(e.id,curT.id).report!=="提出済"&&!getIS(e.id,curT.id).reportConfirmed).length:0;
