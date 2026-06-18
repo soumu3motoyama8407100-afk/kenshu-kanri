@@ -57,7 +57,7 @@ const roleRank = e => { const r=e.roleTitle||""; if(!r)return 9; if(r.includes("
 const db = {
   async getEmployees() {
     const {data} = await supabase.from("employees").select("*").order("sort_order").order("id");
-    return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept||"",joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false,isActive:r.is_active!==false,managedDepts:r.managed_depts||[],roleTitle:r.role_title||"",retireDate:r.retire_date||"",jobCategory:r.job_category||"",lineUserId:r.line_user_id||"",onLeave:r.on_leave===true}));
+    return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept||"",joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false,isActive:r.is_active!==false,managedDepts:r.managed_depts||[],roleTitle:r.role_title||"",retireDate:r.retire_date||"",jobCategory:r.job_category||"",lineUserId:r.line_user_id||"",onLeave:r.on_leave===true,isAdmin:r.is_admin||false}));
   },
   async upsertEmployee(emp) {
     // 既存レコードのline_user_idを誤って消さないよう先に取得
@@ -69,6 +69,7 @@ const db = {
       is_active:emp.isActive!==false,managed_depts:emp.managedDepts||[],role_title:emp.roleTitle||"",retire_date:emp.retireDate||null,
       job_category:emp.jobCategory||"",
       on_leave:emp.onLeave===true,
+      is_admin:emp.isAdmin||false,
       line_user_id:existing?.line_user_id||null,
       updated_at:new Date().toISOString()
     },{onConflict:"id"});
@@ -392,8 +393,10 @@ export default function App() {
     return iC+xC;
   };
 
+  const [viewMode,setViewMode]=useState("admin");
   const handleLogin=(empId,isAdmin,isManager,dept)=>{
     setSession({empId,isAdmin,isManager,dept});
+    setViewMode("admin");
     if(pendingAttend&&!isAdmin){ setIS(empId,pendingAttend,"attendance","参加済"); setPendingAttend(null); }
   };
   const handleLogout=()=>setSession(null);
@@ -453,6 +456,30 @@ export default function App() {
     deleteNotice: async id => { await db.deleteCommitteeNotice(id); setCommitteeNotices(p=>p.filter(n=>n.id!==id)); },
   };
 
+  // 管理者権限あり＆職員画面モードの場合（純粋ADMINは除く）
+  if(session.isAdmin && viewMode==="employee" && session.empId!=="ADMIN"){
+    const emp=employees.find(e=>e.id===session.empId);
+    if(emp){
+      const isManager=emp.isManager||false;
+      const managedDepts=emp.managedDepts&&emp.managedDepts.length>0?emp.managedDepts:[emp.dept];
+      return(
+        <EmployeeScreen emp={emp}
+          internals={internals} getIS={getIS} setIS={setIS}
+          externals={externals} getXS={getXS} setXS={setXS}
+          seminars={seminars} getSMV={getSMV} setSMV={setSMV}
+          fiscalYear={fiscalYear} getCount={getCount}
+          onLogout={handleLogout}
+          isManager={isManager}
+          deptEmployees={isManager?employees.filter(e=>managedDepts.includes(e.dept)):undefined}
+          managedDepts={isManager?managedDepts:undefined}
+          setFiscalYear={setFiscalYear}
+          onRefresh={()=>loadAllData(false)} refreshing={refreshing}
+          committeeProps={committeeProps}
+          onSwitchToAdmin={()=>setViewMode("admin")}/>
+      );
+    }
+  }
+
   if(session.isAdmin) return(
     <AdminScreen employees={employees} setEmployees={setEmployees}
       internals={internals} setInternals={async fn=>{
@@ -479,7 +506,8 @@ export default function App() {
       fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}
       getCount={getCount} onLogout={handleLogout}
       onRefresh={()=>loadAllData(false)} refreshing={refreshing}
-      committeeProps={committeeProps}/>
+      committeeProps={committeeProps}
+      onSwitchToEmployee={session.empId!=="ADMIN"?()=>setViewMode("employee"):null}/>
   );
 
   if(session.isManager){
@@ -526,7 +554,7 @@ function LoginCard({title,icon,accentColor,pendingAttend,internals,employees,onL
       const emp=employees.find(e=>e.id===id&&e.password===pw);
       if(emp){
         if(emp.isActive===false||(emp.retireDate&&new Date(emp.retireDate)<=new Date())){setErr("このアカウントは無効です。管理者にお問い合わせください。");return;}
-        onLogin(emp.id,false,emp.isManager||false,emp.dept);return;
+        onLogin(emp.id,emp.isAdmin||false,emp.isManager||false,emp.dept);return;
       }
     }
     setErr("IDまたはパスワードが正しくありません");
@@ -880,7 +908,7 @@ function QRScanModal({onScan,onClose}){
   );
 }
 
-function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminars,getSMV,setSMV,fiscalYear,getCount,onLogout,onRefresh,refreshing,isManager,deptEmployees,managedDepts,setFiscalYear,committeeProps}){
+function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminars,getSMV,setSMV,fiscalYear,getCount,onLogout,onRefresh,refreshing,isManager,deptEmployees,managedDepts,setFiscalYear,committeeProps,onSwitchToAdmin}){
   const [tab,setTab]=useState("training");
   const [videoT,setVideoT]=useState(null);
   const [showVideoModal,setShowVideoModal]=useState(false);
@@ -1005,6 +1033,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
               <div style={S.headerSub}>{emp.dept} · {emp.id}</div>
             </div>
           </div>
+          {/* 管理画面切替ボタン（管理者権限ありの職員のみ） */}
+          {onSwitchToAdmin&&<button onClick={onSwitchToAdmin} style={{display:"flex",alignItems:"center",gap:4,padding:"6px 10px",background:"rgba(255,255,255,.2)",border:"1.5px solid rgba(255,255,255,.6)",borderRadius:12,cursor:"pointer",flexShrink:0,fontSize:11,fontWeight:700,color:"#fff"}}>🛡 管理</button>}
           {/* 実績ボタン */}
           <button onClick={()=>setShowScore(true)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",background:"rgba(255,255,255,.2)",border:"1.5px solid rgba(255,255,255,.6)",borderRadius:12,cursor:"pointer",flexShrink:0}}>
             <span style={{fontSize:22}}>{count>=20?"👑":count>=15?"💎":count>=10?"🏆":count>=5?"⭐":"🌱"}</span>
@@ -1815,7 +1845,7 @@ function PdfModal({ext,onClose}){
   );
 }
 
-function AdminScreen({employees,setEmployees,internals,setInternals,externals,setExternals,deleteInternal,deleteExternal,seminars,upsertSeminar,deleteSeminar,getSMV,getIS,setIS,getXS,setXS,fiscalYear,setFiscalYear,getCount,onLogout,onRefresh,refreshing,committeeProps}){
+function AdminScreen({employees,setEmployees,internals,setInternals,externals,setExternals,deleteInternal,deleteExternal,seminars,upsertSeminar,deleteSeminar,getSMV,getIS,setIS,getXS,setXS,fiscalYear,setFiscalYear,getCount,onLogout,onRefresh,refreshing,committeeProps,onSwitchToEmployee}){
   const [tab,setTab]=useState("ranking");
   const [qrT,setQrT]=useState(null);
   return(
@@ -1831,6 +1861,7 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
               {[currentFY()-1,currentFY(),currentFY()+1].map(y=><option key={y} value={y}>{y}年度</option>)}
             </select>
             {onRefresh&&<button style={{...S.logoutBtn,background:"#0e7490",color:"#fff",borderColor:"#0e7490",opacity:refreshing?0.6:1}} onClick={onRefresh} disabled={refreshing}>{refreshing?"更新中…":"🔄 更新"}</button>}
+            {onSwitchToEmployee&&<button style={{...S.logoutBtn,background:"#059669",color:"#fff",borderColor:"#059669"}} onClick={onSwitchToEmployee}>👤 職員画面へ</button>}
             <button style={{...S.logoutBtn,background:"#C89A55",color:"#fff",borderColor:"#C89A55"}} onClick={()=>window.print()}>🖨 印刷</button>
             <button style={S.logoutBtn} onClick={onLogout}>ログアウト</button>
           </div>
@@ -1885,10 +1916,16 @@ function EmpForm({data,onChange,onSave,onCancel,isEdit,allEmployees}){
           🌙 休職中（研修・お知らせ・LINE配信の対象から外れます）
         </label>
       </div>
-      <div style={{marginBottom:14}}>
+      <div style={{marginBottom:10}}>
         <label style={{...S.label,display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
           <input type="checkbox" checked={data.isManager||false} onChange={e=>onChange({...data,isManager:e.target.checked})} style={{width:16,height:16,accentColor:"#C89A55"}}/>
           🏢 この職員を部署長にする（自部署の進捗確認・復命書確認が可能）
+        </label>
+      </div>
+      <div style={{marginBottom:14}}>
+        <label style={{...S.label,display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+          <input type="checkbox" checked={data.isAdmin||false} onChange={e=>onChange({...data,isAdmin:e.target.checked})} style={{width:16,height:16,accentColor:"#dc2626"}}/>
+          🛡 管理者権限を付与する（管理画面と職員画面を切り替えて使用できます）
         </label>
       </div>
       {data.isManager&&(
@@ -1957,7 +1994,7 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
     await db.upsertEmployee(e);
     setEmployees(p=>{const idx=p.findIndex(x=>x.id===e.id);return idx>=0?p.map(x=>x.id===e.id?e:x):[...p,e];});
     setShowAdd(false); setEditEmp(null);
-    setNewE({id:"",password:"",name:"",dept:"",joinDate:"",qualifications:"",certTrainings:"",isManager:false,roleTitle:"",managedDepts:[],isActive:true});
+    setNewE({id:"",password:"",name:"",dept:"",joinDate:"",qualifications:"",certTrainings:"",isManager:false,isAdmin:false,roleTitle:"",managedDepts:[],isActive:true});
   };
 
   const delEmp=async(id)=>{
