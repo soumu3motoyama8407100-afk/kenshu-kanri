@@ -57,7 +57,7 @@ const roleRank = e => { const r=e.roleTitle||""; if(!r)return 9; if(r.includes("
 const db = {
   async getEmployees() {
     const {data} = await supabase.from("employees").select("*").order("sort_order").order("id");
-    return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept||"",joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false,isActive:r.is_active!==false,managedDepts:r.managed_depts||[],roleTitle:r.role_title||"",retireDate:r.retire_date||"",jobCategory:r.job_category||"",lineUserId:r.line_user_id||"",onLeave:r.on_leave===true,isAdmin:r.is_admin||false}));
+    return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept||"",joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false,isActive:r.is_active!==false,managedDepts:r.managed_depts||[],roleTitle:r.role_title||"",retireDate:r.retire_date||"",jobCategory:r.job_category||"",lineUserId:r.line_user_id||"",onLeave:r.on_leave===true,isAdmin:r.is_admin||false,isViewer:r.is_viewer||false}));
   },
   async upsertEmployee(emp) {
     // 既存レコードのline_user_idを誤って消さないよう先に取得
@@ -70,6 +70,7 @@ const db = {
       job_category:emp.jobCategory||"",
       on_leave:emp.onLeave===true,
       is_admin:emp.isAdmin||false,
+      is_viewer:emp.isViewer||false,
       line_user_id:existing?.line_user_id||null,
       updated_at:new Date().toISOString()
     },{onConflict:"id"});
@@ -394,8 +395,8 @@ export default function App() {
   };
 
   const [viewMode,setViewMode]=useState("admin");
-  const handleLogin=(empId,isAdmin,isManager,dept)=>{
-    setSession({empId,isAdmin,isManager,dept});
+  const handleLogin=(empId,isAdmin,isManager,isViewer,dept)=>{
+    setSession({empId,isAdmin,isManager,isViewer,dept});
     setViewMode("admin");
     if(pendingAttend&&!isAdmin){ setIS(empId,pendingAttend,"attendance","参加済"); setPendingAttend(null); }
   };
@@ -532,6 +533,27 @@ export default function App() {
 
   const emp=employees.find(e=>e.id===session.empId);
   if(!emp){ handleLogout(); return null; }
+
+  // 閲覧担当（isViewer）：部署管理タブを読み取り専用で表示
+  if(session.isViewer){
+    const allDepts=[...new Set(employees.map(e=>e.dept).filter(Boolean))];
+    const viewerDepts=emp.managedDepts&&emp.managedDepts.length>0?emp.managedDepts:allDepts;
+    return(
+      <EmployeeScreen emp={emp}
+        internals={internals} getIS={getIS} setIS={setIS}
+        externals={externals} getXS={getXS} setXS={setXS}
+        seminars={seminars} getSMV={getSMV} setSMV={setSMV}
+        fiscalYear={fiscalYear} getCount={getCount}
+        onLogout={handleLogout}
+        isViewer={true}
+        deptEmployees={employees.filter(e=>viewerDepts.includes(e.dept))}
+        managedDepts={viewerDepts}
+        setFiscalYear={setFiscalYear}
+        onRefresh={()=>loadAllData(false)} refreshing={refreshing}
+        committeeProps={committeeProps}/>
+    );
+  }
+
   return(
     <EmployeeScreen emp={emp}
       internals={internals} getIS={getIS} setIS={setIS}
@@ -554,7 +576,7 @@ function LoginCard({title,icon,accentColor,pendingAttend,internals,employees,onL
       const emp=employees.find(e=>e.id===id&&e.password===pw);
       if(emp){
         if(emp.isActive===false||(emp.retireDate&&new Date(emp.retireDate)<=new Date())){setErr("このアカウントは無効です。管理者にお問い合わせください。");return;}
-        onLogin(emp.id,emp.isAdmin||false,emp.isManager||false,emp.dept);return;
+        onLogin(emp.id,emp.isAdmin||false,emp.isManager||false,emp.isViewer||false,emp.dept);return;
       }
     }
     setErr("IDまたはパスワードが正しくありません");
@@ -590,7 +612,7 @@ function DualLoginScreen({pendingAttend,internals,employees,onLogin,onManualLogi
         <div style={{display:"flex",flexDirection:"column",gap:16}}>
           <LoginCard title="研修管理システム" icon="📚" accentColor="#C89A55"
             pendingAttend={pendingAttend} internals={internals} employees={employees}
-            onLogin={(empId,isAdmin,isManager,dept)=>onLogin(empId,isAdmin,isManager||false,dept||"")}/>
+            onLogin={(empId,isAdmin,isManager,isViewer,dept)=>onLogin(empId,isAdmin,isManager||false,isViewer||false,dept||"")}/>
           {MANUAL_ENABLED&&<ManualLoginCard employees={employees} onManualLogin={onManualLogin}/>}
         </div>
       </div>
@@ -908,7 +930,7 @@ function QRScanModal({onScan,onClose}){
   );
 }
 
-function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminars,getSMV,setSMV,fiscalYear,getCount,onLogout,onRefresh,refreshing,isManager,deptEmployees,managedDepts,setFiscalYear,committeeProps,onSwitchToAdmin}){
+function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminars,getSMV,setSMV,fiscalYear,getCount,onLogout,onRefresh,refreshing,isManager,isViewer,deptEmployees,managedDepts,setFiscalYear,committeeProps,onSwitchToAdmin}){
   const [tab,setTab]=useState("training");
   const [videoT,setVideoT]=useState(null);
   const [showVideoModal,setShowVideoModal]=useState(false);
@@ -1056,7 +1078,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
         {/* タブバー */}
         <div style={S.tabBar}>
           {[["training","📚 研修"],["seminar","📺 セミナー"],
-            ...(isManager?[["mgr","📋 部署管理"]]:[]),
+            ...((isManager||isViewer)?[["mgr","📋 部署管理"]]:[]),
             ["chair","🏛 委員会"],
             ["notices","📢 お知らせ"]]
             .map(([k,l])=>{
@@ -1112,7 +1134,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
             <SeminarTab seminars={fySeminars} empId={emp.id} getSMV={getSMV} setSMV={setSMV}
               readonly={!isCurrentFY} fiscalYear={viewFY} showToast={showToast}/>
           )}
-          {tab==="mgr"&&isManager&&deptEmployees&&(
+          {tab==="mgr"&&(isManager||isViewer)&&deptEmployees&&(
             <ManagerTabContent
               dept={(managedDepts&&managedDepts.length>1)?managedDepts.join("・"):emp.dept}
               employees={deptEmployees}
@@ -1120,7 +1142,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
               externals={externals} getXS={getXS} setXS={setXS}
               seminars={seminars} getSMV={getSMV}
               fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}
-              managedDepts={managedDepts||[emp.dept]}/>
+              managedDepts={managedDepts||[emp.dept]}
+              readonly={isViewer&&!isManager}/>
           )}
           {tab==="chair"&&committeeProps&&(
             <ChairCommitteeView emp={emp} {...committeeProps}/>
@@ -1202,7 +1225,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
 }
 
 // ── 部署長コンテンツ（ダッシュボード型）─────────────────────────
-function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS,setXS,seminars,getSMV,fiscalYear,setFiscalYear}){
+function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS,setXS,seminars,getSMV,fiscalYear,setFiscalYear,readonly}){
   const fyInternals=internals.filter(t=>inFiscalYear(t.date,fiscalYear)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const fyExternals=externals.filter(x=>inFiscalYear(x.date,fiscalYear)&&x.targetEmpIds.some(id=>employees.map(e=>e.id).includes(id)));
   const [selTraining,setSelTraining]=useState(null);
@@ -1252,7 +1275,10 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
     <div style={{padding:"8px 0"}}>
       {/* ヘッダー */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,flexWrap:"wrap",gap:8}}>
-        <div style={{fontSize:13,fontWeight:700,color:"#1e3a5f"}}>🏢 {dept}</div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#1e3a5f"}}>🏢 {dept}</div>
+          {readonly&&<span style={{fontSize:11,fontWeight:700,background:"#e0f2fe",color:"#0369a1",borderRadius:20,padding:"2px 10px",border:"1px solid #7dd3fc"}}>👁 閲覧のみ</span>}
+        </div>
         {setFiscalYear&&<select value={fiscalYear} onChange={e=>setFiscalYear(Number(e.target.value))} style={{padding:"3px 8px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:12,cursor:"pointer",background:"#fff"}}>
           {[currentFY()-1,currentFY(),currentFY()+1].map(y=><option key={y} value={y}>{y}年度</option>)}
         </select>}
@@ -1332,11 +1358,11 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
                           {!req&&<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#f3f4f6",color:"#9ca3af"}}>必須外</span>}
                         </div>
                       </div>
-                      <div style={{display:"flex",gap:5,flexShrink:0}}>
+                      {!readonly&&<div style={{display:"flex",gap:5,flexShrink:0}}>
                         {s.attendance!=="参加済"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #16a34a",background:"#f0fdf4",color:"#15803d",cursor:"pointer",fontWeight:600}} onClick={()=>setIS(emp.id,curT.id,"attendance","参加済")}>参加✓</button>}
                         {s.attendance==="参加済"&&status!=="done"&&s.report!=="提出済"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#9ca3af",cursor:"pointer"}} onClick={()=>setIS(emp.id,curT.id,"attendance","未参加")}>取消</button>}
                         {status==="waitConfirm"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #d97706",background:"#fef3c7",color:"#92400e",cursor:"pointer",fontWeight:600}} onClick={()=>setIS(emp.id,curT.id,"reportConfirmed",true)}>確認✓</button>}
-                      </div>
+                      </div>}
                     </div>
                   );
                 })}
@@ -1364,7 +1390,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
                     <div style={{flex:1,fontSize:13,fontWeight:600,color:"#4A3020"}}>{emp.name}</div>
                     <div style={{display:"flex",gap:4,alignItems:"center"}}>
                       {s.reportConfirmed?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>確認済</span>
-                        :s.reportSubmitted?<button style={{fontSize:11,padding:"4px 10px",borderRadius:20,border:"1px solid #d97706",background:"#fef3c7",color:"#92400e",cursor:"pointer",fontWeight:600}} onClick={()=>setXS(emp.id,x.id,{reportConfirmed:true})}>確認✓</button>
+                        :s.reportSubmitted?(readonly?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#fef3c7",color:"#92400e",fontWeight:600}}>提出済</span>:<button style={{fontSize:11,padding:"4px 10px",borderRadius:20,border:"1px solid #d97706",background:"#fef3c7",color:"#92400e",cursor:"pointer",fontWeight:600}} onClick={()=>setXS(emp.id,x.id,{reportConfirmed:true})}>確認✓</button>)
                         :<span style={{fontSize:11,color:"#9ca3af"}}>未提出</span>}
                     </div>
                   </div>
@@ -1922,6 +1948,12 @@ function EmpForm({data,onChange,onSave,onCancel,isEdit,allEmployees}){
           🏢 この職員を部署長にする（自部署の進捗確認・復命書確認が可能）
         </label>
       </div>
+      <div style={{marginBottom:10}}>
+        <label style={{...S.label,display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+          <input type="checkbox" checked={data.isViewer||false} onChange={e=>onChange({...data,isViewer:e.target.checked})} style={{width:16,height:16,accentColor:"#0369a1"}}/>
+          👁 閲覧担当にする（部署管理を読み取り専用で閲覧可能。承認操作は不可）
+        </label>
+      </div>
       <div style={{marginBottom:14}}>
         <label style={{...S.label,display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
           <input type="checkbox" checked={data.isAdmin||false} onChange={e=>onChange({...data,isAdmin:e.target.checked})} style={{width:16,height:16,accentColor:"#dc2626"}}/>
@@ -1984,6 +2016,7 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
       certTrainings:(emp.certTrainings||"").split(",").map(s=>s.trim()).filter(Boolean),
       isManager:emp.isManager||false,
       isAdmin:emp.isAdmin||false,
+      isViewer:emp.isViewer||false,
       roleTitle:emp.roleTitle||"",
       managedDepts:emp.managedDepts||[],
       isActive:emp.isActive!==false,
