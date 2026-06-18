@@ -66,7 +66,7 @@ serve(async (req) => {
 
       await replyMessage(
         event.replyToken,
-        "※※初回登録※※\nこちらに職員番号を送信してください。\n\n例）E001"
+        "※※初回登録※※\nこちらに職員番号を送信してください。\n\n例）003"
       );
     }
 
