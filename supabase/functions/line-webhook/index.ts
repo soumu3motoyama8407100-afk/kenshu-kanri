@@ -154,7 +154,27 @@ serve(async (req) => {
         continue;
       }
 
-      // ── 職員番号の入力 ──
+      // ── 登録済みユーザーからのメッセージ ──
+      // 紐づけ済みの人には「職員番号を送って」の案内を出さない（お知らせ配信専用のため）
+      const { data: alreadyRegistered } = await supabase
+        .from("employees")
+        .select("id, name")
+        .eq("line_user_id", lineUserId)
+        .maybeSingle();
+
+      if (alreadyRegistered) {
+        // 番号らしき内容（数字を含む）＝再登録しようとした場合のみ、登録済みである旨を案内
+        if (/\d/.test(text)) {
+          await replyMessage(
+            event.replyToken,
+            `✅ すでに「${alreadyRegistered.name}」さんとして登録済みです。\n\n登録内容の変更は管理者にお問い合わせください。`
+          );
+        }
+        // それ以外（雑談的なメッセージ）には返信しない
+        continue;
+      }
+
+      // ── 職員番号の入力（未登録ユーザー）──
       // メッセージから職員番号の候補を抽出（「003」だけでなく「003です」「番号は003」等にも対応）
       const trimmed = text.replace(/\s/g, "");
       const candidates: string[] = [];
@@ -163,21 +183,6 @@ serve(async (req) => {
       const uniqCandidates = [...new Set(candidates)];
 
       if (uniqCandidates.length > 0) {
-        // すでに登録済みの場合は上書きしない
-        const { data: alreadyRegistered } = await supabase
-          .from("employees")
-          .select("id, name")
-          .eq("line_user_id", lineUserId)
-          .maybeSingle();
-
-        if (alreadyRegistered) {
-          await replyMessage(
-            event.replyToken,
-            `✅ すでに「${alreadyRegistered.name}」さんとして登録済みです。\n\n登録内容の変更は管理者にお問い合わせください。`
-          );
-          continue;
-        }
-
         // 候補を順に照合し、最初に一致した職員を採用
         let emp: { id: string; name: string } | null = null;
         for (const c of uniqCandidates) {
