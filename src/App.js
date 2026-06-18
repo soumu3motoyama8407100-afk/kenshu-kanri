@@ -9,6 +9,13 @@ const supabase = createClient(
 const ADMIN = { id:"ADMIN", password:"admin123" };
 // LINEログイン（LIFF）
 const LIFF_ID = "2010442697-FT1prfBF";
+// IDトークンの有効期限切れを判定（期限切れの証明書を送って弾かれるのを防ぐ）
+function isJwtExpired(token){
+  try{
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));
+    return !payload.exp || (payload.exp*1000) < (Date.now()+60000); // 60秒の余裕を見る
+  }catch{ return true; }
+}
 let _liffReady = null;
 function ensureLiff(){
   if(_liffReady) return _liffReady;
@@ -422,8 +429,8 @@ export default function App() {
   // ── LINEログイン ──────────────────────────────────────
   const [lineLoggingIn,setLineLoggingIn] = useState(false);
   const [lineMsg,setLineMsg] = useState("");
-  const finishLineLogin = async() => {
-    const idToken = window.liff.getIDToken();
+  const finishLineLogin = async(idToken) => {
+    idToken = idToken || (window.liff && window.liff.getIDToken());
     if(!idToken){ setLineMsg("LINEログイン情報を取得できませんでした。もう一度お試しください。"); return; }
     const { data, error } = await supabase.functions.invoke("line-login",{ body:{ idToken } });
     if(error||!data){ setLineMsg("ログインに失敗しました。お手数ですがID・パスワードでお試しください。"); return; }
@@ -443,12 +450,15 @@ export default function App() {
     setLineMsg(""); setLineLoggingIn(true);
     try{
       await ensureLiff();
-      if(!window.liff.isLoggedIn()){
+      const token = window.liff.isLoggedIn() ? window.liff.getIDToken() : null;
+      if(!token || isJwtExpired(token)){
+        // 未ログイン or 認証情報が期限切れ → ログインし直して取り直す
+        if(window.liff.isLoggedIn()){ try{ window.liff.logout(); }catch(_){} }
         sessionStorage.setItem("line_login_pending","1");
         window.liff.login({ redirectUri: window.location.href.split("#")[0] });
         return; // LINEへ遷移（戻ってきたら下のuseEffectが続きを処理）
       }
-      await finishLineLogin();
+      await finishLineLogin(token);
     }catch(e){
       setLineMsg("LINEログインでエラーが発生しました。通信環境をご確認のうえ、ID・パスワードでお試しください。");
     }finally{ setLineLoggingIn(false); }
@@ -460,7 +470,12 @@ export default function App() {
     sessionStorage.removeItem("line_login_pending");
     (async()=>{
       setLineLoggingIn(true);
-      try{ await ensureLiff(); if(window.liff.isLoggedIn()) await finishLineLogin(); }
+      try{
+        await ensureLiff();
+        const token = window.liff.isLoggedIn() ? window.liff.getIDToken() : null;
+        if(token && !isJwtExpired(token)) await finishLineLogin(token);
+        else setLineMsg("LINEの有効期限が切れていました。お手数ですが、もう一度「LINEでログイン」を押してください。");
+      }
       catch(e){ setLineMsg("LINEログインでエラーが発生しました。"); }
       finally{ setLineLoggingIn(false); }
     })();
