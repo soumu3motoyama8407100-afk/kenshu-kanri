@@ -805,23 +805,34 @@ function PointCard({count,fiscalYear}){
   return(
     <div style={{background:"linear-gradient(135deg,#C89A55,#A07840)",borderRadius:18,padding:"20px 22px",color:"#fff",position:"relative",overflow:"hidden"}}>
       <div style={{position:"absolute",right:-20,top:-20,width:100,height:100,borderRadius:"50%",background:"rgba(255,255,255,.08)"}}/>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12,position:"relative"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10,position:"relative"}}>
         <div><div style={{fontSize:11,color:"rgba(255,255,255,.8)",marginBottom:2}}>{fiscalYear}年度 復命書提出実績</div>
           <div style={{fontSize:36,fontWeight:800,lineHeight:1}}>{count}<span style={{fontSize:14,fontWeight:400,marginLeft:4}}>件</span></div></div>
         <div style={{textAlign:"center"}}>
           <div style={{fontSize:34}}>{points>0?(points===2?"🏆":"⭐"):"🌱"}</div>
-          <div style={{fontSize:11,marginTop:2,color:points>=2?"#c4b5fd":points>=1?"#fcd34d":"rgba(255,255,255,.7)"}}>人事考課 <span style={{fontSize:16,fontWeight:800}}>+{points}</span>点</div>
+          <div style={{fontSize:14,fontWeight:800,marginTop:2,color:points>=2?"#c4b5fd":points>=1?"#fcd34d":"rgba(255,255,255,.8)"}}>+{points}点</div>
+          <div style={{fontSize:10,color:"rgba(255,255,255,.65)",marginTop:1}}>人事考課加点</div>
         </div>
       </div>
+      {/* 加点ルール */}
+      <div style={{display:"flex",gap:6,marginBottom:10}}>
+        {[{label:"5件",pt:"+1点",icon:"⭐",ok:count>=5},{label:"10件",pt:"+2点",icon:"🏆",ok:count>=10}].map(t=>(
+          <div key={t.label} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:4,padding:"5px 8px",borderRadius:8,background:t.ok?"rgba(255,255,255,.28)":"rgba(255,255,255,.12)",border:`1px solid ${t.ok?"rgba(255,255,255,.55)":"rgba(255,255,255,.22)"}`}}>
+            <span style={{fontSize:13}}>{t.icon}</span>
+            <span style={{fontSize:11,fontWeight:700,color:"#fff"}}>{t.label}</span>
+            <span style={{fontSize:10,color:t.ok?"#fcd34d":"rgba(255,255,255,.65)"}}>→ {t.pt}</span>
+          </div>
+        ))}
+      </div>
       <div style={{marginBottom:8}}>
-        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"rgba(255,255,255,.8)",marginBottom:4}}><span>今年度の復命書提出状況</span><span>{count}/20件</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"rgba(255,255,255,.8)",marginBottom:4}}><span>提出状況</span><span>{count}/20件</span></div>
         <div style={{position:"relative",height:10,background:"rgba(255,255,255,.25)",borderRadius:5,overflow:"visible"}}>
           <div style={{height:"100%",width:`${pct}%`,background:"#fff",borderRadius:5,transition:"width .5s"}}/>
           <div style={{position:"absolute",left:"50%",top:-3,width:2,height:16,background:"rgba(255,255,255,.6)",borderRadius:1}}/>
         </div>
       </div>
-      <div style={{marginTop:16,padding:"8px 12px",background:"rgba(255,255,255,.15)",borderRadius:10,fontSize:12}}>
-        {count>=20?"👑 20件達成！すばらしい学習意欲です！":count>=15?`💎 15件達成！あと${20-count}件で👑`:count>=10?`🏆 +2点獲得中！あと${15-count}件で💎`:count>=5?`⭐ +1点獲得中！あと${10-count}件で🏆 +2点`:`🌱 あと${5-count}件で⭐ +1点、${10-count}件で🏆 +2点`}
+      <div style={{marginTop:12,padding:"8px 12px",background:"rgba(255,255,255,.15)",borderRadius:10,fontSize:12}}>
+        {count>=20?"👑 20件達成！すばらしい学習意欲です！":count>=15?`💎 15件達成！あと${20-count}件で👑`:count>=10?`🏆 人事考課+2点獲得中！あと${15-count}件で💎`:count>=5?`⭐ 人事考課+1点獲得中！あと${10-count}件で🏆（+2点）`:`🌱 あと${5-count}件で⭐（人事考課+1点）、${10-count}件で🏆（+2点）`}
       </div>
       {badge&&<div style={{display:"flex",alignItems:"center",gap:8,marginTop:10}}><span style={{fontSize:18}}>{badge.icon}</span><span style={{fontSize:12,color:"rgba(255,255,255,.8)"}}>{badge.label} バッジ獲得中</span></div>}
     </div>
@@ -2268,7 +2279,10 @@ function RankingTab({employees,fiscalYear,getCount}){
           .map(c=><div key={c.label} style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:12,padding:"12px 10px",textAlign:"center"}}><div style={{fontSize:10,color:"#6b7280",marginBottom:4}}>{c.label}</div><div style={{fontSize:20,fontWeight:800,color:c.color}}>{c.value}</div><div style={{fontSize:10,color:"#9ca3af",marginTop:2}}>{c.sub}</div></div>)}
       </div>
       <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,overflow:"hidden"}}>
-        <div style={{background:"#C89A55",color:"#fff",padding:"12px 16px",fontWeight:700,fontSize:14}}>🏅 {fiscalYear}年度 復命書提出ランキング</div>
+        <div style={{background:"#C89A55",color:"#fff",padding:"12px 16px"}}>
+          <div style={{fontWeight:700,fontSize:14}}>🏅 {fiscalYear}年度 復命書提出ランキング</div>
+          <div style={{fontSize:11,color:"rgba(255,255,255,.8)",marginTop:3}}>人事考課加点：⭐ 5件→+1点　🏆 10件→+2点</div>
+        </div>
         {ranked.map((emp,i)=>{const rank=i+1;const rs=rankStyle(rank);const badge=getBadge(emp.count);const bc=emp.count>=20?"#b45309":emp.count>=15?"#0369a1":emp.count>=10?"#7c3aed":emp.count>=5?"#d97706":"#C89A55";
           return(
             <div key={emp.id} style={{padding:"12px 16px",borderBottom:"1px solid #f3f4f6",background:rank===1?"#fffbeb":rank<=3?"#fdf6ec":"#fff"}}>
@@ -2283,7 +2297,10 @@ function RankingTab({employees,fiscalYear,getCount}){
                     <span style={{fontSize:12,fontWeight:700,color:bc,minWidth:28}}>{emp.count}件</span>
                   </div>
                 </div>
-                <div style={{textAlign:"center",minWidth:50}}><div style={{fontSize:18,fontWeight:800,color:emp.points>=2?"#7c3aed":emp.points>=1?"#d97706":"#9ca3af"}}>+{emp.points}</div><div style={{fontSize:10,color:"#6b7280"}}>点</div></div>
+                <div style={{textAlign:"center",minWidth:54}}>
+                  <div style={{fontSize:16,fontWeight:800,color:emp.points>=2?"#7c3aed":emp.points>=1?"#d97706":"#9ca3af"}}>+{emp.points}点</div>
+                  <div style={{fontSize:9,color:"#9ca3af",marginTop:1,lineHeight:1.3}}>{emp.points>=2?"10件以上":emp.points>=1?"5件以上":"5件未満"}</div>
+                </div>
               </div>
             </div>
           );
