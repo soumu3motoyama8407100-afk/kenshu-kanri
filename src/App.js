@@ -413,7 +413,8 @@ export default function App() {
   const [viewMode,setViewMode]=useState("admin");
   const handleLogin=(empId,isAdmin,isManager,isViewer,dept)=>{
     setSession({empId,isAdmin,isManager,isViewer,dept});
-    setViewMode("admin");
+    // 管理者権限を持つ職員は、まず個人画面を表示（ADMINアカウントのみ管理者画面で開く）
+    setViewMode(empId==="ADMIN"?"admin":"employee");
     if(pendingAttend&&!isAdmin){ setIS(empId,pendingAttend,"attendance","参加済"); setPendingAttend(null); }
   };
   const handleLogout=()=>setSession(null);
