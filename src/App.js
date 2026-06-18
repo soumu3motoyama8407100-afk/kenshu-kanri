@@ -1022,27 +1022,27 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
       )}
       <div className="rsp-wrap" style={S.appWrap}>
         {/* ヘッダー */}
-        <div style={S.header}>
-          <div style={{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0}}>
-            <button onClick={()=>setShowProfile(true)} style={{width:38,height:38,borderRadius:"50%",background:"rgba(255,255,255,.25)",border:"1.5px solid rgba(255,255,255,.4)",color:"#4A3020",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>👤</button>
-            <div style={{minWidth:0}}>
-              <div style={{...S.headerName,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.name}</span>
-                {emp.roleTitle&&<span style={{fontSize:11,fontWeight:700,background:"rgba(255,255,255,.25)",borderRadius:10,padding:"2px 8px",flexShrink:0}}>{emp.roleTitle}</span>}
-              </div>
-              <div style={S.headerSub}>{emp.dept} · {emp.id}</div>
+        <div style={{...S.header,flexDirection:"column",gap:0,padding:"12px 16px"}}>
+          {/* 上段：アバター + 名前 + 実績 */}
+          <div style={{display:"flex",alignItems:"center",gap:10,width:"100%"}}>
+            <button onClick={()=>setShowProfile(true)} style={{width:42,height:42,borderRadius:"50%",background:"rgba(255,255,255,.25)",border:"2px solid rgba(255,255,255,.5)",color:"#fff",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>👤</button>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:18,fontWeight:800,color:"#fff",lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.name}</div>
             </div>
+            {/* 実績（コンパクト） */}
+            <button onClick={()=>setShowScore(true)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",background:"rgba(255,255,255,.18)",border:"1.5px solid rgba(255,255,255,.4)",borderRadius:20,cursor:"pointer",flexShrink:0}}>
+              <span style={{fontSize:18}}>{count>=20?"👑":count>=15?"💎":count>=10?"🏆":count>=5?"⭐":"🌱"}</span>
+              <span style={{fontSize:14,color:"#fff",fontWeight:800}}>{count}<span style={{fontSize:11,fontWeight:400}}>件</span></span>
+            </button>
           </div>
-          {/* 管理画面切替ボタン（管理者権限ありの職員のみ） */}
-          {onSwitchToAdmin&&<button onClick={onSwitchToAdmin} style={{display:"flex",alignItems:"center",gap:4,padding:"6px 10px",background:"rgba(255,255,255,.2)",border:"1.5px solid rgba(255,255,255,.6)",borderRadius:12,cursor:"pointer",flexShrink:0,fontSize:11,fontWeight:700,color:"#fff"}}>🛡 管理</button>}
-          {/* 実績ボタン */}
-          <button onClick={()=>setShowScore(true)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",background:"rgba(255,255,255,.2)",border:"1.5px solid rgba(255,255,255,.6)",borderRadius:12,cursor:"pointer",flexShrink:0}}>
-            <span style={{fontSize:22}}>{count>=20?"👑":count>=15?"💎":count>=10?"🏆":count>=5?"⭐":"🌱"}</span>
-            <div style={{textAlign:"left"}}>
-              <div style={{fontSize:11,color:"rgba(255,255,255,.8)",fontWeight:600,lineHeight:1.2}}>実績</div>
-              <div style={{fontSize:15,color:"#fff",fontWeight:800,lineHeight:1.2}}>{count}<span style={{fontSize:11,fontWeight:400}}>件</span></div>
-            </div>
-          </button>
+          {/* 下段：役職バッジ + 部署ID + 管理ボタン */}
+          <div style={{display:"flex",alignItems:"center",gap:8,marginTop:8,flexWrap:"wrap"}}>
+            {emp.roleTitle&&<span style={{fontSize:11,fontWeight:700,background:"rgba(255,255,255,.22)",borderRadius:20,padding:"2px 10px",color:"#fff",border:"1px solid rgba(255,255,255,.35)"}}>{emp.roleTitle}</span>}
+            <span style={{fontSize:11,color:"rgba(255,255,255,.75)"}}>{emp.dept} · {emp.id}</span>
+            {onSwitchToAdmin&&(
+              <button onClick={onSwitchToAdmin} style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:4,padding:"4px 10px",background:"rgba(255,255,255,.18)",border:"1px solid rgba(255,255,255,.4)",borderRadius:20,cursor:"pointer",fontSize:11,fontWeight:700,color:"#fff"}}>🛡 管理画面</button>
+            )}
+          </div>
         </div>
         {/* 年度バー */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"8px 16px",background:"#FDF6EC",borderBottom:"1px solid #E8D5B0"}}>
