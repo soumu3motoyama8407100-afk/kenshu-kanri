@@ -1044,25 +1044,25 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
       )}
       <div className="rsp-wrap" style={S.appWrap}>
         {/* ヘッダー */}
-        <div style={{...S.header,flexDirection:"column",alignItems:"stretch",gap:0,padding:"12px 16px"}}>
+        <div style={{background:"#C89A55",color:"#fff",padding:"12px 16px",display:"block",boxSizing:"border-box"}}>
           {/* 上段：アバター + 名前 + 実績 */}
-          <div style={{display:"flex",flexDirection:"row",alignItems:"center",gap:10,width:"100%"}}>
-            <button onClick={()=>setShowProfile(true)} style={{width:42,height:42,borderRadius:"50%",background:"rgba(255,255,255,.25)",border:"2px solid rgba(255,255,255,.5)",color:"#fff",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>👤</button>
-            <div style={{flex:1,minWidth:0}}>
+          <div style={{display:"-webkit-box",display:"-webkit-flex",display:"flex",WebkitFlexDirection:"row",flexDirection:"row",WebkitAlignItems:"center",alignItems:"center",gap:10,width:"100%",boxSizing:"border-box"}}>
+            <button onClick={()=>setShowProfile(true)} style={{width:42,height:42,minWidth:42,borderRadius:"50%",background:"rgba(255,255,255,.25)",border:"2px solid rgba(255,255,255,.5)",color:"#fff",fontSize:18,cursor:"pointer",display:"flex",WebkitAlignItems:"center",alignItems:"center",WebkitJustifyContent:"center",justifyContent:"center",flexShrink:0,WebkitFlexShrink:0}}>👤</button>
+            <div style={{flex:1,WebkitFlex:1,minWidth:0,overflow:"hidden"}}>
               <div style={{fontSize:18,fontWeight:800,color:"#fff",lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.name}</div>
             </div>
             {/* 実績（コンパクト） */}
-            <button onClick={()=>setShowScore(true)} style={{display:"flex",flexDirection:"row",alignItems:"center",gap:6,padding:"6px 12px",background:"rgba(255,255,255,.18)",border:"1.5px solid rgba(255,255,255,.4)",borderRadius:20,cursor:"pointer",flexShrink:0}}>
+            <button onClick={()=>setShowScore(true)} style={{display:"flex",WebkitFlexDirection:"row",flexDirection:"row",WebkitAlignItems:"center",alignItems:"center",gap:6,padding:"6px 12px",background:"rgba(255,255,255,.18)",border:"1.5px solid rgba(255,255,255,.4)",borderRadius:20,cursor:"pointer",flexShrink:0,WebkitFlexShrink:0,minWidth:"fit-content"}}>
               <span style={{fontSize:18}}>{count>=20?"👑":count>=15?"💎":count>=10?"🏆":count>=5?"⭐":"🌱"}</span>
               <span style={{fontSize:14,color:"#fff",fontWeight:800}}>{count}<span style={{fontSize:11,fontWeight:400}}>件</span></span>
             </button>
           </div>
           {/* 下段：役職バッジ + 部署ID + 管理ボタン */}
-          <div style={{display:"flex",flexDirection:"row",alignItems:"center",gap:8,marginTop:8,width:"100%",minWidth:0}}>
-            {emp.roleTitle&&<span style={{fontSize:11,fontWeight:700,background:"rgba(255,255,255,.22)",borderRadius:20,padding:"2px 10px",color:"#fff",border:"1px solid rgba(255,255,255,.35)",flexShrink:0}}>{emp.roleTitle}</span>}
-            <span style={{fontSize:11,color:"rgba(255,255,255,.75)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.dept} · {emp.id}</span>
+          <div style={{display:"-webkit-box",display:"-webkit-flex",display:"flex",WebkitFlexDirection:"row",flexDirection:"row",WebkitAlignItems:"center",alignItems:"center",gap:8,marginTop:8,width:"100%",boxSizing:"border-box",minWidth:0}}>
+            {emp.roleTitle&&<span style={{fontSize:11,fontWeight:700,background:"rgba(255,255,255,.22)",borderRadius:20,padding:"2px 10px",color:"#fff",border:"1px solid rgba(255,255,255,.35)",flexShrink:0,WebkitFlexShrink:0,whiteSpace:"nowrap"}}>{emp.roleTitle}</span>}
+            <span style={{fontSize:11,color:"rgba(255,255,255,.75)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,WebkitFlex:1,minWidth:0}}>{emp.dept} · {emp.id}</span>
             {onSwitchToAdmin&&(
-              <button onClick={onSwitchToAdmin} style={{marginLeft:"auto",flexShrink:0,display:"flex",flexDirection:"row",alignItems:"center",gap:4,padding:"4px 10px",background:"rgba(255,255,255,.18)",border:"1px solid rgba(255,255,255,.4)",borderRadius:20,cursor:"pointer",fontSize:11,fontWeight:700,color:"#fff"}}>🛡 管理画面</button>
+              <button onClick={onSwitchToAdmin} style={{marginLeft:"auto",flexShrink:0,WebkitFlexShrink:0,display:"flex",WebkitFlexDirection:"row",flexDirection:"row",WebkitAlignItems:"center",alignItems:"center",gap:4,padding:"4px 10px",background:"rgba(255,255,255,.18)",border:"1px solid rgba(255,255,255,.4)",borderRadius:20,cursor:"pointer",fontSize:11,fontWeight:700,color:"#fff",whiteSpace:"nowrap"}}>🛡 管理画面</button>
             )}
           </div>
         </div>
