@@ -1983,6 +1983,7 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
       qualifications:(emp.qualifications||"").split(",").map(s=>s.trim()).filter(Boolean),
       certTrainings:(emp.certTrainings||"").split(",").map(s=>s.trim()).filter(Boolean),
       isManager:emp.isManager||false,
+      isAdmin:emp.isAdmin||false,
       roleTitle:emp.roleTitle||"",
       managedDepts:emp.managedDepts||[],
       isActive:emp.isActive!==false,
