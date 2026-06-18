@@ -2633,6 +2633,15 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
             const isDone=status==="done";
             const bulkSel=bulkIds.includes(emp.id);
             const showDeptHeader=i===0||displayList[i-1].dept!==emp.dept;
+            const attended=s.attendance==="参加済";
+            const watched=s.video==="視聴済";
+            const repState=s.reportConfirmed?"確認":(s.report==="提出済"?"提出":"未提出");
+            const chip=(active,col,bgc)=>({fontSize:11,fontWeight:700,padding:"6px 10px",borderRadius:20,border:`1.5px solid ${active?col:"#e5e7eb"}`,background:active?bgc:"#fff",color:active?col:"#9ca3af",cursor:"pointer",whiteSpace:"nowrap"});
+            const cycleReport=()=>{
+              if(s.reportConfirmed) setIS(emp.id,curT.id,{report:"未提出",reportConfirmed:false});
+              else if(s.report==="提出済") setIS(emp.id,curT.id,{reportConfirmed:true});
+              else setIS(emp.id,curT.id,{report:"提出済"});
+            };
             return(
               <React.Fragment key={emp.id}>
               {showDeptHeader&&<div style={{fontSize:12,fontWeight:800,color:"#1e3a5f",background:"#eef2f7",borderRadius:8,padding:"5px 12px",marginTop:i===0?0:6}}>🏢 {emp.dept||"部署未設定"}（{displayList.filter(e=>e.dept===emp.dept).length}名）</div>}
@@ -2646,19 +2655,27 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
                     <span style={{fontSize:14,fontWeight:600,color:"#4A3020"}}>{emp.name}</span>
                     <span style={{fontSize:11,color:"#9ca3af"}}>{emp.dept}</span>
                   </div>
-                  <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
-                    {s.attendance==="参加済"?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>参加済{s.attendedSession==="1"?"①":s.attendedSession==="2"?"②":""}</span>
-                      :<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#f3f4f6",color:"#6b7280",fontWeight:600}}>欠席</span>}
-                    {req&&(isDone?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>確認済</span>
-                      :status==="waitConfirm"?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#fef3c7",color:"#92400e",fontWeight:600}}>提出済</span>
-                      :<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#fee2e2",color:"#dc2626",fontWeight:600}}>未提出</span>)}
-                    {!req&&<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#f3f4f6",color:"#9ca3af"}}>必須外</span>}
-                  </div>
+                  {bulkMode
+                    ? <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
+                        {attended?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>参加済</span>
+                          :<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#f3f4f6",color:"#6b7280",fontWeight:600}}>欠席</span>}
+                        {req&&(isDone?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>確認済</span>
+                          :status==="waitConfirm"?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#fef3c7",color:"#92400e",fontWeight:600}}>提出済</span>
+                          :<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#fee2e2",color:"#dc2626",fontWeight:600}}>未提出</span>)}
+                        {!req&&<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#f3f4f6",color:"#9ca3af"}}>必須外</span>}
+                      </div>
+                    : <div style={{display:"flex",gap:5,marginTop:6,flexWrap:"wrap"}}>
+                        <button onClick={()=>setIS(emp.id,curT.id,{attendance:attended?"未参加":"参加済"})} style={chip(attended,"#16a34a","#dcfce7")}>
+                          {attended?`✓ 参加${s.attendedSession==="1"?"①":s.attendedSession==="2"?"②":""}`:"未参加"}
+                        </button>
+                        <button onClick={()=>setIS(emp.id,curT.id,{video:watched?"未視聴":"視聴済"})} style={chip(watched,"#7c3aed","#ede9fe")}>
+                          {watched?"✓ 動画視聴":"動画未視聴"}
+                        </button>
+                        <button onClick={cycleReport} style={chip(repState!=="未提出",repState==="確認"?"#16a34a":"#d97706",repState==="確認"?"#dcfce7":"#fef3c7")}>
+                          {repState==="確認"?"✓ 復命書確認":repState==="提出"?"復命書提出":"復命書未提出"}
+                        </button>
+                      </div>}
                 </div>
-                {!bulkMode&&<div style={{display:"flex",gap:5,flexShrink:0}}>
-                  {s.attendance!=="参加済"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #16a34a",background:"#f0fdf4",color:"#15803d",cursor:"pointer",fontWeight:600}} onClick={()=>setIS(emp.id,curT.id,"attendance","参加済")}>参加✓</button>}
-                  {s.attendance==="参加済"&&s.report!=="提出済"&&status!=="done"&&<button style={{fontSize:11,padding:"5px 10px",borderRadius:20,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#9ca3af",cursor:"pointer"}} onClick={()=>setIS(emp.id,curT.id,"attendance","未参加")}>取消</button>}
-                </div>}
               </div>
               </React.Fragment>
             );
