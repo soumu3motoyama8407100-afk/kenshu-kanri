@@ -7,6 +7,22 @@ const supabase = createClient(
 );
 
 const ADMIN = { id:"ADMIN", password:"admin123" };
+// LINEログイン（LIFF）
+const LIFF_ID = "2010442697-FT1prfBF";
+let _liffReady = null;
+function ensureLiff(){
+  if(_liffReady) return _liffReady;
+  _liffReady = new Promise((resolve,reject)=>{
+    const init=()=>window.liff.init({liffId:LIFF_ID}).then(resolve).catch(reject);
+    if(window.liff){ init(); return; }
+    const s=document.createElement("script");
+    s.src="https://static.line-scdn.net/liff/edge/2/sdk.js";
+    s.onload=init;
+    s.onerror=()=>reject(new Error("LIFF SDKの読み込みに失敗しました"));
+    document.head.appendChild(s);
+  });
+  return _liffReady;
+}
 const ORG_NAME = "社会福祉法人　ザ・ハート・クラブ";
 const LOGO_B64 = "/title-_2_-removebg-preview.png";
 const MANUAL_ENABLED = false; // trueにするとマニュアル管理が開放される
@@ -402,6 +418,53 @@ export default function App() {
   };
   const handleLogout=()=>setSession(null);
 
+  // ── LINEログイン ──────────────────────────────────────
+  const [lineLoggingIn,setLineLoggingIn] = useState(false);
+  const [lineMsg,setLineMsg] = useState("");
+  const finishLineLogin = async() => {
+    const idToken = window.liff.getIDToken();
+    if(!idToken){ setLineMsg("LINEログイン情報を取得できませんでした。もう一度お試しください。"); return; }
+    const { data, error } = await supabase.functions.invoke("line-login",{ body:{ idToken } });
+    if(error||!data){ setLineMsg("ログインに失敗しました。お手数ですがID・パスワードでお試しください。"); return; }
+    if(data.status==="ok"){
+      const e=employees.find(x=>x.id===data.employee.id);
+      if(e){ handleLogin(e.id,e.isAdmin||false,e.isManager||false,e.isViewer||false,e.dept); }
+      else { handleLogin(data.employee.id,false,data.employee.isManager||false,false,data.employee.dept||""); }
+    } else if(data.status==="not_linked"){
+      setLineMsg("このLINEと職員番号の連携が見つかりませんでした。公式LINEで職員番号の登録を済ませてからお試しください。");
+    } else if(data.status==="inactive"){
+      setLineMsg("このアカウントは現在ログインできません。管理者にお問い合わせください。");
+    } else {
+      setLineMsg("ログインに失敗しました。お手数ですがID・パスワードでお試しください。");
+    }
+  };
+  const handleLineLogin = async() => {
+    setLineMsg(""); setLineLoggingIn(true);
+    try{
+      await ensureLiff();
+      if(!window.liff.isLoggedIn()){
+        sessionStorage.setItem("line_login_pending","1");
+        window.liff.login({ redirectUri: window.location.href.split("#")[0] });
+        return; // LINEへ遷移（戻ってきたら下のuseEffectが続きを処理）
+      }
+      await finishLineLogin();
+    }catch(e){
+      setLineMsg("LINEログインでエラーが発生しました。通信環境をご確認のうえ、ID・パスワードでお試しください。");
+    }finally{ setLineLoggingIn(false); }
+  };
+  // LINEログインから戻ってきたら自動で続きを実行
+  useEffect(()=>{
+    if(loading) return;
+    if(sessionStorage.getItem("line_login_pending")!=="1") return;
+    sessionStorage.removeItem("line_login_pending");
+    (async()=>{
+      setLineLoggingIn(true);
+      try{ await ensureLiff(); if(window.liff.isLoggedIn()) await finishLineLogin(); }
+      catch(e){ setLineMsg("LINEログインでエラーが発生しました。"); }
+      finally{ setLineLoggingIn(false); }
+    })();
+  },[loading,employees]);// eslint-disable-line
+
   if(loading) return(
     <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#F5EDD8 0%,#FDF6EC 60%,#F5EDD8 100%)",display:"flex",alignItems:"center",justifyContent:"center"}}>
       <div style={{textAlign:"center"}}>
@@ -414,7 +477,7 @@ export default function App() {
 
   if(manualSession) return <ManualScreen session={manualSession} employees={employees} onLogout={()=>setManualSession(null)}/>;
 
-  if(!session) return <DualLoginScreen pendingAttend={pendingAttend} internals={internals} employees={employees} onLogin={handleLogin} onManualLogin={(empId,isAdmin)=>setManualSession({empId,isAdmin})}/>;
+  if(!session) return <DualLoginScreen pendingAttend={pendingAttend} internals={internals} employees={employees} onLogin={handleLogin} onManualLogin={(empId,isAdmin)=>setManualSession({empId,isAdmin})} onLineLogin={handleLineLogin} lineLoggingIn={lineLoggingIn} lineMsg={lineMsg}/>;
 
   const committeeProps = {
     committees, setCommittees,
@@ -566,7 +629,7 @@ export default function App() {
   );
 }
 
-function LoginCard({title,icon,accentColor,pendingAttend,internals,employees,onLogin,isManual}){
+function LoginCard({title,icon,accentColor,pendingAttend,internals,employees,onLogin,isManual,onLineLogin,lineLoggingIn,lineMsg}){
   const [id,setId]=useState(""); const [pw,setPw]=useState(""); const [err,setErr]=useState("");
   const training=internals&&internals.find(t=>t.id===pendingAttend);
   const submit=()=>{
@@ -597,11 +660,24 @@ function LoginCard({title,icon,accentColor,pendingAttend,internals,employees,onL
         <input style={{width:"100%",padding:"9px 12px",borderRadius:10,border:`1.5px solid ${accentColor}66`,fontSize:13,outline:"none",boxSizing:"border-box"}} type="password" placeholder="パスワード" value={pw} onChange={e=>{setPw(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&submit()}/></div>
       {err&&<div style={{background:"#fef2f2",border:"1px solid #fca5a5",color:"#dc2626",borderRadius:8,padding:"7px 12px",fontSize:12,marginBottom:10}}>{err}</div>}
       <button style={{width:"100%",padding:"10px",background:accentColor,color:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}} onClick={submit}>ログイン</button>
+      {onLineLogin&&<>
+        <div style={{display:"flex",alignItems:"center",gap:8,margin:"16px 0 12px"}}>
+          <div style={{flex:1,height:1,background:"#e5e7eb"}}/>
+          <span style={{fontSize:11,color:"#9ca3af"}}>または</span>
+          <div style={{flex:1,height:1,background:"#e5e7eb"}}/>
+        </div>
+        {lineMsg&&<div style={{background:"#fffbeb",border:"1px solid #fcd34d",color:"#92400e",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:10,lineHeight:1.6}}>{lineMsg}</div>}
+        <button onClick={onLineLogin} disabled={lineLoggingIn} style={{width:"100%",padding:"11px",background:lineLoggingIn?"#86d3b0":"#06C755",color:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:700,cursor:lineLoggingIn?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          <span style={{fontSize:18,fontWeight:900}}>LINE</span>
+          {lineLoggingIn?"ログイン中…":"でログイン"}
+        </button>
+        <div style={{fontSize:11,color:"#9ca3af",textAlign:"center",marginTop:8,lineHeight:1.6}}>※ 公式LINEで職員番号を登録済みの方が使えます。<br/>初めての方はID・パスワードでログインしてください。</div>
+      </>}
     </div>
   );
 }
 
-function DualLoginScreen({pendingAttend,internals,employees,onLogin,onManualLogin}){
+function DualLoginScreen({pendingAttend,internals,employees,onLogin,onManualLogin,onLineLogin,lineLoggingIn,lineMsg}){
   return(
     <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#F5EDD8 0%,#FDF6EC 60%,#F5EDD8 100%)",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"16px 8px",fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif"}}>
       <div style={{width:"100%",maxWidth:420,marginTop:32}}>
@@ -612,6 +688,7 @@ function DualLoginScreen({pendingAttend,internals,employees,onLogin,onManualLogi
         <div style={{display:"flex",flexDirection:"column",gap:16}}>
           <LoginCard title="研修管理システム" icon="📚" accentColor="#C89A55"
             pendingAttend={pendingAttend} internals={internals} employees={employees}
+            onLineLogin={onLineLogin} lineLoggingIn={lineLoggingIn} lineMsg={lineMsg}
             onLogin={(empId,isAdmin,isManager,isViewer,dept)=>onLogin(empId,isAdmin,isManager||false,isViewer||false,dept||"")}/>
           {MANUAL_ENABLED&&<ManualLoginCard employees={employees} onManualLogin={onManualLogin}/>}
         </div>

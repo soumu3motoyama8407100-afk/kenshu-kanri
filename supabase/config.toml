@@ -21,6 +21,12 @@ entrypoint = "./functions/keep-alive/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/keep-alive/*.html" ]
 
+[functions.line-login]
+enabled = true
+verify_jwt = false
+import_map = "./functions/line-login/deno.json"
+entrypoint = "./functions/line-login/index.ts"
+
 [functions.line-notify]
 enabled = true
 verify_jwt = false
