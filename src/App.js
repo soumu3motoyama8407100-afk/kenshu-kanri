@@ -429,6 +429,7 @@ export default function App() {
   // ── LINEログイン ──────────────────────────────────────
   const [lineLoggingIn,setLineLoggingIn] = useState(false);
   const [lineMsg,setLineMsg] = useState("");
+  const [qrAttendDone,setQrAttendDone] = useState(null); // {empName, trainingName}
   const finishLineLogin = async(idToken) => {
     idToken = idToken || (window.liff && window.liff.getIDToken());
     if(!idToken){ setLineMsg("LINEログイン情報を取得できませんでした。もう一度お試しください。"); return; }
@@ -446,19 +447,40 @@ export default function App() {
       setLineMsg("ログインに失敗しました。お手数ですがID・パスワードでお試しください。");
     }
   };
+  // QR出席登録専用：ログインせず出席だけ記録して完了画面へ
+  const finishQRAttend = async(idToken) => {
+    const { data, error } = await supabase.functions.invoke("line-login",{ body:{ idToken } });
+    if(error||!data){ setLineMsg("ログインに失敗しました。ID・パスワードでお試しください。"); return; }
+    if(data.status==="ok"){
+      const empId=data.employee.id;
+      const trainingName=internals.find(t=>t.id===pendingAttend)?.title||"研修";
+      const emp=employees.find(x=>x.id===empId);
+      if(pendingAttend) await setIS(empId,pendingAttend,"attendance","参加済");
+      setQrAttendDone({empName:emp?.name||empId,trainingName});
+      setPendingAttend(null);
+    } else if(data.status==="not_linked"){
+      setLineMsg("このLINEと職員番号の連携が見つかりませんでした。公式LINEで職員番号の登録を済ませてからお試しください。");
+    } else if(data.status==="inactive"){
+      setLineMsg("このアカウントは現在ログインできません。管理者にお問い合わせください。");
+    } else {
+      setLineMsg("ログインに失敗しました。ID・パスワードでお試しください。");
+    }
+  };
   const handleLineLogin = async() => {
     setLineMsg(""); setLineLoggingIn(true);
+    const isQR=!!pendingAttend;
     try{
       await ensureLiff();
       const token = window.liff.isLoggedIn() ? window.liff.getIDToken() : null;
       if(!token || isJwtExpired(token)){
-        // 未ログイン or 認証情報が期限切れ → ログインし直して取り直す
         if(window.liff.isLoggedIn()){ try{ window.liff.logout(); }catch(_){} }
         sessionStorage.setItem("line_login_pending","1");
+        if(isQR) sessionStorage.setItem("qr_attend_mode","1");
         window.liff.login({ redirectUri: window.location.href.split("#")[0] });
-        return; // LINEへ遷移（戻ってきたら下のuseEffectが続きを処理）
+        return;
       }
-      await finishLineLogin(token);
+      if(isQR) await finishQRAttend(token);
+      else await finishLineLogin(token);
     }catch(e){
       setLineMsg("LINEログインでエラーが発生しました。通信環境をご確認のうえ、ID・パスワードでお試しください。");
     }finally{ setLineLoggingIn(false); }
@@ -468,13 +490,19 @@ export default function App() {
     if(loading) return;
     if(sessionStorage.getItem("line_login_pending")!=="1") return;
     sessionStorage.removeItem("line_login_pending");
+    const isQR=sessionStorage.getItem("qr_attend_mode")==="1";
+    if(isQR) sessionStorage.removeItem("qr_attend_mode");
     (async()=>{
       setLineLoggingIn(true);
       try{
         await ensureLiff();
         const token = window.liff.isLoggedIn() ? window.liff.getIDToken() : null;
-        if(token && !isJwtExpired(token)) await finishLineLogin(token);
-        else setLineMsg("LINEの有効期限が切れていました。お手数ですが、もう一度「LINEでログイン」を押してください。");
+        if(token && !isJwtExpired(token)){
+          if(isQR) await finishQRAttend(token);
+          else await finishLineLogin(token);
+        } else {
+          setLineMsg("LINEの有効期限が切れていました。お手数ですが、もう一度「LINEでログイン」を押してください。");
+        }
       }
       catch(e){ setLineMsg("LINEログインでエラーが発生しました。"); }
       finally{ setLineLoggingIn(false); }
@@ -493,6 +521,7 @@ export default function App() {
 
   if(manualSession) return <ManualScreen session={manualSession} employees={employees} onLogout={()=>setManualSession(null)}/>;
 
+  if(qrAttendDone) return <QRSuccessScreen empName={qrAttendDone.empName} trainingName={qrAttendDone.trainingName}/>;
   if(!session&&pendingAttend) return <QRLandingScreen training={internals.find(t=>t.id===pendingAttend)} employees={employees} onLogin={handleLogin} onLineLogin={handleLineLogin} lineLoggingIn={lineLoggingIn} lineMsg={lineMsg}/>;
   if(!session) return <DualLoginScreen pendingAttend={pendingAttend} internals={internals} employees={employees} onLogin={handleLogin} onManualLogin={(empId,isAdmin)=>setManualSession({empId,isAdmin})} onLineLogin={handleLineLogin} lineLoggingIn={lineLoggingIn} lineMsg={lineMsg}/>;
 
@@ -690,6 +719,22 @@ function LoginCard({title,icon,accentColor,pendingAttend,internals,employees,onL
         </button>
         <div style={{fontSize:11,color:"#9ca3af",textAlign:"center",marginTop:8,lineHeight:1.6}}>※ 公式LINEで職員番号を登録済みの方が使えます。<br/>初めての方はID・パスワードでログインしてください。</div>
       </>}
+    </div>
+  );
+}
+
+function QRSuccessScreen({empName,trainingName}){
+  return(
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#F5EDD8 0%,#FDF6EC 60%,#F5EDD8 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"20px 16px",fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif"}}>
+      <div style={{width:"100%",maxWidth:400,background:"#fff",borderRadius:24,padding:"36px 24px",boxShadow:"0 12px 40px rgba(200,154,85,.2)",border:"1px solid #E8D5B0",textAlign:"center"}}>
+        <div style={{fontSize:72,marginBottom:16,lineHeight:1}}>✅</div>
+        <div style={{fontSize:24,fontWeight:800,color:"#15803d",marginBottom:12}}>研修参加になりました！</div>
+        <div style={{fontSize:16,fontWeight:700,color:"#4A3020",marginBottom:4}}>{empName} さん</div>
+        <div style={{fontSize:13,color:"#6b7280",marginBottom:28}}>「{trainingName}」の出席が登録されました</div>
+        <div style={{background:"#FDF6EC",border:"1px solid #E8D5B0",borderRadius:12,padding:"14px 16px",fontSize:13,color:"#A07840",lineHeight:1.7}}>
+          お疲れ様でした 🎉<br/>このページは閉じて構いません。
+        </div>
+      </div>
     </div>
   );
 }
