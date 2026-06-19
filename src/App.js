@@ -453,9 +453,11 @@ export default function App() {
     if(error||!data){ setLineMsg("ログインに失敗しました。ID・パスワードでお試しください。"); return; }
     if(data.status==="ok"){
       const empId=data.employee.id;
-      const trainingName=internals.find(t=>t.id===pendingAttend)?.title||"研修";
+      const attendId=pendingAttend||(()=>{try{const r=localStorage.getItem("qr_attend_pending");if(r){const d=JSON.parse(r);return(Date.now()-d.ts)<10*60*1000?d.id:null;}return null;}catch(_){return null;}})();
+      const trainingName=internals.find(t=>t.id===attendId)?.title||"研修";
       const emp=employees.find(x=>x.id===empId);
-      if(pendingAttend) await setIS(empId,pendingAttend,"attendance","参加済");
+      if(attendId) await setIS(empId,attendId,"attendance","参加済");
+      localStorage.removeItem("qr_attend_pending");
       setQrAttendDone({empName:emp?.name||empId,trainingName});
       setPendingAttend(null);
     } else if(data.status==="not_linked"){
@@ -474,8 +476,14 @@ export default function App() {
       const token = window.liff.isLoggedIn() ? window.liff.getIDToken() : null;
       if(!token || isJwtExpired(token)){
         if(window.liff.isLoggedIn()){ try{ window.liff.logout(); }catch(_){} }
+        if(isQR){
+          // QRモード：iPhoneでsessionStorageが消えるのでlocalStorageに保存し、
+          // 戻ってきたら自動チェックuseEffectが処理する
+          localStorage.setItem("qr_attend_pending",JSON.stringify({id:pendingAttend,ts:Date.now()}));
+          window.liff.login({ redirectUri: window.location.href.split("#")[0] });
+          return;
+        }
         sessionStorage.setItem("line_login_pending","1");
-        if(isQR) sessionStorage.setItem("qr_attend_mode","1");
         window.liff.login({ redirectUri: window.location.href.split("#")[0] });
         return;
       }
@@ -485,24 +493,33 @@ export default function App() {
       setLineMsg("LINEログインでエラーが発生しました。通信環境をご確認のうえ、ID・パスワードでお試しください。");
     }finally{ setLineLoggingIn(false); }
   };
-  // LINEログインから戻ってきたら自動で続きを実行
+  // QRモード：ページ読み込み後にLIFFログイン済みなら自動で出席登録（iPhone sessionStorage対策）
+  useEffect(()=>{
+    if(loading||!pendingAttend||session||qrAttendDone) return;
+    (async()=>{
+      try{
+        await ensureLiff();
+        if(!window.liff.isLoggedIn()) return;
+        const token=window.liff.getIDToken();
+        if(!token||isJwtExpired(token)) return;
+        setLineLoggingIn(true);
+        await finishQRAttend(token);
+      }catch(e){}
+      finally{ setLineLoggingIn(false); }
+    })();
+  },[loading,pendingAttend,session,qrAttendDone]);// eslint-disable-line
+  // 通常LINEログインから戻ってきたら実行（QRモードは上のuseEffectが担当）
   useEffect(()=>{
     if(loading) return;
     if(sessionStorage.getItem("line_login_pending")!=="1") return;
     sessionStorage.removeItem("line_login_pending");
-    const isQR=sessionStorage.getItem("qr_attend_mode")==="1";
-    if(isQR) sessionStorage.removeItem("qr_attend_mode");
     (async()=>{
       setLineLoggingIn(true);
       try{
         await ensureLiff();
         const token = window.liff.isLoggedIn() ? window.liff.getIDToken() : null;
-        if(token && !isJwtExpired(token)){
-          if(isQR) await finishQRAttend(token);
-          else await finishLineLogin(token);
-        } else {
-          setLineMsg("LINEの有効期限が切れていました。お手数ですが、もう一度「LINEでログイン」を押してください。");
-        }
+        if(token && !isJwtExpired(token)) await finishLineLogin(token);
+        else setLineMsg("LINEの有効期限が切れていました。お手数ですが、もう一度「LINEでログイン」を押してください。");
       }
       catch(e){ setLineMsg("LINEログインでエラーが発生しました。"); }
       finally{ setLineLoggingIn(false); }
@@ -732,7 +749,7 @@ function QRSuccessScreen({empName,trainingName}){
         <div style={{fontSize:16,fontWeight:700,color:"#4A3020",marginBottom:4}}>{empName} さん</div>
         <div style={{fontSize:13,color:"#6b7280",marginBottom:28}}>「{trainingName}」の出席が登録されました</div>
         <div style={{background:"#FDF6EC",border:"1px solid #E8D5B0",borderRadius:12,padding:"14px 16px",fontSize:13,color:"#A07840",lineHeight:1.7}}>
-          お疲れ様でした 🎉<br/>このページは閉じて構いません。
+          復命書は原則当月中の提出をお願いします。<br/>このページは閉じて構いません。
         </div>
       </div>
     </div>
