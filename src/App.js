@@ -324,7 +324,8 @@ export default function App() {
   const [session,setSession]         = useState(null);
   const [manualSession,setManualSession] = useState(null);
   const [loading,setLoading]         = useState(true);
-  const [pendingAttend,setPendingAttend] = useState(null);
+  const [pendingAttend,setPendingAttend] = useState(()=>new URLSearchParams(window.location.search).get("attend")||null);
+  const [qrChecking,setQrChecking] = useState(()=>!!new URLSearchParams(window.location.search).get("attend"));
   const [committees,setCommittees] = useState(INIT_COMMITTEES);
   const [committeeMembers,setCommitteeMembers] = useState({});
   const [committeeMeetings,setCommitteeMeetings] = useState([]);
@@ -334,7 +335,6 @@ export default function App() {
   const [seminars,setSeminars] = useState([]);
   const [semMonthly,setSemMonthly] = useState({});
 
-  useEffect(()=>{ const p=new URLSearchParams(window.location.search);const a=p.get("attend");if(a)setPendingAttend(a); },[]);
 
   const [refreshing,setRefreshing] = useState(false);
   // データを再取得する（初回ロード・手動更新・自動更新で共用）
@@ -493,21 +493,22 @@ export default function App() {
       setLineMsg("LINEログインでエラーが発生しました。通信環境をご確認のうえ、ID・パスワードでお試しください。");
     }finally{ setLineLoggingIn(false); }
   };
-  // QRモード：ページ読み込み後にLIFFログイン済みなら自動で出席登録（iPhone sessionStorage対策）
+  // QRモード：マウント直後にLIFFログイン済みか確認し、済みなら即出席登録（loading待ちなし）
   useEffect(()=>{
-    if(loading||!pendingAttend||session||qrAttendDone) return;
+    if(!pendingAttend||session||qrAttendDone) return;
+    setQrChecking(true);
     (async()=>{
       try{
         await ensureLiff();
-        if(!window.liff.isLoggedIn()) return;
+        if(!window.liff.isLoggedIn()){ setQrChecking(false); return; }
         const token=window.liff.getIDToken();
-        if(!token||isJwtExpired(token)) return;
+        if(!token||isJwtExpired(token)){ setQrChecking(false); return; }
         setLineLoggingIn(true);
         await finishQRAttend(token);
-      }catch(e){}
+      }catch(e){ setQrChecking(false); }
       finally{ setLineLoggingIn(false); }
     })();
-  },[loading,pendingAttend,session,qrAttendDone]);// eslint-disable-line
+  },[pendingAttend,session,qrAttendDone]);// eslint-disable-line
   // 通常LINEログインから戻ってきたら実行（QRモードは上のuseEffectが担当）
   useEffect(()=>{
     if(loading) return;
@@ -539,7 +540,10 @@ export default function App() {
   if(manualSession) return <ManualScreen session={manualSession} employees={employees} onLogout={()=>setManualSession(null)}/>;
 
   if(qrAttendDone) return <QRSuccessScreen empName={qrAttendDone.empName} trainingName={qrAttendDone.trainingName}/>;
-  if(!session&&pendingAttend) return <QRLandingScreen training={internals.find(t=>t.id===pendingAttend)} employees={employees} onLogin={handleLogin} onLineLogin={handleLineLogin} lineLoggingIn={lineLoggingIn} lineMsg={lineMsg}/>;
+  if(!session&&pendingAttend){
+    if(qrChecking) return <QRCheckingScreen/>;
+    return <QRLandingScreen training={internals.find(t=>t.id===pendingAttend)} employees={employees} onLogin={handleLogin} onLineLogin={handleLineLogin} lineLoggingIn={lineLoggingIn} lineMsg={lineMsg}/>;
+  }
   if(!session) return <DualLoginScreen pendingAttend={pendingAttend} internals={internals} employees={employees} onLogin={handleLogin} onManualLogin={(empId,isAdmin)=>setManualSession({empId,isAdmin})} onLineLogin={handleLineLogin} lineLoggingIn={lineLoggingIn} lineMsg={lineMsg}/>;
 
   const committeeProps = {
@@ -740,6 +744,17 @@ function LoginCard({title,icon,accentColor,pendingAttend,internals,employees,onL
   );
 }
 
+function QRCheckingScreen(){
+  return(
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#F5EDD8 0%,#FDF6EC 60%,#F5EDD8 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif"}}>
+      <div style={{textAlign:"center",padding:"32px 24px",background:"#fff",borderRadius:24,boxShadow:"0 12px 40px rgba(200,154,85,.18)",border:"1px solid #E8D5B0",minWidth:240}}>
+        <div style={{fontSize:44,marginBottom:16,lineHeight:1}}>⏳</div>
+        <div style={{fontSize:16,fontWeight:700,color:"#A07840",marginBottom:6}}>LINE認証を確認しています</div>
+        <div style={{fontSize:12,color:"#9ca3af",lineHeight:1.6}}>少々お待ちください...</div>
+      </div>
+    </div>
+  );
+}
 function QRSuccessScreen({empName,trainingName}){
   return(
     <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#F5EDD8 0%,#FDF6EC 60%,#F5EDD8 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"20px 16px",fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif"}}>
