@@ -493,6 +493,7 @@ export default function App() {
 
   if(manualSession) return <ManualScreen session={manualSession} employees={employees} onLogout={()=>setManualSession(null)}/>;
 
+  if(!session&&pendingAttend) return <QRLandingScreen training={internals.find(t=>t.id===pendingAttend)} employees={employees} onLogin={handleLogin} onLineLogin={handleLineLogin} lineLoggingIn={lineLoggingIn} lineMsg={lineMsg}/>;
   if(!session) return <DualLoginScreen pendingAttend={pendingAttend} internals={internals} employees={employees} onLogin={handleLogin} onManualLogin={(empId,isAdmin)=>setManualSession({empId,isAdmin})} onLineLogin={handleLineLogin} lineLoggingIn={lineLoggingIn} lineMsg={lineMsg}/>;
 
   const committeeProps = {
@@ -689,6 +690,67 @@ function LoginCard({title,icon,accentColor,pendingAttend,internals,employees,onL
         </button>
         <div style={{fontSize:11,color:"#9ca3af",textAlign:"center",marginTop:8,lineHeight:1.6}}>※ 公式LINEで職員番号を登録済みの方が使えます。<br/>初めての方はID・パスワードでログインしてください。</div>
       </>}
+    </div>
+  );
+}
+
+function QRLandingScreen({training,employees,onLogin,onLineLogin,lineLoggingIn,lineMsg}){
+  const [showFallback,setShowFallback]=useState(false);
+  const [id,setId]=useState(""); const [pw,setPw]=useState(""); const [err,setErr]=useState("");
+  const submit=()=>{
+    setErr("");
+    const emp=employees.find(e=>e.id===id&&e.password===pw);
+    if(emp){
+      if(emp.isActive===false||(emp.retireDate&&new Date(emp.retireDate)<=new Date())){setErr("このアカウントは無効です。");return;}
+      onLogin(emp.id,emp.isAdmin||false,emp.isManager||false,emp.isViewer||false,emp.dept);return;
+    }
+    setErr("IDまたはパスワードが正しくありません");
+  };
+  return(
+    <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#f0fff4 0%,#dcfce7 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"20px 16px",fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif"}}>
+      {/* ロゴ */}
+      <div style={{textAlign:"center",marginBottom:20}}>
+        <img src={LOGO_B64} alt={ORG_NAME} style={{height:44,objectFit:"contain",marginBottom:4}}/>
+        <div style={{fontSize:11,color:"#6b7280"}}>{ORG_NAME}</div>
+      </div>
+      <div style={{width:"100%",maxWidth:400,background:"#fff",borderRadius:24,padding:"28px 24px",boxShadow:"0 8px 32px rgba(6,199,85,.18)",border:"1.5px solid #bbf7d0"}}>
+        {/* 研修情報 */}
+        <div style={{textAlign:"center",marginBottom:20}}>
+          <div style={{width:64,height:64,borderRadius:"50%",background:"#dcfce7",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px",fontSize:32}}>📋</div>
+          <div style={{display:"inline-block",background:"#dcfce7",color:"#15803d",fontSize:11,fontWeight:700,padding:"2px 12px",borderRadius:20,marginBottom:10,letterSpacing:1}}>研修 出席登録</div>
+          <div style={{fontSize:22,fontWeight:800,color:"#1a1a1a",lineHeight:1.3,marginBottom:8}}>
+            {training?.title||"研修"}
+          </div>
+          {training?.date&&<div style={{fontSize:13,color:"#6b7280",marginBottom:2}}>{formatDate(training.date)}</div>}
+          {training?.location&&<div style={{fontSize:12,color:"#9ca3af"}}>📍 {training.location}</div>}
+        </div>
+        {/* 説明 */}
+        <div style={{background:"#f0fff4",border:"1px solid #86efac",borderRadius:12,padding:"10px 14px",marginBottom:20,textAlign:"center"}}>
+          <div style={{fontSize:13,color:"#15803d",fontWeight:600}}>ログインすると出席が自動登録されます ✅</div>
+        </div>
+        {/* LINEログインボタン（メイン） */}
+        {lineMsg&&<div style={{background:"#fffbeb",border:"1px solid #fcd34d",color:"#92400e",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:12,lineHeight:1.6}}>{lineMsg}</div>}
+        <button onClick={onLineLogin} disabled={lineLoggingIn} style={{width:"100%",padding:"15px",background:lineLoggingIn?"#86d3b0":"#06C755",color:"#fff",border:"none",borderRadius:14,fontSize:16,fontWeight:700,cursor:lineLoggingIn?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:16,boxShadow:"0 4px 16px rgba(6,199,85,.35)"}}>
+          <span style={{fontSize:22,fontWeight:900,letterSpacing:-1}}>LINE</span>
+          {lineLoggingIn?"ログイン中…":"でログイン"}
+        </button>
+        <div style={{fontSize:11,color:"#9ca3af",textAlign:"center",marginBottom:16,lineHeight:1.6}}>
+          ※ 公式LINEで職員番号を登録済みの方が使えます
+        </div>
+        {/* ID/パスワードのフォールバック */}
+        {!showFallback
+          ?<button onClick={()=>setShowFallback(true)} style={{width:"100%",padding:"10px",background:"transparent",color:"#9ca3af",border:"1px solid #e5e7eb",borderRadius:12,fontSize:12,cursor:"pointer"}}>
+            IDとパスワードでログイン
+          </button>
+          :<div style={{borderTop:"1px solid #f3f4f6",paddingTop:16}}>
+            <div style={{fontSize:11,color:"#9ca3af",textAlign:"center",marginBottom:12}}>IDとパスワードでログイン</div>
+            <div style={{marginBottom:10}}><input style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1.5px solid #86efac",fontSize:16,outline:"none",boxSizing:"border-box"}} placeholder="従業員ID（例: E001）" value={id} onChange={e=>{setId(e.target.value);setErr("");}}/></div>
+            <div style={{marginBottom:10}}><input type="password" style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1.5px solid #86efac",fontSize:16,outline:"none",boxSizing:"border-box"}} placeholder="パスワード" value={pw} onChange={e=>{setPw(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&submit()}/></div>
+            {err&&<div style={{background:"#fef2f2",border:"1px solid #fca5a5",color:"#dc2626",borderRadius:8,padding:"7px 12px",fontSize:12,marginBottom:10}}>{err}</div>}
+            <button onClick={submit} style={{width:"100%",padding:"11px",background:"#C89A55",color:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>ログイン</button>
+          </div>
+        }
+      </div>
     </div>
   );
 }
