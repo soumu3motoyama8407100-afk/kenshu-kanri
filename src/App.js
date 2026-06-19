@@ -707,26 +707,26 @@ function QRLandingScreen({training,employees,onLogin,onLineLogin,lineLoggingIn,l
     setErr("IDまたはパスワードが正しくありません");
   };
   return(
-    <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#f0fff4 0%,#dcfce7 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"20px 16px",fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif"}}>
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#F5EDD8 0%,#FDF6EC 60%,#F5EDD8 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"20px 16px",fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif"}}>
       {/* ロゴ */}
       <div style={{textAlign:"center",marginBottom:20}}>
         <img src={LOGO_B64} alt={ORG_NAME} style={{height:44,objectFit:"contain",marginBottom:4}}/>
-        <div style={{fontSize:11,color:"#6b7280"}}>{ORG_NAME}</div>
+        <div style={{fontSize:11,color:"#9ca3af"}}>{ORG_NAME}</div>
       </div>
-      <div style={{width:"100%",maxWidth:400,background:"#fff",borderRadius:24,padding:"28px 24px",boxShadow:"0 8px 32px rgba(6,199,85,.18)",border:"1.5px solid #bbf7d0"}}>
+      <div style={{width:"100%",maxWidth:400,background:"#fff",borderRadius:24,padding:"28px 24px",boxShadow:"0 12px 40px rgba(200,154,85,.2)",border:"1px solid #E8D5B0"}}>
         {/* 研修情報 */}
         <div style={{textAlign:"center",marginBottom:20}}>
-          <div style={{width:64,height:64,borderRadius:"50%",background:"#dcfce7",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px",fontSize:32}}>📋</div>
-          <div style={{display:"inline-block",background:"#dcfce7",color:"#15803d",fontSize:11,fontWeight:700,padding:"2px 12px",borderRadius:20,marginBottom:10,letterSpacing:1}}>研修 出席登録</div>
-          <div style={{fontSize:22,fontWeight:800,color:"#1a1a1a",lineHeight:1.3,marginBottom:8}}>
+          <div style={{width:64,height:64,borderRadius:"50%",background:"#FDF6EC",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px",fontSize:32,border:"1.5px solid #E8D5B0"}}>📋</div>
+          <div style={{display:"inline-block",background:"#FDF6EC",color:"#A07840",fontSize:11,fontWeight:700,padding:"2px 12px",borderRadius:20,marginBottom:10,letterSpacing:1,border:"1px solid #E8D5B0"}}>研修 出席登録</div>
+          <div style={{fontSize:22,fontWeight:800,color:"#4A3020",lineHeight:1.3,marginBottom:8}}>
             {training?.title||"研修"}
           </div>
           {training?.date&&<div style={{fontSize:13,color:"#6b7280",marginBottom:2}}>{formatDate(training.date)}</div>}
           {training?.location&&<div style={{fontSize:12,color:"#9ca3af"}}>📍 {training.location}</div>}
         </div>
         {/* 説明 */}
-        <div style={{background:"#f0fff4",border:"1px solid #86efac",borderRadius:12,padding:"10px 14px",marginBottom:20,textAlign:"center"}}>
-          <div style={{fontSize:13,color:"#15803d",fontWeight:600}}>ログインすると出席が自動登録されます ✅</div>
+        <div style={{background:"#FDF6EC",border:"1px solid #E8D5B0",borderRadius:12,padding:"10px 14px",marginBottom:20,textAlign:"center"}}>
+          <div style={{fontSize:13,color:"#A07840",fontWeight:600}}>ログインすると出席が自動登録されます ✅</div>
         </div>
         {/* LINEログインボタン（メイン） */}
         {lineMsg&&<div style={{background:"#fffbeb",border:"1px solid #fcd34d",color:"#92400e",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:12,lineHeight:1.6}}>{lineMsg}</div>}
