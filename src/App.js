@@ -1363,6 +1363,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                       <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)} empId={emp.id} readonly={!isCurrentFY}
                         onReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","提出済");showToast("復命書を提出しました");} }}
                         onCancelReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","未提出");showToast("提出を取り消しました");} }}
+                        onDeclineReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","提出しない");showToast("「提出しない」にしました");} }}
                         onVideo={v=>{ if(isCurrentFY){setIS(emp.id,t.id,"video",v);} }}
                         onWatchVideo={()=>{setVideoT(t);setShowVideoModal(true);}}
                         onAttendSession={async s=>{ if(isCurrentFY){ await setIS(emp.id,t.id,{attendance:"参加済",attendedSession:s}); showToast(`✅ ${s==="1"?"①":"②"}に参加で記録しました`); } }}/>
@@ -1400,7 +1401,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                   if(!inFiscalYear(t.date,fiscalYear)||t.noReport||!isTargetedFor(t,emp))return false;
                   const s=getIS(emp.id,t.id);
                   const required=(t.requiredEmpIds||[]).includes(emp.id)||s.attendance==="参加済"||s.video==="視聴済";
-                  return required&&s.report!=="提出済"&&!s.reportConfirmed;
+                  return required&&s.report!=="提出済"&&s.report!=="提出しない"&&!s.reportConfirmed;
                 }).sort((a,b)=>new Date(a.date)-new Date(b.date));
                 if(pending.length===0)return null;
                 return(
@@ -1591,7 +1592,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
                   const isDone=status==="done";
                   const attended=s.attendance==="参加済";
                   const watched=s.video==="視聴済";
-                  const repState=s.reportConfirmed?"確認":(s.report==="提出済"?"提出":"未提出");
+                  const repState=s.reportConfirmed?"確認":s.report==="提出済"?"提出":s.report==="提出しない"?"なし":"未提出";
                   const chip=(active,col,bgc)=>({fontSize:11,fontWeight:700,padding:"6px 10px",borderRadius:20,border:`1.5px solid ${active?col:"#e5e7eb"}`,background:active?bgc:"#fff",color:active?col:"#9ca3af",cursor:readonly?"default":"pointer",whiteSpace:"nowrap"});
                   const cycleReport=()=>{
                     if(s.reportConfirmed) setIS(emp.id,curT.id,{report:"未提出",reportConfirmed:false});
@@ -1610,8 +1611,8 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
                           <button disabled={readonly} onClick={()=>!readonly&&setIS(emp.id,curT.id,{video:watched?"未視聴":"視聴済"})} style={chip(watched,"#7c3aed","#ede9fe")}>
                             {watched?"✓ 動画視聴":"動画未視聴"}
                           </button>
-                          <button disabled={readonly} onClick={()=>!readonly&&cycleReport()} style={chip(repState!=="未提出",repState==="確認"?"#16a34a":"#d97706",repState==="確認"?"#dcfce7":"#fef3c7")}>
-                            {repState==="確認"?"✓ 復命書確認":repState==="提出"?"復命書提出":"復命書未提出"}
+                          <button disabled={readonly} onClick={()=>!readonly&&cycleReport()} style={chip(repState==="確認"||repState==="提出",repState==="確認"?"#16a34a":"#d97706",repState==="確認"?"#dcfce7":"#fef3c7")}>
+                            {repState==="確認"?"✓ 復命書確認":repState==="提出"?"復命書提出":repState==="なし"?"― 提出しない":"復命書未提出"}
                           </button>
                         </div>
                       </div>
@@ -1684,6 +1685,22 @@ function internalStepsDone(status){
 
 function InternalProgress({status,noReport}){
   const [s1,s2,s3]=internalStepsDone(status);
+  // 復命書「提出しない」を選択 → グレーで締め（提出済みの緑100%とは別扱い）
+  const declined=!noReport&&s1&&status.report==="提出しない"&&status.reportConfirmed!==true;
+  if(declined){
+    return(
+      <div style={{minWidth:130}}>
+        <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}>
+          <div style={{flex:1,height:4,background:"#e5e7eb",borderRadius:3,overflow:"hidden"}}><div style={{height:"100%",width:"100%",background:"#9ca3af",borderRadius:3}}/></div>
+          <span style={{fontSize:9,fontWeight:700,color:"#9ca3af",minWidth:22}}>完了</span>
+        </div>
+        <div style={{display:"flex",gap:3}}>
+          <div style={{flex:1,textAlign:"center",padding:"2px 0",borderRadius:5,background:"#dcfce7",border:"1px solid #16a34a",fontSize:9,fontWeight:600,color:"#16a34a"}}>参加/動画</div>
+          <div style={{flex:2,textAlign:"center",padding:"2px 0",borderRadius:5,background:"#f3f4f6",border:"1px solid #d1d5db",fontSize:9,fontWeight:600,color:"#6b7280"}}>復命書なし</div>
+        </div>
+      </div>
+    );
+  }
   const steps=noReport
     ?[{label:"参加/動画",done:s1,active:!s1,color:"#16a34a",bg:"#dcfce7"}]
     :[{label:"参加/動画",done:s1,active:!s1,color:"#16a34a",bg:"#dcfce7"},{label:"復命書",done:s2,active:s1&&!s2,color:"#2563eb",bg:"#dbeafe"},{label:"確認",done:s3,active:s2&&!s3,color:"#7c3aed",bg:"#ede9fe"}];
@@ -1724,7 +1741,7 @@ function ExternalProgress({status}){
   );
 }
 
-function InternalCard({training,status,empId,onReport,onCancelReport,onVideo,onWatchVideo,onAttendSession,readonly}){
+function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineReport,onVideo,onWatchVideo,onAttendSession,readonly}){
   const [open,setOpen]=useState(false);
   const attended=status.attendance==="参加済";
   const hasTwoDates=!!training.date2;
@@ -1735,6 +1752,8 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onVideo,onW
   const canAccessReport=attended||(!training.noVideo&&status.video==="視聴済");
   // 復命書必須の表示条件：training.required=true OR 参加済み（復命書不要の研修では出さない）
   const showReqBadge=!training.noReport&&((training.requiredEmpIds||[]).includes(empId)||attended||canAccessReport);
+  // 復命書が必須か（必須研修は「提出しない」を選べない）
+  const reportRequired=!training.noReport&&(training.required===true||(training.requiredEmpIds||[]).includes(empId));
   return(
     <div style={S.card}>
       <div style={S.cardHead} onClick={()=>setOpen(!open)}>
@@ -1791,9 +1810,17 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onVideo,onW
                       <SPill color="#92400e" bg="#fffbeb" border="#fcd34d">⏳ 提出済 ─ 管理者確認待ち</SPill>
                       {!readonly&&<button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"3px 10px",cursor:"pointer"}} onClick={onCancelReport}>取り消す</button>}
                     </div>
-                  : readonly
-                    ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">未提出</SPill>
-                    : <button style={{...S.actionBtn,background:"#2563eb"}} onClick={onReport}>復命書を提出する</button>
+                  : status.report==="提出しない"
+                    ? <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                        <SPill color="#6b7280" bg="#f3f4f6" border="#d1d5db">― 提出しない（復命書なし）</SPill>
+                        {!readonly&&<button style={{...S.actionBtn,background:"#2563eb",width:"auto",padding:"7px 14px",fontSize:13}} onClick={onReport}>やっぱり提出する</button>}
+                      </div>
+                    : readonly
+                      ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">未提出</SPill>
+                      : <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                          <button style={{...S.actionBtn,background:"#2563eb"}} onClick={onReport}>復命書を提出する</button>
+                          {!reportRequired&&<button style={{fontSize:12,color:"#9ca3af",background:"none",border:"1px solid #e5e7eb",borderRadius:10,padding:"8px 12px",cursor:"pointer"}} onClick={onDeclineReport}>この研修は提出しない</button>}
+                        </div>
             }
           </div>}
           {training.noReport&&<div style={{fontSize:12,color:"#15803d",background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"8px 12px"}}>📋 この研修は復命書の提出は不要です（参加記録のみ）</div>}
@@ -2615,7 +2642,7 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
   };
 
   const isReportRequired=(emp,t)=>{ if(t.noReport)return false; const s=getIS(emp.id,t.id); return (t.requiredEmpIds||[]).includes(emp.id)||s.attendance==="参加済"; };
-  const getEmpStatus=(emp,t)=>{ const s=getIS(emp.id,t.id); if(s.reportConfirmed) return "done"; if(s.report==="提出済") return "waitConfirm"; if(isReportRequired(emp,t)) return "pending"; return "noReq"; };
+  const getEmpStatus=(emp,t)=>{ const s=getIS(emp.id,t.id); if(s.reportConfirmed) return "done"; if(s.report==="提出済") return "waitConfirm"; if(s.report==="提出しない"&&!(t.requiredEmpIds||[]).includes(emp.id)&&t.required!==true) return "noReq"; if(isReportRequired(emp,t)) return "pending"; return "noReq"; };
   const targetEmps=t=>employees.filter(e=>isTargetedFor(t,e));
   const unreportedCount=t=>targetEmps(t).filter(e=>{ const s=getIS(e.id,t.id); return isReportRequired(e,t)&&!s.reportConfirmed; }).length;
   const avatarColor=i=>[["#E6F1FB","#185FA5"],["#EAF3DE","#3B6D11"],["#FAEEDA","#854F0B"],["#FCEBEB","#A32D2D"],["#F1EFE8","#5F5E5A"]][i%5];
@@ -2651,7 +2678,7 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
         const s=getIS(e.id,t.id);
         const a=s.attendance==="参加済"?(s.attendedSession==="1"?"○（①）":s.attendedSession==="2"?"○（②）":"○"):"✕";
         const v=s.video==="視聴済"?"○":"－";
-        const r=t.noReport?"不要":s.reportConfirmed?"確認済":s.report==="提出済"?"提出済":"未提出";
+        const r=t.noReport?"不要":s.reportConfirmed?"確認済":s.report==="提出済"?"提出済":s.report==="提出しない"?"提出しない":"未提出";
         rs.push(mkRow([cell(e.id),cell(e.name),cell(e.dept),cell(a),cell(v),cell(r)]));
       });
       sheets.push(`<Worksheet ss:Name="${esc(safeName(t.title))}"><Table>${rs.join("")}</Table></Worksheet>`);
@@ -2775,7 +2802,7 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
             const showDeptHeader=i===0||displayList[i-1].dept!==emp.dept;
             const attended=s.attendance==="参加済";
             const watched=s.video==="視聴済";
-            const repState=s.reportConfirmed?"確認":(s.report==="提出済"?"提出":"未提出");
+            const repState=s.reportConfirmed?"確認":s.report==="提出済"?"提出":s.report==="提出しない"?"なし":"未提出";
             const chip=(active,col,bgc)=>({fontSize:11,fontWeight:700,padding:"6px 10px",borderRadius:20,border:`1.5px solid ${active?col:"#e5e7eb"}`,background:active?bgc:"#fff",color:active?col:"#9ca3af",cursor:"pointer",whiteSpace:"nowrap"});
             const cycleReport=()=>{
               if(s.reportConfirmed) setIS(emp.id,curT.id,{report:"未提出",reportConfirmed:false});
@@ -2799,10 +2826,11 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
                     ? <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
                         {attended?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>参加済</span>
                           :<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#f3f4f6",color:"#6b7280",fontWeight:600}}>欠席</span>}
-                        {req&&(isDone?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>確認済</span>
+                        {s.report==="提出しない"&&!isDone?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#f3f4f6",color:"#6b7280",fontWeight:600}}>提出しない</span>
+                          :req&&(isDone?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>確認済</span>
                           :status==="waitConfirm"?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#fef3c7",color:"#92400e",fontWeight:600}}>提出済</span>
                           :<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#fee2e2",color:"#dc2626",fontWeight:600}}>未提出</span>)}
-                        {!req&&<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#f3f4f6",color:"#9ca3af"}}>必須外</span>}
+                        {s.report!=="提出しない"&&!req&&<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#f3f4f6",color:"#9ca3af"}}>必須外</span>}
                       </div>
                     : <div style={{display:"flex",gap:5,marginTop:6,flexWrap:"wrap"}}>
                         <button onClick={()=>setIS(emp.id,curT.id,{attendance:attended?"未参加":"参加済"})} style={chip(attended,"#16a34a","#dcfce7")}>
@@ -2811,8 +2839,8 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
                         {!curT.noVideo&&<button onClick={()=>setIS(emp.id,curT.id,{video:watched?"未視聴":"視聴済"})} style={chip(watched,"#7c3aed","#ede9fe")}>
                           {watched?"✓ 動画視聴":"動画未視聴"}
                         </button>}
-                        <button onClick={cycleReport} style={chip(repState!=="未提出",repState==="確認"?"#16a34a":"#d97706",repState==="確認"?"#dcfce7":"#fef3c7")}>
-                          {repState==="確認"?"✓ 復命書確認":repState==="提出"?"復命書提出":"復命書未提出"}
+                        <button onClick={cycleReport} style={chip(repState==="確認"||repState==="提出",repState==="確認"?"#16a34a":"#d97706",repState==="確認"?"#dcfce7":"#fef3c7")}>
+                          {repState==="確認"?"✓ 復命書確認":repState==="提出"?"復命書提出":repState==="なし"?"― 提出しない":"復命書未提出"}
                         </button>
                       </div>}
                 </div>
