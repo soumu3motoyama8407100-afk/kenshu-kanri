@@ -69,6 +69,21 @@ const currentYM = () => { const d=new Date(); return `${d.getFullYear()}-${Strin
 const ymLabel = ym => `${Number(ym.split("-")[1])}月`;
 const fyMonths = fy => Array.from({length:12},(_,i)=>{ const m=(i+3)%12+1; const y=i<9?fy:fy+1; return {ym:`${y}-${String(m).padStart(2,"0")}`,label:`${m}月`}; });
 const ymOf = d => d ? String(d).slice(0,7) : "";
+// 今の月に合わせた季節のひとこと（応援コメントに添える）
+const seasonalNote = () => [
+  "❄️ 寒さ厳しい頃、新年の学びを気持ちよくスタート！",   // 1月
+  "❄️ 立春とはいえまだ冷えます。あたたかくして学びを。",   // 2月
+  "🌸 年度の締めくくり。1年の学びを振り返る季節ですね。",   // 3月
+  "🌸 新年度、桜の季節。新しい気持ちで学びを始めましょう！", // 4月
+  "🌿 新緑がまぶしい季節。爽やかに学びを重ねましょう。",     // 5月
+  "☔ 梅雨どき。おうち時間に動画学習がぴったりですね。",      // 6月
+  "🌻 夏本番。暑さに負けず学ぶ姿、すてきです！",             // 7月
+  "🍉 盛夏の候。水分補給をしながら、無理なく学びましょう。",  // 8月
+  "🍂 少しずつ秋の気配。学びの秋のはじまりです。",           // 9月
+  "🍁 実りの秋。積み重ねた学びが実る季節ですね。",           // 10月
+  "🍁 晩秋の頃。今年の学びも大詰めです。",                   // 11月
+  "⛄ 年の瀬。1年の学びを気持ちよく締めくくりましょう！",    // 12月
+][new Date().getMonth()];
 // 内部研修の表示対象判定：指定なし＝用務・休職中を除く全職員、指定あり＝選択された職員のみ
 const isTargetedFor = (t,e) => ((t.targetEmpIds||[]).length>0 ? t.targetEmpIds.includes(e.id) : ((e.dept||"")!=="用務"&&e.onLeave!==true));
 // 部署の表示順（この順に並べ、リストにない部署は後ろに付く）
@@ -1940,8 +1955,9 @@ function SeminarStampRow({fy,empId,seminars,getSMV}){
         })}
       </div>
       <div style={{fontSize:11,color:n>=12?"#b45309":n>=6?"#0e7490":"#9ca3af",marginTop:8,fontWeight:n>=6?700:400}}>
-        {n>=12?"👑 全月視聴達成！すばらしい学習意欲です！":n>=6?`⭐ ${n}ヶ月視聴！この調子！`:"※ 視聴チェックを付けた月にスタンプが付きます（復命書ポイントとは別の参考実績です）"}
+        {n>=12?"👑 全月視聴達成！すばらしい学習意欲です！":n>=6?`⭐ ${n}ヶ月視聴！この調子！`:"※ 視聴チェックを付けた月にスタンプが付きます"}
       </div>
+      <div style={{fontSize:11,color:"#dc2626",fontWeight:700,marginTop:4}}>※ 人事考課ポイントとは別です。参考実績となります。</div>
     </div>
   );
 }
@@ -2051,7 +2067,8 @@ function SeminarStreak({fy,empId,seminars,getSMV}){
       </div>
       <div style={{flex:1,minWidth:0}}>
         <div style={{fontSize:15,fontWeight:700,color:"#4A3020",marginBottom:2}}>{msg}</div>
-        <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>{sub}（復命書ポイントとは別の参考実績です）</div>
+        <div style={{fontSize:12,color:"#6b7280",marginBottom:2}}>{sub}</div>
+        <div style={{fontSize:11,color:"#dc2626",fontWeight:700,marginBottom:8}}>※ 人事考課ポイントとは別です。参考実績となります。</div>
         <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
           {past.map(m=>{
             const on=watchedOf(m.ym);
@@ -2158,11 +2175,12 @@ function SeminarReportCheer({fy,empId,seminars,getSMV}){
       </div>
       <div style={{flex:1,minWidth:0}}>
         <div style={{fontSize:15,fontWeight:700,color:"#4A3020",marginBottom:2}}>📄 {msg}</div>
+        <div style={{fontSize:12,color:"#0e7490",marginBottom:4}}>{seasonalNote()}</div>
         <div style={{fontSize:12,color:"#6b7280"}}>
           今年度の復命書 提出 <b>{n}枚</b>
           {nextAt&&<>　あと <b style={{color:numColor}}>{nextAt-n}枚</b> で次の称賛！</>}
-          <span style={{color:"#9ca3af"}}>（人事考課ポイントとは別の参考実績です）</span>
         </div>
+        <div style={{fontSize:11,color:"#dc2626",fontWeight:700,marginTop:4}}>※ 人事考課ポイントとは別です。参考実績となります。</div>
       </div>
     </div>
   );
