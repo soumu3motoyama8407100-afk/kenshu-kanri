@@ -2097,12 +2097,19 @@ function SeminarTab({seminars,empId,getSMV,setSMV,readonly,fiscalYear,showToast}
               <div style={{fontWeight:700,fontSize:13,color:"#374151",lineHeight:1.5,marginBottom:4}}>{v.title}</div>
               {v.description&&<div style={{fontSize:11,color:"#6b7280",marginBottom:8,lineHeight:1.6}}>{v.description}</div>}
               {!readonly&&(
+                <>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
                   <ToggleChip label={st.watched?"📺 視聴済み ✓":"📺 視聴済みにする"} active={st.watched} color="#0e7490"
                     onClick={()=>{setSMV(empId,v.id,nowYM,{watched:!st.watched});showToast(!st.watched?"📺 視聴済にしました！":"未視聴に戻しました");}}/>
                   <ToggleChip label={st.reportSubmitted?"📄 復命書 提出済 ✓":"📄 復命書を提出した"} active={st.reportSubmitted} color="#2563eb"
-                    onClick={()=>{setSMV(empId,v.id,nowYM,{reportSubmitted:!st.reportSubmitted});showToast(!st.reportSubmitted?"📄 復命書を提出済にしました":"提出を取り消しました");}}/>
+                    onClick={()=>{setSMV(empId,v.id,nowYM,{reportSubmitted:!st.reportSubmitted});showToast(!st.reportSubmitted?"📄 復命書を提出しました！ありがとうございます👏":"提出を取り消しました");}}/>
                 </div>
+                {st.watched&&!st.reportSubmitted&&(
+                  <div style={{marginTop:8,background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:10,padding:"8px 12px",fontSize:12,color:"#1d4ed8",lineHeight:1.6}}>
+                    📄 動画おつかれさまでした！<b>復命書を出すと学びがぐっと定着します。</b>上の「復命書を提出した」を押して記録しましょう。
+                  </div>
+                )}
+                </>
               )}
               {readonly&&(
                 <div style={{display:"flex",gap:6}}>
@@ -2116,6 +2123,9 @@ function SeminarTab({seminars,empId,getSMV,setSMV,readonly,fiscalYear,showToast}
         })}
         <div style={{fontSize:11,color:"#155e75",marginTop:4}}>※ 復命書の提出は任意です（ポイント対象外）</div>
       </div>
+      <div style={{background:"#fff",border:"1px solid #bfdbfe",borderRadius:14,padding:16,marginBottom:16}}>
+        <SeminarReportCheer fy={fiscalYear} empId={empId} seminars={seminars} getSMV={getSMV}/>
+      </div>
       <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16}}>
         <SeminarStreak fy={fiscalYear} empId={empId} seminars={seminars} getSMV={getSMV}/>
       </div>
@@ -2123,6 +2133,40 @@ function SeminarTab({seminars,empId,getSMV,setSMV,readonly,fiscalYear,showToast}
   );
 }
 
+// 📄 セミナー復命書 提出枚数に応じた応援・称賛
+function SeminarReportCheer({fy,empId,seminars,getSMV}){
+  const n=(seminars||[]).filter(s=>!s.isPortal&&getSMV(empId,s.id,ymOf(s.date)).reportSubmitted).length;
+  const tier=n>=10?4:n>=5?3:n>=2?2:n>=1?1:0;
+  const face=["📄","🌱","✍️","🌟","🏆"][tier];
+  const msg=[
+    "復命書を出すと、学びがぐっと定着します。まずは1枚から！",
+    "1枚目の復命書、提出ありがとうございます！すばらしい一歩です👏",
+    `${n}枚提出！学びをしっかりアウトプットできていますね✨`,
+    `${n}枚提出！復命書の習慣が身についています。この調子！`,
+    `${n}枚達成！セミナーの学びを見事に活かしています。お見事です！`,
+  ][tier];
+  const ring=["#bfdbfe","#93c5fd","#60a5fa","#3b82f6","#f59e0b"][tier];
+  const bg=tier>=4?"#fffbeb":"#eff6ff";
+  const numColor=tier>=4?"#b45309":"#1d4ed8";
+  // 次の称賛までの残り枚数
+  const nextAt=n<1?1:n<2?2:n<5?5:n<10?10:null;
+  return(
+    <div style={{display:"flex",alignItems:"center",gap:14}}>
+      <div style={{width:64,height:64,borderRadius:"50%",background:bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0,border:`1.5px solid ${ring}`}}>
+        <span style={{fontSize:20,lineHeight:1}}>{face}</span>
+        <span style={{fontSize:15,fontWeight:800,color:numColor}}>{n}<span style={{fontSize:9,fontWeight:400,color:"#9ca3af"}}>枚</span></span>
+      </div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:15,fontWeight:700,color:"#4A3020",marginBottom:2}}>📄 {msg}</div>
+        <div style={{fontSize:12,color:"#6b7280"}}>
+          今年度の復命書 提出 <b>{n}枚</b>
+          {nextAt&&<>　あと <b style={{color:numColor}}>{nextAt-n}枚</b> で次の称賛！</>}
+          <span style={{color:"#9ca3af"}}>（人事考課ポイントとは別の参考実績です）</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 function SPill({color,bg,border,children}){return <div style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 14px",borderRadius:20,background:bg,color,fontSize:13,fontWeight:600,border:`1.5px solid ${border}`}}>{children}</div>;}
 function ToggleChip({label,active,color,onClick}){return <button onClick={onClick} style={{padding:"5px 14px",borderRadius:20,border:"1.5px solid",borderColor:active?color:"#e5e7eb",background:active?color:"#fff",color:active?"#fff":"#6b7280",fontSize:12,fontWeight:active?700:400,cursor:"pointer"}}>{label}</button>;}
 
