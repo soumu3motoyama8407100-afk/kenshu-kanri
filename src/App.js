@@ -124,10 +124,10 @@ const db = {
   },
   async getInternals() {
     const {data} = await supabase.from("internals").select("*").order("date");
-    return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,date2:r.date2||"",required:r.required,requiredEmpIds:r.required_emp_ids||[],targetEmpIds:r.target_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||"",endTime:r.end_time||"",noReport:r.no_report===true}));
+    return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,date2:r.date2||"",required:r.required,requiredEmpIds:r.required_emp_ids||[],targetEmpIds:r.target_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||"",endTime:r.end_time||"",noReport:r.no_report===true,noVideo:r.no_video===true}));
   },
   async upsertInternal(t) {
-    const {error} = await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,date2:t.date2||"",required:t.required===true,required_emp_ids:t.requiredEmpIds||[],target_emp_ids:t.targetEmpIds||[],video_url:toEmbedUrl(t.videoUrl)||"",description:t.description||"",location:t.location||"",start_time:t.startTime||"",end_time:t.endTime||"",no_report:t.noReport===true},{onConflict:"id"});
+    const {error} = await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,date2:t.date2||"",required:t.required===true,required_emp_ids:t.requiredEmpIds||[],target_emp_ids:t.targetEmpIds||[],video_url:toEmbedUrl(t.videoUrl)||"",description:t.description||"",location:t.location||"",start_time:t.startTime||"",end_time:t.endTime||"",no_report:t.noReport===true,no_video:t.noVideo===true},{onConflict:"id"});
     if(error) throw new Error(error.message);
   },
   async deleteInternal(id) { await supabase.from("internals").delete().eq("id",id); },
@@ -1730,9 +1730,9 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onVideo,onW
   const hasTwoDates=!!training.date2;
   const sessionMark=status.attendedSession==="1"?"①":status.attendedSession==="2"?"②":"";
   const absentFix=status.attendance==="未参加（確定）";
-  const showVideo=!attended;
-  // 復命書にアクセスできる条件：参加済み OR 動画視聴済み
-  const canAccessReport=attended||status.video==="視聴済";
+  const showVideo=!attended&&!training.noVideo;
+  // 復命書にアクセスできる条件：参加済み OR 動画視聴済み（動画なし研修は参加のみ）
+  const canAccessReport=attended||(!training.noVideo&&status.video==="視聴済");
   // 復命書必須の表示条件：training.required=true OR 参加済み（復命書不要の研修では出さない）
   const showReqBadge=!training.noReport&&((training.requiredEmpIds||[]).includes(empId)||attended||canAccessReport);
   return(
@@ -1754,10 +1754,11 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onVideo,onW
         <div style={S.cardBody}>
           <p style={{color:"#6b7280",fontSize:13,marginBottom:14}}>{training.description}</p>
           <div style={S.sBlock}>
-            <div style={S.sLabel}><span style={S.stepNum}>1</span> 研修参加 または 動画視聴</div>
+            <div style={S.sLabel}><span style={S.stepNum}>1</span> {training.noVideo?"研修参加":"研修参加 または 動画視聴"}</div>
             {attended?<SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 参加済{hasTwoDates&&sessionMark?`（${sessionMark}に参加）`:"（QR認証済）"}</SPill>
-              :absentFix&&status.video==="視聴済"?<SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 動画視聴済み</SPill>
-              :absentFix?<SPill color="#7c6a00" bg="#fefce8" border="#fde68a">📹 当日欠席 ─ 動画でフォローできます</SPill>
+              :!training.noVideo&&absentFix&&status.video==="視聴済"?<SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 動画視聴済み</SPill>
+              :!training.noVideo&&absentFix?<SPill color="#7c6a00" bg="#fefce8" border="#fde68a">📹 当日欠席 ─ 動画でフォローできます</SPill>
+              :absentFix?<SPill color="#7c6a00" bg="#fefce8" border="#fde68a">📹 当日欠席</SPill>
               :<SPill color="#6b7280" bg="#f9fafb" border="#e5e7eb">🔲 未参加 ─ 当日QRをスキャン</SPill>}
             {/* 2回開催：どちらに参加したかの記録 */}
             {hasTwoDates&&!readonly&&onAttendSession&&(!attended||!sessionMark)&&!absentFix&&(
@@ -1782,7 +1783,7 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onVideo,onW
           {!training.noReport&&<div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書提出</div>
             {!canAccessReport
-              ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">🔒 参加または動画視聴後に提出できます</SPill>
+              ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">🔒 {training.noVideo?"参加後に提出できます":"参加または動画視聴後に提出できます"}</SPill>
               : status.reportConfirmed
                 ? <SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 提出済（管理者確認済）</SPill>
                 : status.report==="提出済"
@@ -2699,7 +2700,7 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
               <div style={{fontSize:11,fontWeight:700,color:"#4A3020",margin:"4px 0 2px",lineHeight:1.3}}>{t.title}</div>
               <div style={{fontSize:10,color:"#9ca3af",marginBottom:8}}>📅 {formatDate(t.date)}</div>
               <MiniBar label="👥 当日参加" v={attended} n={n} color="#16a34a"/>
-              <MiniBar label="▶ 動画視聴" v={watched} n={n} color="#7c3aed"/>
+              {!t.noVideo&&<MiniBar label="▶ 動画視聴" v={watched} n={n} color="#7c3aed"/>}
               <MiniBar label="✅ 確認済" v={confirmed} n={n} color="#C89A55"/>
               <button style={{...S.qrBtn,marginTop:8,width:"100%"}} onClick={()=>onQR(t)}>QR生成</button>
             </div>
@@ -2755,7 +2756,7 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
             </div>
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
               <button disabled={bulkBusy} onClick={()=>applyBulk({attendance:"参加済"})} style={{fontSize:12,padding:"7px 12px",borderRadius:20,border:"none",background:"#16a34a",color:"#fff",fontWeight:700,cursor:"pointer"}}>✅ 参加済にする</button>
-              <button disabled={bulkBusy} onClick={()=>applyBulk({video:"視聴済"})} style={{fontSize:12,padding:"7px 12px",borderRadius:20,border:"none",background:"#7c3aed",color:"#fff",fontWeight:700,cursor:"pointer"}}>▶ 視聴済にする</button>
+              {!curT.noVideo&&<button disabled={bulkBusy} onClick={()=>applyBulk({video:"視聴済"})} style={{fontSize:12,padding:"7px 12px",borderRadius:20,border:"none",background:"#7c3aed",color:"#fff",fontWeight:700,cursor:"pointer"}}>▶ 視聴済にする</button>}
               {!curT.noReport&&<button disabled={bulkBusy} onClick={()=>applyBulk({report:"提出済",reportConfirmed:true})} style={{fontSize:12,padding:"7px 12px",borderRadius:20,border:"none",background:"#C89A55",color:"#fff",fontWeight:700,cursor:"pointer"}}>📋 復命書確認済にする</button>}
               {bulkBusy&&<span style={{fontSize:12,color:"#7c3aed",fontWeight:600,alignSelf:"center"}}>登録中…</span>}
             </div>
@@ -2807,9 +2808,9 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
                         <button onClick={()=>setIS(emp.id,curT.id,{attendance:attended?"未参加":"参加済"})} style={chip(attended,"#16a34a","#dcfce7")}>
                           {attended?`✓ 参加${s.attendedSession==="1"?"①":s.attendedSession==="2"?"②":""}`:"未参加"}
                         </button>
-                        <button onClick={()=>setIS(emp.id,curT.id,{video:watched?"未視聴":"視聴済"})} style={chip(watched,"#7c3aed","#ede9fe")}>
+                        {!curT.noVideo&&<button onClick={()=>setIS(emp.id,curT.id,{video:watched?"未視聴":"視聴済"})} style={chip(watched,"#7c3aed","#ede9fe")}>
                           {watched?"✓ 動画視聴":"動画未視聴"}
-                        </button>
+                        </button>}
                         <button onClick={cycleReport} style={chip(repState!=="未提出",repState==="確認"?"#16a34a":"#d97706",repState==="確認"?"#dcfce7":"#fef3c7")}>
                           {repState==="確認"?"✓ 復命書確認":repState==="提出"?"復命書提出":"復命書未提出"}
                         </button>
@@ -2891,13 +2892,24 @@ function InternalTrainingForm({data,onChange,onSave,onCancel,title,allEmployees}
         <label style={S.label}>場所</label>
         <LocationSelect value={data.location||""} onChange={v=>onChange(p=>({...p,location:v}))}/>
       </div>
-      {[{key:"videoUrl",label:"動画URL（後から追加可）",placeholder:"https://www.youtube.com/embed/..."},{key:"description",label:"説明",placeholder:"研修の概要"}]
+      {/* 動画なしフラグ */}
+      <div style={{marginBottom:10,padding:"10px 12px",background:"#faf5ff",borderRadius:10,border:"1px solid #d8b4fe"}}>
+        <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,fontWeight:600,color:"#7c3aed"}}>
+          <input type="checkbox" checked={data.noVideo||false} onChange={e=>onChange(p=>({...p,noVideo:e.target.checked}))} style={{width:16,height:16,accentColor:"#7c3aed"}}/>
+          ▶ 動画なし（視聴・未視聴を職員に表示しない）
+        </label>
+      </div>
+      {!data.noVideo&&[{key:"videoUrl",label:"動画URL（後から追加可）",placeholder:"https://www.youtube.com/embed/..."}]
         .map(f=>(
           <div key={f.key} style={{marginBottom:10}}>
             <label style={S.label}>{f.label}</label>
             <input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={data[f.key]||""} onChange={e=>onChange(p=>({...p,[f.key]:e.target.value}))}/>
           </div>
         ))}
+      <div style={{marginBottom:10}}>
+        <label style={S.label}>説明</label>
+        <input type="text" style={S.input} placeholder="研修の概要" value={data.description||""} onChange={e=>onChange(p=>({...p,description:e.target.value}))}/>
+      </div>
       {/* 参加者の指定（指定なし＝用務を除く全職員に表示） */}
       <div style={{marginBottom:12,padding:"10px 12px",background:"#eff6ff",borderRadius:10,border:"1px solid #93c5fd"}}>
         <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,fontWeight:600,color:"#2563eb"}}>
@@ -3008,7 +3020,7 @@ function InternalManageTab({internals,setInternals,deleteInternal,employees}){
               <div style={S.cardTitle}>{t.title}</div>
               <div style={S.cardDate}>📅 {t.date2?<>① {formatDate(t.date)}　② {formatDate(t.date2)}</>:formatDate(t.date)}
                 {(t.requiredEmpIds||[]).length>0&&<span style={{marginLeft:8,fontSize:11,color:"#dc2626",fontWeight:600}}>復命書必須 {(t.requiredEmpIds||[]).length}名</span>}
-                {t.videoUrl?<span style={{marginLeft:8,color:"#7c3aed",fontSize:11}}>▶ 動画あり</span>:<span style={{marginLeft:8,color:"#9ca3af",fontSize:11}}>動画未設定</span>}
+                {t.noVideo?<span style={{marginLeft:8,color:"#9ca3af",fontSize:11}}>動画なし</span>:t.videoUrl?<span style={{marginLeft:8,color:"#7c3aed",fontSize:11}}>▶ 動画あり</span>:<span style={{marginLeft:8,color:"#9ca3af",fontSize:11}}>動画未設定</span>}
               </div>
             </div>
             <div className="btn-col-sp" style={{display:"flex",gap:6,flexShrink:0}}>
