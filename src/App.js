@@ -734,7 +734,7 @@ function DemoNoticeModal({onClose}){
         </div>
         <div style={{background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:12,padding:"14px 16px",fontSize:13.5,color:"#7f1d1d",lineHeight:1.9,marginBottom:18}}>
           このシステムは現在<b>お試し（デモ）運用中</b>です。<br/>
-          自由に触ってご確認いただけますが、登録した内容は本番のものではありません。<br/><br/>
+          自由に触ってご確認いただけます。<br/><br/>
           🗓 <b>研修参加のQRログインの本格運用は 8月以降</b> を予定しています。<br/>
           実際に使用を開始する際は、あらためて<b>ご連絡します</b>ので、それまでは操作の確認としてご利用ください。
         </div>
