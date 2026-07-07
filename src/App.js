@@ -1553,13 +1553,13 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
             </div>
           )}
         </div>
-        {/* スティッキーログアウトバー */}
-        <div style={{position:"sticky",bottom:0,background:"linear-gradient(to top,#fff 80%,rgba(255,255,255,0))",padding:"12px 16px 16px",display:"flex",justifyContent:"center",zIndex:10}}>
-          <button onClick={onLogout} style={{padding:"10px 32px",background:"#4A3020",color:"#fff",border:"none",borderRadius:24,fontSize:13,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 16px rgba(74,48,32,.3)",letterSpacing:.5}}>
-            ログアウト
-          </button>
-        </div>
+        {/* 下部固定ぶんの余白（コンテンツが隠れないように） */}
+        <div style={{height:72}}/>
       </div>
+      {/* ログアウト（全タブ共通・下部中央に固定表示） */}
+      <button onClick={onLogout} style={{position:"fixed",left:"50%",transform:"translateX(-50%)",bottom:16,zIndex:940,padding:"9px 24px",background:"#4A3020",color:"#fff",border:"none",borderRadius:24,fontSize:13,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 16px rgba(74,48,32,.4)",letterSpacing:.5,whiteSpace:"nowrap"}}>
+        ログアウト
+      </button>
     </div>
   );
 }
