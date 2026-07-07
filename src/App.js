@@ -750,7 +750,7 @@ function DemoNoticeModal({onClose}){
 const TUTORIAL_STEPS=[
   {icon:"👋",title:"ようこそ！",body:<>この研修管理アプリの使い方をかんたんにご案内します。<br/>あとから <b>「❓使い方」</b> でいつでも見返せます。</>},
   {icon:"📚",title:"研修に参加する",body:<>研修会場にある <b>QRコードを読み取る</b> と、自動で「参加済」になります。<br/>当日の研修時は<b>スマホを持参</b>してくださいね。</>},
-  {icon:"▶",title:"動画で振り返る",body:<>当日参加できなかった研修は、画面右下の <b>「▶動画」ボタン</b> や各研修の「動画を視聴」から見てフォローできます。<br/>見たら <b>「視聴済」</b> にしましょう。</>},
+  {icon:"▶",title:"動画で振り返る",body:<>当日参加できなかった研修は、画面右下の <b>「▶動画」ボタン</b> や各研修の「動画を視聴」から見てフォローできます。<br/>動画を <b>9割ほど視聴すると自動で「視聴済」</b> になります。</>},
   {icon:"📄",title:"復命書を提出する",body:<>参加または動画視聴のあと <b>「復命書を提出する」</b> が押せるようになります。<br/>提出数は人事考課の参考になります（⭐5件→+1点 / 🏆10件→+2点）。</>},
   {icon:"📺",title:"セミナーを見る",body:<><b>「📺 セミナー」タブ</b> で、毎月のオンラインセミナー動画を視聴・記録できます。<br/>視聴チェックや復命書の提出もこちらから。</>},
   {icon:"🏅",title:"自分の実績を見る",body:<>右上の <b>「🌱 ○件」</b> を押すと、今年度のポイントや月別の提出状況を確認できます。</>},
@@ -1974,6 +1974,45 @@ function ExternalCard({ext,status,onAttend,onReport,onCancelReport,onViewPdf,rea
 
 function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus,readonly}){
   const cur=selected||trainings[0]; const s=cur?getStatus(cur):null;
+  const iframeRef=useRef(null);
+  const markedRef=useRef(false);
+  const alreadyWatched=s?.video==="視聴済";
+  // 動画を9割ほど再生したら自動で「視聴済」にする（YouTube / Vimeo 埋め込み）
+  useEffect(()=>{
+    markedRef.current=false;
+    if(!cur||!cur.videoUrl||readonly||alreadyWatched) return;
+    const embed=toEmbedUrl(cur.videoUrl);
+    const doMark=()=>{ if(markedRef.current)return; markedRef.current=true; onMarkWatched(cur,"視聴済"); };
+    let cleanup=()=>{};
+    if(/youtube\.com\/embed|youtube-nocookie\.com\/embed/.test(embed||"")){
+      let player=null, timer=null, cancelled=false;
+      ensureYT().then(()=>{
+        if(cancelled||!iframeRef.current)return;
+        try{
+          player=new window.YT.Player(iframeRef.current,{events:{onStateChange:ev=>{
+            if(ev.data===window.YT.PlayerState.ENDED){ doMark(); if(timer)clearInterval(timer); return; }
+            if(ev.data===window.YT.PlayerState.PLAYING){
+              if(timer)clearInterval(timer);
+              timer=setInterval(()=>{ try{ const ct=player.getCurrentTime(),d=player.getDuration(); if(d>0&&ct/d>=0.9){ doMark(); clearInterval(timer); } }catch(_){} },2000);
+            } else if(timer){ clearInterval(timer); }
+          }}});
+        }catch(_){}
+      });
+      cleanup=()=>{ cancelled=true; if(timer)clearInterval(timer); };
+    } else if(/player\.vimeo\.com/.test(embed||"")){
+      let player=null, cancelled=false;
+      ensureVimeo().then(()=>{
+        if(cancelled||!iframeRef.current)return;
+        try{
+          player=new window.Vimeo.Player(iframeRef.current);
+          player.on("timeupdate",data=>{ if(data&&data.percent>=0.9){ doMark(); } });
+          player.on("ended",()=>doMark());
+        }catch(_){}
+      });
+      cleanup=()=>{ cancelled=true; try{ if(player){player.off("timeupdate");player.off("ended");} }catch(_){} };
+    }
+    return ()=>cleanup();
+  },[cur&&cur.id,readonly,alreadyWatched]);// eslint-disable-line
   return(
     <div>
       {(!trainings||trainings.length===0)&&<div style={S.empty}>この年度に動画付きの研修はありません</div>}
@@ -1988,11 +2027,16 @@ function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus,readonly}
       {cur?.videoUrl&&<>
         <div style={{fontWeight:700,color:"#4A3020",marginBottom:8}}>{cur.title}</div>
         <div style={{position:"relative",paddingBottom:"56.25%",borderRadius:12,overflow:"hidden",background:"#000"}}>
-          <iframe style={{position:"absolute",inset:0,width:"100%",height:"100%",border:"none"}} src={toEmbedUrl(cur.videoUrl)} allowFullScreen title={cur.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"/>
+          <iframe key={cur.id} ref={iframeRef} style={{position:"absolute",inset:0,width:"100%",height:"100%",border:"none"}} src={embedSrcWithApi(cur.videoUrl)} allowFullScreen title={cur.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"/>
         </div>
-        {s?.video==="視聴済"&&(
+        {alreadyWatched?(
           <div style={{marginTop:12,padding:"10px 14px",background:"#f0fdf4",borderRadius:10,color:"#15803d",fontSize:13,fontWeight:600,textAlign:"center"}}>
             ✅ 視聴済み
+          </div>
+        ):!readonly&&(
+          <div style={{marginTop:12}}>
+            <div style={{fontSize:12,color:"#6b7280",textAlign:"center",marginBottom:8}}>▶ 9割ほど再生すると自動で「視聴済」になります</div>
+            <button style={{...S.actionBtn,background:"#16a34a"}} onClick={()=>onMarkWatched(cur,"視聴済")}>見終わったので「視聴済」にする</button>
           </div>
         )}
       </>}
@@ -2009,6 +2053,42 @@ const toEmbedUrl = u => {
   const v = String(u).match(/vimeo\.com\/(\d+)/);
   if(v && !String(u).includes("player.vimeo")) return `https://player.vimeo.com/video/${v[1]}`;
   return u;
+};
+// 自動視聴判定用：YouTubeはenablejsapiを付与
+const embedSrcWithApi = u => {
+  const e = toEmbedUrl(u);
+  if(/youtube\.com\/embed|youtube-nocookie\.com\/embed/.test(e||"")){
+    const sep = e.includes("?") ? "&" : "?";
+    return `${e}${sep}enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
+  }
+  return e;
+};
+// YouTube IFrame API（1回だけ読み込む）
+let ytApiPromise = null;
+const ensureYT = () => {
+  if(window.YT && window.YT.Player) return Promise.resolve();
+  if(ytApiPromise) return ytApiPromise;
+  ytApiPromise = new Promise(res=>{
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = ()=>{ if(prev){try{prev();}catch(_){}}; res(); };
+    const tag = document.createElement("script");
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(tag);
+  });
+  return ytApiPromise;
+};
+// Vimeo Player API（1回だけ読み込む）
+let vimeoApiPromise = null;
+const ensureVimeo = () => {
+  if(window.Vimeo && window.Vimeo.Player) return Promise.resolve();
+  if(vimeoApiPromise) return vimeoApiPromise;
+  vimeoApiPromise = new Promise(res=>{
+    const tag = document.createElement("script");
+    tag.src = "https://player.vimeo.com/api/player.js";
+    tag.onload = ()=>res();
+    document.head.appendChild(tag);
+  });
+  return vimeoApiPromise;
 };
 
 // 📺 セミナー視聴スタンプ（年度の12ヶ月分・視聴した月にスタンプ）
