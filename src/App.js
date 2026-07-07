@@ -1839,6 +1839,7 @@ function ExternalProgress({status}){
 
 function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineReport,onVideo,onWatchVideo,onAttendSession,readonly}){
   const [open,setOpen]=useState(false);
+  const [playVideo,setPlayVideo]=useState(false);
   const attended=status.attendance==="参加済";
   const hasTwoDates=!!training.date2;
   const sessionMark=status.attendedSession==="1"?"①":status.attendedSession==="2"?"②":"";
@@ -1912,7 +1913,13 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineRe
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                   {["視聴済","未視聴"].map(v=><ToggleChip key={v} label={v} active={status.video===v} color={v==="視聴済"?"#16a34a":"#6b7280"} onClick={()=>onVideo(v)}/>)}
                 </div>
-                {training.videoUrl&&<button style={{...S.watchBtn,marginTop:8}} onClick={onWatchVideo}>▶ 動画を視聴する</button>}
+                {training.videoUrl&&!playVideo&&<button style={{...S.watchBtn,marginTop:8}} onClick={()=>setPlayVideo(true)}>▶ 動画を視聴する</button>}
+                {training.videoUrl&&playVideo&&(
+                  <div style={{marginTop:10}}>
+                    <AutoVideoPlayer videoUrl={training.videoUrl} title={training.title} watched={status.video==="視聴済"} readonly={readonly} onWatched={()=>onVideo("視聴済")}/>
+                    <div style={{fontSize:11,color:"#6b7280",textAlign:"center",marginTop:6}}>▶ 9割ほど再生すると自動で「視聴済」になります</div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -2014,17 +2021,15 @@ function ExternalCard({ext,status,onAttend,onReport,onCancelReport,onViewPdf,rea
   );
 }
 
-function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus,readonly}){
-  const cur=selected||trainings[0]; const s=cur?getStatus(cur):null;
+// 動画プレーヤー（YouTube/Vimeo）：9割ほど再生したら自動で onWatched を呼ぶ
+function AutoVideoPlayer({videoUrl,title,watched,readonly,onWatched}){
   const iframeRef=useRef(null);
   const markedRef=useRef(false);
-  const alreadyWatched=s?.video==="視聴済";
-  // 動画を9割ほど再生したら自動で「視聴済」にする（YouTube / Vimeo 埋め込み）
   useEffect(()=>{
     markedRef.current=false;
-    if(!cur||!cur.videoUrl||readonly||alreadyWatched) return;
-    const embed=toEmbedUrl(cur.videoUrl);
-    const doMark=()=>{ if(markedRef.current)return; markedRef.current=true; onMarkWatched(cur,"視聴済"); };
+    if(!videoUrl||readonly||watched) return;
+    const embed=toEmbedUrl(videoUrl);
+    const doMark=()=>{ if(markedRef.current)return; markedRef.current=true; onWatched&&onWatched(); };
     let cleanup=()=>{};
     if(/youtube\.com\/embed|youtube-nocookie\.com\/embed/.test(embed||"")){
       let player=null, timer=null, cancelled=false;
@@ -2054,7 +2059,16 @@ function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus,readonly}
       cleanup=()=>{ cancelled=true; try{ if(player){player.off("timeupdate");player.off("ended");} }catch(_){} };
     }
     return ()=>cleanup();
-  },[cur&&cur.id,readonly,alreadyWatched]);// eslint-disable-line
+  },[videoUrl,readonly,watched]);// eslint-disable-line
+  return(
+    <div style={{position:"relative",paddingBottom:"56.25%",borderRadius:12,overflow:"hidden",background:"#000"}}>
+      <iframe key={videoUrl} ref={iframeRef} style={{position:"absolute",inset:0,width:"100%",height:"100%",border:"none"}} src={embedSrcWithApi(videoUrl)} allowFullScreen title={title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"/>
+    </div>
+  );
+}
+function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus,readonly}){
+  const cur=selected||trainings[0]; const s=cur?getStatus(cur):null;
+  const alreadyWatched=s?.video==="視聴済";
   return(
     <div>
       {(!trainings||trainings.length===0)&&<div style={S.empty}>この年度に動画付きの研修はありません</div>}
@@ -2068,9 +2082,7 @@ function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus,readonly}
       </div>
       {cur?.videoUrl&&<>
         <div style={{fontWeight:700,color:"#4A3020",marginBottom:8}}>{cur.title}</div>
-        <div style={{position:"relative",paddingBottom:"56.25%",borderRadius:12,overflow:"hidden",background:"#000"}}>
-          <iframe key={cur.id} ref={iframeRef} style={{position:"absolute",inset:0,width:"100%",height:"100%",border:"none"}} src={embedSrcWithApi(cur.videoUrl)} allowFullScreen title={cur.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"/>
-        </div>
+        <AutoVideoPlayer videoUrl={cur.videoUrl} title={cur.title} watched={alreadyWatched} readonly={readonly} onWatched={()=>onMarkWatched(cur,"視聴済")}/>
         {alreadyWatched?(
           <div style={{marginTop:12,padding:"10px 14px",background:"#f0fdf4",borderRadius:10,color:"#15803d",fontSize:13,fontWeight:600,textAlign:"center"}}>
             ✅ 視聴済み
