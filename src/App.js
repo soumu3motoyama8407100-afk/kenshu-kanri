@@ -445,9 +445,10 @@ export default function App() {
   const [lineLoggingIn,setLineLoggingIn] = useState(false);
   const [lineMsg,setLineMsg] = useState("");
   const [qrAttendDone,setQrAttendDone] = useState(null); // {empName, trainingName}
-  // デモ運用中のお知らせポップアップ（1セッションに1回）
-  const [showDemoNotice,setShowDemoNotice] = useState(()=>{ try{ return sessionStorage.getItem("demo_notice_seen")!=="1"; }catch(_){ return true; } });
-  const dismissDemoNotice = ()=>{ try{ sessionStorage.setItem("demo_notice_seen","1"); }catch(_){}; setShowDemoNotice(false); };
+  // デモ運用中のお知らせポップアップ（1日1回）
+  const today10 = ()=>new Date().toISOString().slice(0,10);
+  const [showDemoNotice,setShowDemoNotice] = useState(()=>{ try{ return localStorage.getItem("demo_notice_date")!==today10(); }catch(_){ return true; } });
+  const dismissDemoNotice = ()=>{ try{ localStorage.setItem("demo_notice_date",today10()); }catch(_){}; setShowDemoNotice(false); };
   const withDemo = (screen)=> <>{screen}<DemoRibbon/>{showDemoNotice&&<DemoNoticeModal onClose={dismissDemoNotice}/>}</>;
   const finishLineLogin = async(idToken) => {
     idToken = idToken || (window.liff && window.liff.getIDToken());
@@ -741,6 +742,49 @@ function DemoNoticeModal({onClose}){
         <button onClick={onClose} style={{width:"100%",padding:"13px",background:"#C89A55",color:"#fff",border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer"}}>
           確認しました
         </button>
+      </div>
+    </div>
+  );
+}
+// 📖 使い方チュートリアル（スライド式）
+const TUTORIAL_STEPS=[
+  {icon:"👋",title:"ようこそ！",body:<>この研修管理アプリの使い方をかんたんにご案内します。<br/>あとから <b>「❓使い方」</b> でいつでも見返せます。</>},
+  {icon:"📚",title:"研修に参加する",body:<>研修会場にある <b>QRコードを読み取る</b> と、自動で「参加済」になります。<br/>QRが使えないときは「📚 研修」タブの各研修から手動でも登録できます。</>},
+  {icon:"▶",title:"動画で振り返る",body:<>当日参加できなかった研修は、画面右下の <b>「▶動画」ボタン</b> や各研修の「動画を視聴」から見てフォローできます。<br/>見たら <b>「視聴済」</b> にしましょう。</>},
+  {icon:"📄",title:"復命書を提出する",body:<>参加または動画視聴のあと <b>「復命書を提出する」</b> が押せるようになります。<br/>提出数は人事考課の参考になります（⭐5件→+1点 / 🏆10件→+2点）。</>},
+  {icon:"📺",title:"セミナーを見る",body:<><b>「📺 セミナー」タブ</b> で、毎月のオンラインセミナー動画を視聴・記録できます。<br/>視聴チェックや復命書の提出もこちらから。</>},
+  {icon:"🏅",title:"自分の実績を見る",body:<>右上の <b>「🌱 ○件」</b> を押すと、今年度のポイントや月別の提出状況を確認できます。</>},
+  {icon:"🎉",title:"準備OK！",body:<>それでは始めましょう。<br/>困ったときは <b>「❓使い方」</b> からこの案内をもう一度見られます。</>},
+];
+function TutorialModal({onClose}){
+  const [i,setI]=useState(0);
+  const step=TUTORIAL_STEPS[i];
+  const last=i===TUTORIAL_STEPS.length-1;
+  return(
+    <div style={{position:"fixed",inset:0,zIndex:9000,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px 16px"}} onClick={onClose}>
+      <div style={{width:"100%",maxWidth:420,background:"#fff",borderRadius:20,padding:"24px 22px 20px",boxShadow:"0 20px 60px rgba(0,0,0,.3)",border:"1px solid #E8D5B0"}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <span style={{fontSize:12,fontWeight:700,color:"#A07840"}}>使い方 {i+1}/{TUTORIAL_STEPS.length}</span>
+          <button onClick={onClose} style={{background:"none",border:"none",color:"#9ca3af",fontSize:12,cursor:"pointer",fontWeight:600}}>スキップ ✕</button>
+        </div>
+        <div style={{textAlign:"center",padding:"12px 0 18px"}}>
+          <div style={{width:88,height:88,margin:"0 auto 16px",borderRadius:"50%",background:"#FDF6EC",border:"2px solid #E8D5B0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:44,lineHeight:1}}>{step.icon}</div>
+          <div style={{fontSize:20,fontWeight:800,color:"#4A3020",marginBottom:10}}>{step.title}</div>
+          <div style={{fontSize:14,color:"#6b7280",lineHeight:1.9,minHeight:76}}>{step.body}</div>
+        </div>
+        {/* ドット */}
+        <div style={{display:"flex",justifyContent:"center",gap:6,marginBottom:16}}>
+          {TUTORIAL_STEPS.map((_,idx)=>(
+            <div key={idx} onClick={()=>setI(idx)} style={{width:idx===i?20:8,height:8,borderRadius:4,background:idx===i?"#C89A55":"#E8D5B0",cursor:"pointer",transition:"width .2s"}}/>
+          ))}
+        </div>
+        {/* ナビ */}
+        <div style={{display:"flex",gap:10}}>
+          {i>0&&<button onClick={()=>setI(i-1)} style={{flex:1,padding:"12px",background:"#f3f4f6",color:"#6b7280",border:"none",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>← 戻る</button>}
+          {last
+            ?<button onClick={onClose} style={{flex:2,padding:"12px",background:"#16a34a",color:"#fff",border:"none",borderRadius:12,fontSize:15,fontWeight:800,cursor:"pointer"}}>はじめる 🎉</button>
+            :<button onClick={()=>setI(i+1)} style={{flex:2,padding:"12px",background:"#C89A55",color:"#fff",border:"none",borderRadius:12,fontSize:15,fontWeight:800,cursor:"pointer"}}>次へ →</button>}
+        </div>
       </div>
     </div>
   );
@@ -1231,6 +1275,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
   const [showProfile,setShowProfile]=useState(false);
   const [showQRScan,setShowQRScan]=useState(false);
   const [showScore,setShowScore]=useState(false);
+  const [showTutorial,setShowTutorial]=useState(()=>{ try{ return localStorage.getItem("tutorial_seen")!=="1"; }catch(_){ return false; } });
+  const closeTutorial=()=>{ try{ localStorage.setItem("tutorial_seen","1"); }catch(_){}; setShowTutorial(false); };
   const [viewFY,setViewFY]=useState(fiscalYear);
   // お知らせ既読管理（localStorage）
   const [readIds,setReadIds]=useState(()=>{ try{return JSON.parse(localStorage.getItem(`nread_${emp.id}`)||"[]");}catch{return[];} });
@@ -1264,6 +1310,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
   return(
     <div className="rsp-page" style={S.page}>
       {toast&&<div style={S.toast}>{toast}</div>}
+      {showTutorial&&<TutorialModal onClose={closeTutorial}/>}
       {pdfExt&&<PdfModal ext={pdfExt} onClose={()=>setPdfExt(null)}/>}
       {showProfile&&<ProfileModal emp={emp} onClose={()=>setShowProfile(false)}/>}
       {/* 動画モーダル（浮動ボタンから開く） */}
@@ -1366,6 +1413,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
           </select>
           {!isCurrentFY&&<span style={{fontSize:11,color:"#d97706",fontWeight:600,background:"#fef3c7",padding:"2px 8px",borderRadius:20}}>過去年度閲覧中</span>}
           {onRefresh&&<button onClick={onRefresh} disabled={refreshing} style={{fontSize:12,fontWeight:600,padding:"4px 12px",borderRadius:8,border:"1px solid #67e8f9",background:refreshing?"#e0f2fe":"#ecfeff",color:"#0e7490",cursor:refreshing?"default":"pointer"}}>{refreshing?"更新中…":"🔄 更新"}</button>}
+          <button onClick={()=>setShowTutorial(true)} style={{fontSize:12,fontWeight:600,padding:"4px 12px",borderRadius:8,border:"1px solid #E8D5B0",background:"#fff",color:"#A07840",cursor:"pointer"}}>❓ 使い方</button>
         </div>
         {/* タブバー */}
         <div style={S.tabBar}>
