@@ -1850,24 +1850,45 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineRe
   const reportRequired=!training.noReport&&(training.required===true||(training.requiredEmpIds||[]).includes(empId)||attended);
   // 復命書必須バッジの表示（必須の人にだけ出す。動画視聴のみの人には出さない）
   const showReqBadge=reportRequired;
+  const dateLine=(
+    <div style={S.cardDate}>
+      📅 {hasTwoDates?<>① {formatDate(training.date)}　② {formatDate(training.date2)}</>:formatDate(training.date)}
+      {training.startTime&&<span style={{marginLeft:8}}>🕐 {training.startTime}{training.endTime&&`〜${training.endTime}`}</span>}
+      {training.location&&<span style={{marginLeft:8}}>📍 {training.location}</span>}
+    </div>
+  );
   return(
+    <>
     <div style={S.card}>
-      <div style={S.cardHead} onClick={()=>setOpen(!open)}>
+      <div style={S.cardHead} onClick={()=>setOpen(true)}>
         <div style={{flex:1}}>
           {showReqBadge&&<span style={S.reqBadge}>復命書必須</span>}
           {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
           <div style={S.cardTitle}>{training.title}</div>
-          <div style={S.cardDate}>
-            📅 {hasTwoDates?<>① {formatDate(training.date)}　② {formatDate(training.date2)}</>:formatDate(training.date)}
-            {training.startTime&&<span style={{marginLeft:8}}>🕐 {training.startTime}{training.endTime&&`〜${training.endTime}`}</span>}
-            {training.location&&<span style={{marginLeft:8}}>📍 {training.location}</span>}
-          </div>
+          {dateLine}
         </div>
-        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}><InternalProgress status={status} noReport={training.noReport}/><span style={{color:"#d1d5db",fontSize:14}}>{open?"▲":"▼"}</span></div>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}><InternalProgress status={status} noReport={training.noReport}/><span style={{color:"#C89A55",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>詳細 ›</span></div>
       </div>
+    </div>
       {open&&(
-        <div style={S.cardBody}>
-          <p style={{color:"#6b7280",fontSize:13,marginBottom:14}}>{training.description}</p>
+        <div style={{...S.overlay,zIndex:1500}} onClick={()=>setOpen(false)}>
+        <div style={{...S.modal,maxWidth:560,width:"94vw",maxHeight:"88vh",overflowY:"auto",padding:0}} onClick={e=>e.stopPropagation()}>
+          {/* ヘッダー */}
+          <div style={{position:"sticky",top:0,background:"#fff",borderBottom:"1px solid #F0D9B0",padding:"16px 18px",zIndex:2}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+              <div style={{flex:1,minWidth:0}}>
+                {showReqBadge&&<span style={S.reqBadge}>復命書必須</span>}
+                {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
+                <div style={{fontSize:17,fontWeight:800,color:"#4A3020",margin:"4px 0 2px"}}>{training.title}</div>
+                {dateLine}
+              </div>
+              <button style={S.logoutBtn} onClick={()=>setOpen(false)}>✕</button>
+            </div>
+          </div>
+          {/* ボディ */}
+          <div style={{padding:"16px 18px"}}>
+          <div style={{marginBottom:14}}><InternalProgress status={status} noReport={training.noReport}/></div>
+          {training.description&&<p style={{color:"#6b7280",fontSize:13,marginBottom:14,lineHeight:1.7}}>{training.description}</p>}
           <div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>1</span> {training.noVideo?"研修参加":"研修参加 または 動画視聴"}</div>
             {attended?<SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 参加済{hasTwoDates&&sessionMark?`（${sessionMark}に参加）`:"（QR認証済）"}</SPill>
@@ -1920,28 +1941,47 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineRe
             }
           </div>}
           {training.noReport&&<div style={{fontSize:12,color:"#15803d",background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"8px 12px"}}>📋 この研修は復命書の提出は不要です（参加記録のみ）</div>}
+          </div>
+        </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
 function ExternalCard({ext,status,onAttend,onReport,onCancelReport,onViewPdf,readonly}){
   const [open,setOpen]=useState(false);
   const {attended,reportSubmitted,reportConfirmed}=status;
+  const dateLine=<div style={S.cardDate}>📅 {formatDate(ext.date)} ｜ 🏢 {ext.organizer} ｜ 📍 {ext.location}</div>;
   return(
+    <>
     <div style={S.card}>
-      <div style={S.cardHead} onClick={()=>setOpen(!open)}>
+      <div style={S.cardHead} onClick={()=>setOpen(true)}>
         <div style={{flex:1}}>
           <span style={S.extBadge}>外部</span>
           {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
           <div style={S.cardTitle}>{ext.title}</div>
-          <div style={S.cardDate}>📅 {formatDate(ext.date)} ｜ 🏢 {ext.organizer} ｜ 📍 {ext.location}</div>
+          {dateLine}
         </div>
-        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}><ExternalProgress status={status}/><span style={{color:"#d1d5db",fontSize:14}}>{open?"▲":"▼"}</span></div>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}><ExternalProgress status={status}/><span style={{color:"#C89A55",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>詳細 ›</span></div>
       </div>
+    </div>
       {open&&(
-        <div style={S.cardBody}>
+        <div style={{...S.overlay,zIndex:1500}} onClick={()=>setOpen(false)}>
+        <div style={{...S.modal,maxWidth:560,width:"94vw",maxHeight:"88vh",overflowY:"auto",padding:0}} onClick={e=>e.stopPropagation()}>
+          <div style={{position:"sticky",top:0,background:"#fff",borderBottom:"1px solid #F0D9B0",padding:"16px 18px",zIndex:2}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+              <div style={{flex:1,minWidth:0}}>
+                <span style={S.extBadge}>外部</span>
+                {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
+                <div style={{fontSize:17,fontWeight:800,color:"#4A3020",margin:"4px 0 2px"}}>{ext.title}</div>
+                {dateLine}
+              </div>
+              <button style={S.logoutBtn} onClick={()=>setOpen(false)}>✕</button>
+            </div>
+          </div>
+          <div style={{padding:"16px 18px"}}>
+          <div style={{marginBottom:14}}><ExternalProgress status={status}/></div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
             {ext.pdfUrl
               ?<button style={{...S.watchBtn,background:"#dc2626"}} onClick={e=>{e.stopPropagation();onViewPdf('guide');}}>📄 研修案内を見る</button>
@@ -1966,9 +2006,11 @@ function ExternalCard({ext,status,onAttend,onReport,onCancelReport,onViewPdf,rea
               :readonly?<SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">未提出</SPill>
               :<button style={{...S.actionBtn,background:"#2563eb"}} onClick={onReport}>復命書を提出する</button>}
           </div>}
+          </div>
+        </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
