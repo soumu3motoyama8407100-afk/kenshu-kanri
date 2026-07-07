@@ -1496,7 +1496,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                 const pending=internals.filter(t=>{
                   if(!inFiscalYear(t.date,fiscalYear)||t.noReport||!isTargetedFor(t,emp))return false;
                   const s=getIS(emp.id,t.id);
-                  const required=(t.requiredEmpIds||[]).includes(emp.id)||s.attendance==="参加済"||s.video==="視聴済";
+                  const required=(t.requiredEmpIds||[]).includes(emp.id)||t.required===true||s.attendance==="参加済";
                   return required&&s.report!=="提出済"&&s.report!=="提出しない"&&!s.reportConfirmed;
                 }).sort((a,b)=>new Date(a.date)-new Date(b.date));
                 if(pending.length===0)return null;
@@ -1846,10 +1846,10 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineRe
   const showVideo=!attended&&!training.noVideo;
   // 復命書にアクセスできる条件：参加済み OR 動画視聴済み（動画なし研修は参加のみ）
   const canAccessReport=attended||(!training.noVideo&&status.video==="視聴済");
-  // 復命書必須の表示条件：training.required=true OR 参加済み（復命書不要の研修では出さない）
-  const showReqBadge=!training.noReport&&((training.requiredEmpIds||[]).includes(empId)||attended||canAccessReport);
-  // 復命書が必須か（必須研修は「提出しない」を選べない）
-  const reportRequired=!training.noReport&&(training.required===true||(training.requiredEmpIds||[]).includes(empId));
+  // 復命書が必須か：管理者が任意で指定した人 OR 当日QR参加した人（時間外が発生するため）。動画視聴のみは必須にしない
+  const reportRequired=!training.noReport&&(training.required===true||(training.requiredEmpIds||[]).includes(empId)||attended);
+  // 復命書必須バッジの表示（必須の人にだけ出す。動画視聴のみの人には出さない）
+  const showReqBadge=reportRequired;
   return(
     <div style={S.card}>
       <div style={S.cardHead} onClick={()=>setOpen(!open)}>
