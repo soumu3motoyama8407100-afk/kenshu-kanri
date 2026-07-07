@@ -445,6 +445,10 @@ export default function App() {
   const [lineLoggingIn,setLineLoggingIn] = useState(false);
   const [lineMsg,setLineMsg] = useState("");
   const [qrAttendDone,setQrAttendDone] = useState(null); // {empName, trainingName}
+  // デモ運用中のお知らせポップアップ（1セッションに1回）
+  const [showDemoNotice,setShowDemoNotice] = useState(()=>{ try{ return sessionStorage.getItem("demo_notice_seen")!=="1"; }catch(_){ return true; } });
+  const dismissDemoNotice = ()=>{ try{ sessionStorage.setItem("demo_notice_seen","1"); }catch(_){}; setShowDemoNotice(false); };
+  const withDemo = (screen)=> <>{screen}<DemoRibbon/>{showDemoNotice&&<DemoNoticeModal onClose={dismissDemoNotice}/>}</>;
   const finishLineLogin = async(idToken) => {
     idToken = idToken || (window.liff && window.liff.getIDToken());
     if(!idToken){ setLineMsg("LINEログイン情報を取得できませんでした。もう一度お試しください。"); return; }
@@ -552,14 +556,14 @@ export default function App() {
     </div>
   );
 
-  if(manualSession) return <ManualScreen session={manualSession} employees={employees} onLogout={()=>setManualSession(null)}/>;
+  if(manualSession) return withDemo(<ManualScreen session={manualSession} employees={employees} onLogout={()=>setManualSession(null)}/>);
 
-  if(qrAttendDone) return <QRSuccessScreen empName={qrAttendDone.empName} trainingName={qrAttendDone.trainingName}/>;
+  if(qrAttendDone) return withDemo(<QRSuccessScreen empName={qrAttendDone.empName} trainingName={qrAttendDone.trainingName}/>);
   if(!session&&pendingAttend){
-    if(qrChecking) return <QRCheckingScreen/>;
-    return <QRLandingScreen training={internals.find(t=>t.id===pendingAttend)} employees={employees} onLogin={handleLogin} onLineLogin={handleLineLogin} lineLoggingIn={lineLoggingIn} lineMsg={lineMsg}/>;
+    if(qrChecking) return withDemo(<QRCheckingScreen/>);
+    return withDemo(<QRLandingScreen training={internals.find(t=>t.id===pendingAttend)} employees={employees} onLogin={handleLogin} onLineLogin={handleLineLogin} lineLoggingIn={lineLoggingIn} lineMsg={lineMsg}/>);
   }
-  if(!session) return <DualLoginScreen pendingAttend={pendingAttend} internals={internals} employees={employees} onLogin={handleLogin} onManualLogin={(empId,isAdmin)=>setManualSession({empId,isAdmin})} onLineLogin={handleLineLogin} lineLoggingIn={lineLoggingIn} lineMsg={lineMsg}/>;
+  if(!session) return withDemo(<DualLoginScreen pendingAttend={pendingAttend} internals={internals} employees={employees} onLogin={handleLogin} onManualLogin={(empId,isAdmin)=>setManualSession({empId,isAdmin})} onLineLogin={handleLineLogin} lineLoggingIn={lineLoggingIn} lineMsg={lineMsg}/>);
 
   const committeeProps = {
     committees, setCommittees,
@@ -608,7 +612,7 @@ export default function App() {
     if(emp){
       const isManager=emp.isManager||false;
       const managedDepts=emp.managedDepts&&emp.managedDepts.length>0?emp.managedDepts:[emp.dept];
-      return(
+      return withDemo(
         <EmployeeScreen emp={emp}
           internals={internals} getIS={getIS} setIS={setIS}
           externals={externals} getXS={getXS} setXS={setXS}
@@ -626,7 +630,7 @@ export default function App() {
     }
   }
 
-  if(session.isAdmin) return(
+  if(session.isAdmin) return withDemo(
     <AdminScreen employees={employees} setEmployees={setEmployees}
       internals={internals} setInternals={async fn=>{
         const n=typeof fn==="function"?fn(internals):fn;
@@ -660,7 +664,7 @@ export default function App() {
     const mgr=employees.find(e=>e.id===session.empId);
     if(!mgr){handleLogout();return null;}
     const managedDepts=mgr.managedDepts&&mgr.managedDepts.length>0?mgr.managedDepts:[session.dept];
-    return(
+    return withDemo(
       <EmployeeScreen emp={mgr}
         internals={internals} getIS={getIS} setIS={setIS}
         externals={externals} getXS={getXS} setXS={setXS}
@@ -683,7 +687,7 @@ export default function App() {
   if(session.isViewer){
     const allDepts=[...new Set(employees.map(e=>e.dept).filter(Boolean))];
     const viewerDepts=emp.managedDepts&&emp.managedDepts.length>0?emp.managedDepts:allDepts;
-    return(
+    return withDemo(
       <EmployeeScreen emp={emp}
         internals={internals} getIS={getIS} setIS={setIS}
         externals={externals} getXS={getXS} setXS={setXS}
@@ -699,7 +703,7 @@ export default function App() {
     );
   }
 
-  return(
+  return withDemo(
     <EmployeeScreen emp={emp}
       internals={internals} getIS={getIS} setIS={setIS}
       externals={externals} getXS={getXS} setXS={setXS}
@@ -711,6 +715,36 @@ export default function App() {
   );
 }
 
+// 🚧 デモ運用中バッジ（全画面 常時表示）
+function DemoRibbon(){
+  return(
+    <div style={{position:"fixed",left:12,bottom:14,zIndex:950,display:"flex",alignItems:"center",gap:6,background:"#b91c1c",color:"#fff",padding:"6px 12px",borderRadius:20,fontSize:12,fontWeight:800,boxShadow:"0 4px 14px rgba(185,28,28,.4)",letterSpacing:.5,pointerEvents:"none"}}>
+      🚧 デモ運用中
+    </div>
+  );
+}
+// 📢 デモ運用中のお知らせポップアップ
+function DemoNoticeModal({onClose}){
+  return(
+    <div style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px 16px"}} onClick={onClose}>
+      <div style={{width:"100%",maxWidth:420,background:"#fff",borderRadius:20,padding:"26px 22px",boxShadow:"0 20px 60px rgba(0,0,0,.3)",border:"1px solid #E8D5B0"}} onClick={e=>e.stopPropagation()}>
+        <div style={{textAlign:"center",marginBottom:16}}>
+          <div style={{fontSize:44,marginBottom:8,lineHeight:1}}>🚧</div>
+          <div style={{fontSize:19,fontWeight:800,color:"#b91c1c"}}>ただいまデモ運用中です</div>
+        </div>
+        <div style={{background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:12,padding:"14px 16px",fontSize:13.5,color:"#7f1d1d",lineHeight:1.9,marginBottom:18}}>
+          このシステムは現在<b>お試し（デモ）運用中</b>です。<br/>
+          自由に触ってご確認いただけますが、登録した内容は本番のものではありません。<br/><br/>
+          🗓 <b>研修参加のQRログインの本格運用は 8月以降</b> を予定しています。<br/>
+          実際に使用を開始する際は、あらためて<b>ご連絡します</b>ので、それまでは操作の確認としてご利用ください。
+        </div>
+        <button onClick={onClose} style={{width:"100%",padding:"13px",background:"#C89A55",color:"#fff",border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer"}}>
+          確認しました
+        </button>
+      </div>
+    </div>
+  );
+}
 function LoginCard({title,icon,accentColor,pendingAttend,internals,employees,onLogin,isManual,onLineLogin,lineLoggingIn,lineMsg}){
   const [id,setId]=useState(""); const [pw,setPw]=useState(""); const [err,setErr]=useState("");
   const training=internals&&internals.find(t=>t.id===pendingAttend);
