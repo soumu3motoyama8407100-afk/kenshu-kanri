@@ -1348,7 +1348,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14,padding:"6px 10px",background:"#FDF6EC",borderRadius:8,border:"1px solid #E8D5B0"}}>
               <span style={{fontSize:12,color:"#A07840",fontWeight:600}}>📅</span>
               <select value={viewFY} onChange={e=>setViewFY(Number(e.target.value))} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:13,fontWeight:600,color:"#4A3020",cursor:"pointer",background:"#fff"}}>
-                {[fiscalYear-2,fiscalYear-1,fiscalYear].map(y=><option key={y} value={y}>{y}年度{y===fiscalYear?"（今年度）":""}</option>)}
+                {[fiscalYear-2,fiscalYear-1,fiscalYear].map(y=><option key={y} value={y}>{y}年度</option>)}
               </select>
             </div>
             <PointCard count={count} fiscalYear={viewFY}/>
@@ -1407,9 +1407,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
         </div>
         {/* 年度バー */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"8px 16px",background:"#FDF6EC",borderBottom:"1px solid #E8D5B0"}}>
-          <span style={{fontSize:12,color:"#A07840",fontWeight:600}}>年度</span>
-          <select value={viewFY} onChange={e=>setViewFY(Number(e.target.value))} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:13,fontWeight:600,color:"#4A3020",cursor:"pointer",background:"#fff"}}>
-            {[fiscalYear-2,fiscalYear-1,fiscalYear].map(y=><option key={y} value={y}>{y}年度{y===fiscalYear?"（今年度）":""}</option>)}
+          <select value={viewFY} onChange={e=>setViewFY(Number(e.target.value))} style={{padding:"4px 12px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:13,fontWeight:600,color:"#4A3020",cursor:"pointer",background:"#fff"}}>
+            {[fiscalYear-2,fiscalYear-1,fiscalYear].map(y=><option key={y} value={y}>{y}年度</option>)}
           </select>
           {!isCurrentFY&&<span style={{fontSize:11,color:"#d97706",fontWeight:600,background:"#fef3c7",padding:"2px 8px",borderRadius:20}}>過去年度閲覧中</span>}
           {onRefresh&&<button onClick={onRefresh} disabled={refreshing} style={{fontSize:12,fontWeight:600,padding:"4px 12px",borderRadius:8,border:"1px solid #67e8f9",background:refreshing?"#e0f2fe":"#ecfeff",color:"#0e7490",cursor:refreshing?"default":"pointer"}}>{refreshing?"更新中…":"🔄 更新"}</button>}
