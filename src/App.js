@@ -1269,7 +1269,7 @@ function QRScanModal({onScan,onClose}){
 }
 
 function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminars,getSMV,setSMV,fiscalYear,getCount,onLogout,onRefresh,refreshing,isManager,isViewer,deptEmployees,managedDepts,setFiscalYear,committeeProps,onSwitchToAdmin}){
-  const [tab,setTab]=useState("training");
+  const [tab,setTab]=useState("notices");
   const [videoT,setVideoT]=useState(null);
   const [showVideoModal,setShowVideoModal]=useState(false);
   const [toast,setToast]=useState(null);
@@ -1423,10 +1423,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
             ...((isManager||isViewer)?[["mgr","📋 部署管理"]]:[]),
             ["chair","🏛 委員会"]]
             .map(([k,l])=>{
-              // 確認用：お知らせタブは ID158・ID103 のみ公開、他は準備中
-              const noticeTesters=["158","103"];
-              const canSeeNotices=noticeTesters.includes(String(emp.id).replace(/\D/g,""));
-              const isLocked=k==="chair"||(k==="notices"&&!canSeeNotices);
+              const isLocked=k==="chair"; // 委員会のみ準備中（お知らせは全職員に公開）
               return(
               <button key={k}
                 disabled={isLocked}
