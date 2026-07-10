@@ -4020,7 +4020,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   const myCommNotices=(committeeNotices||[]).filter(n=>n.committeeId===selectedId);
 
   const resetGForm=()=>{setGForm({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:"",lineMessage:"",lineMessageEdited:false});setPdfFile(null);setShowTargetSel(false);setSelDept("すべて");};
-  const buildAutoMsg=(title,body,cat2)=>`📢【${cat2||cat}】${title}\n\n${body?body+"\n\n":""}詳細は研修管理システムをご確認ください。`;
+  const buildAutoMsg=(title,body,cat2)=>`📢【${cat2||cat}】${title}${body?"\n\n"+body:""}`;
   // メッセージにPDF添付リンクを確実に差し込む（文面を編集していても付くように）
   const appendFileLink=(msg,url)=>{
     if(!url||(msg&&msg.includes(url))) return msg;
