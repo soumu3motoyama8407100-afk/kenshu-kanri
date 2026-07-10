@@ -3999,6 +3999,11 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   const [saving,setSaving]=useState(false);
   const [showTest,setShowTest]=useState(false);
   const [testEmpId,setTestEmpId]=useState("");
+  const [pendingUploadPath,setPendingUploadPath]=useState(null); // お試しでアップ済み・未投稿のPDF
+  const [usage,setUsage]=useState(null);       // 添付ファイル使用量(bytes)
+  const [usageLoading,setUsageLoading]=useState(false);
+  const cleanupRan=useRef(false);
+  const RETENTION_MONTHS=12;                    // この月数を過ぎた添付PDFを自動削除
   const [toast,setToast]=useState(null);
   const showToast=(msg,isError)=>{setToast({msg,isError});setTimeout(()=>setToast(null),5000);};
 
@@ -4030,6 +4035,46 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
     }
   },[gForm.title,gForm.body,cat,gForm.lineMessageEdited]);
 
+  // 保存期間(12ヶ月)を過ぎた添付PDFを削除（お知らせ本文・送信履歴は残す）。差し替え・お試しの消し残りも掃除
+  const cleanupOldPdfs=async(silent)=>{
+    const cutoff=new Date(); cutoff.setMonth(cutoff.getMonth()-RETENTION_MONTHS);
+    const targets=(generalNotices||[]).filter(n=>n.filePath&&n.createdAt&&new Date(n.createdAt)<cutoff);
+    if(targets.length===0){ if(!silent)showToast(`整理対象（${RETENTION_MONTHS}ヶ月より前の添付PDF）はありませんでした`); return; }
+    let done=0;
+    for(const n of targets){
+      try{
+        await supabase.storage.from("training-files").remove([n.filePath]);
+        await upsertGeneralNotice({...n,fileUrl:null,filePath:null,fileName:null});
+        done++;
+      }catch(_){}
+    }
+    if(done>0) showToast(`🗑 保存期間(${RETENTION_MONTHS}ヶ月)を過ぎた添付PDF ${done}件を整理しました（お知らせ本文は残っています）`);
+    else if(!silent) showToast("整理できる添付PDFはありませんでした");
+  };
+  // お知らせタブを開いたとき一度だけ自動整理（データ読み込み後）
+  useEffect(()=>{
+    if(cleanupRan.current) return;
+    if(!generalNotices||generalNotices.length===0) return;
+    cleanupRan.current=true;
+    cleanupOldPdfs(true);
+  },[generalNotices]);// eslint-disable-line
+  // 添付ファイルの使用容量を確認（training-files バケットの合計サイズ）
+  const checkUsage=async()=>{
+    setUsageLoading(true);
+    try{
+      let total=0, offset=0;
+      for(let i=0;i<100;i++){
+        const {data,error}=await supabase.storage.from("training-files").list("",{limit:100,offset});
+        if(error||!data||data.length===0) break;
+        total+=data.reduce((s,f)=>s+(f.metadata?.size||0),0);
+        if(data.length<100) break;
+        offset+=100;
+      }
+      setUsage(total);
+    }catch(_){ setUsage(-1); }
+    setUsageLoading(false);
+  };
+
   const handleSaveGeneral=async()=>{
     if(!gForm.title.trim()){showToast("タイトルを入力してください",true);return;}
     if(!gForm.lineDate||!gForm.lineTime){
@@ -4040,9 +4085,15 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
     try{
       const id=gForm.id||`GN${Date.now()}`;
       let fileMeta={fileUrl:gForm.fileUrl,filePath:gForm.filePath,fileName:gForm.fileName};
-      if(pdfFile) fileMeta=await uploadGeneralNoticePdf(id,pdfFile);
+      if(pdfFile){
+        const oldPath=gForm.filePath;
+        fileMeta=await uploadGeneralNoticePdf(id,pdfFile);
+        // 差し替え時は古いPDFを削除（消し残り防止）
+        if(oldPath&&oldPath!==fileMeta.filePath){ try{ await supabase.storage.from("training-files").remove([oldPath]); }catch(_){} }
+      }
       const targetIds=showTargetSel?(gForm.targetEmpIds||[]):[];
       await upsertGeneralNotice({...gForm,...fileMeta,id,category:cat,targetEmpIds:targetIds,postedBy:"ADMIN"});
+      setPendingUploadPath(null); // 投稿完了＝ファイルは保存済みなので掃除対象から外す
       // LINE配信を予約（対象：指定職員 or 全職員のうちLINE紐づけ済みの人）
       const lineTargets=(targetIds.length>0?activeEmps.filter(e=>targetIds.includes(e.id)):activeEmps).filter(e=>e.lineUserId);
       if(lineTargets.length>0){
@@ -4078,6 +4129,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
         fileUrl=fm.fileUrl;
         setGForm(p=>({...p,id:nid,...fm}));
         setPdfFile(null);
+        setPendingUploadPath(fm.filePath); // 投稿せずキャンセルされたら削除するため記録
       }
       const baseMsg=gForm.lineMessage||buildAutoMsg(gForm.title,gForm.body,cat);
       const msg=`🧪【お試し配信】\n`+appendFileLink(baseMsg,fileUrl);
@@ -4127,6 +4179,19 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
             🏛 委員会
           </button>
         </div>
+        {/* 添付ファイルの容量・整理 */}
+        <div style={{marginTop:12,paddingTop:12,borderTop:"1px dashed #e5e7eb",display:"flex",flexWrap:"wrap",alignItems:"center",gap:8}}>
+          <button onClick={checkUsage} disabled={usageLoading} style={{fontSize:12,fontWeight:600,padding:"5px 12px",borderRadius:8,border:"1px solid #93c5fd",background:"#eff6ff",color:"#2563eb",cursor:"pointer"}}>{usageLoading?"確認中…":"📦 使用容量を確認"}</button>
+          {usage!=null&&usage>=0&&(
+            <span style={{fontSize:12,color:"#4A3020",fontWeight:600}}>
+              添付ファイル使用量：<b>{usage<1048576?`${(usage/1024).toFixed(0)} KB`:`${(usage/1048576).toFixed(1)} MB`}</b>
+              <span style={{color:"#9ca3af",fontWeight:400}}> ／ 目安 1GB（無料プラン。Proは100GB）</span>
+            </span>
+          )}
+          {usage===-1&&<span style={{fontSize:12,color:"#dc2626"}}>容量を取得できませんでした</span>}
+          <button onClick={()=>cleanupOldPdfs(false)} style={{fontSize:12,fontWeight:600,padding:"5px 12px",borderRadius:8,border:"1px solid #fca5a5",background:"#fef2f2",color:"#dc2626",cursor:"pointer",marginLeft:"auto"}}>🗑 {RETENTION_MONTHS}ヶ月より前の添付PDFを整理</button>
+        </div>
+        <div style={{fontSize:11,color:"#9ca3af",marginTop:6,lineHeight:1.6}}>※ 添付PDFは投稿から <b>{RETENTION_MONTHS}ヶ月</b> で自動削除されます（お知らせ本文・送信履歴は残ります）。容量を食うのはPDFのみです。</div>
         {/* 委員会選択（委員会カテゴリのとき展開） */}
         {cat==="committee"&&(
           <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:10,paddingTop:10,borderTop:"1px dashed #e5e7eb"}}>
@@ -4244,7 +4309,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
               <div style={{display:"flex",gap:8}}>
                 <button onClick={handleSaveGeneral} disabled={saving} style={{flex:1,padding:"9px",background:catColor,color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>{saving?"保存中…":"投稿する"}</button>
                 <button onClick={()=>setShowTest(v=>!v)} disabled={saving} style={{flex:1,padding:"9px",background:showTest?"#0e7490":"#ecfeff",color:showTest?"#fff":"#0e7490",border:"1.5px solid #0e7490",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>🧪 お試し</button>
-                <button onClick={()=>{setShowForm(false);resetGForm();setShowTest(false);}} style={{flex:1,padding:"9px",background:"#f3f4f6",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>キャンセル</button>
+                <button onClick={async()=>{ if(pendingUploadPath){ try{ await supabase.storage.from("training-files").remove([pendingUploadPath]); }catch(_){} setPendingUploadPath(null);} setShowForm(false);resetGForm();setShowTest(false);}} style={{flex:1,padding:"9px",background:"#f3f4f6",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>キャンセル</button>
               </div>
               {showTest&&(
                 <div style={{marginTop:10,padding:"12px 14px",background:"#ecfeff",border:"1.5px solid #67e8f9",borderRadius:10}}>
