@@ -4184,8 +4184,8 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
           <button onClick={checkUsage} disabled={usageLoading} style={{fontSize:12,fontWeight:600,padding:"5px 12px",borderRadius:8,border:"1px solid #93c5fd",background:"#eff6ff",color:"#2563eb",cursor:"pointer"}}>{usageLoading?"確認中…":"📦 使用容量を確認"}</button>
           {usage!=null&&usage>=0&&(
             <span style={{fontSize:12,color:"#4A3020",fontWeight:600}}>
-              添付ファイル使用量：<b>{usage<1048576?`${(usage/1024).toFixed(0)} KB`:`${(usage/1048576).toFixed(1)} MB`}</b>
-              <span style={{color:"#9ca3af",fontWeight:400}}> ／ 目安 1GB（無料プラン。Proは100GB）</span>
+              添付ファイル使用量：<b>{(usage/1048576).toFixed(1)} MB</b>
+              <span style={{color:"#9ca3af",fontWeight:400}}> ／ 目安 1024 MB（無料プラン。残り 約 {(1024-usage/1048576).toFixed(0)} MB）</span>
             </span>
           )}
           {usage===-1&&<span style={{fontSize:12,color:"#dc2626"}}>容量を取得できませんでした</span>}
