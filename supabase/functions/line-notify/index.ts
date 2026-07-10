@@ -65,9 +65,20 @@ serve(async (req) => {
   // POSTで新しい通知をキューに追加（アプリから呼ばれる）
   if (req.method === "POST") {
     try {
-      const { notifications, sendAfter } = await req.json();
+      const { notifications, sendAfter, immediate } = await req.json();
       // notifications: [{ lineUserId, message }], sendAfter: ISO日時（指定時刻以降に配信）
+      // immediate: true の場合は時間帯制限を無視して「今すぐ」送信（お試し配信用）
       if (Array.isArray(notifications) && notifications.length > 0) {
+        if (immediate) {
+          let sentNow = 0;
+          for (const n of notifications) {
+            const ok = await sendPush(n.lineUserId, n.message);
+            if (ok) sentNow++;
+          }
+          return new Response(JSON.stringify({ ok: true, sent: sentNow, immediate: true }), {
+            headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+          });
+        }
         const after = sendAfter ? new Date(sendAfter).toISOString() : new Date().toISOString();
         await supabase.from("line_notification_queue").insert(
           notifications.map((n: { lineUserId: string; message: string }) => ({

@@ -3997,11 +3997,14 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   const [showTargetSel,setShowTargetSel]=useState(false);
   const [selDept,setSelDept]=useState("すべて");
   const [saving,setSaving]=useState(false);
+  const [showTest,setShowTest]=useState(false);
+  const [testEmpId,setTestEmpId]=useState("");
   const [toast,setToast]=useState(null);
   const showToast=(msg,isError)=>{setToast({msg,isError});setTimeout(()=>setToast(null),5000);};
 
   // 休職中はお知らせ・LINE配信の対象外
   const activeEmps=(employees||[]).filter(e=>e.isActive!==false&&e.onLeave!==true);
+  const lineEmps=activeEmps.filter(e=>e.lineUserId); // LINE連携済み（お試し送信先候補）
   const depts=["すべて",...sortDepts(Array.from(new Set(activeEmps.map(e=>e.dept).filter(Boolean))))];
   const filteredEmps=selDept==="すべて"?activeEmps:activeEmps.filter(e=>e.dept===selDept);
 
@@ -4049,6 +4052,28 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
       }
       setShowForm(false); resetGForm();
     }catch(e){ showToast("保存に失敗しました: "+(e.message||e),true); }
+    setSaving(false);
+  };
+  // お試し配信：選んだ1名に、時間制限を無視して今すぐLINE送信（保存はしない）
+  const handleTestSend=async()=>{
+    if(!gForm.title.trim()){showToast("タイトルを入力してください",true);return;}
+    const emp=activeEmps.find(e=>e.id===testEmpId);
+    if(!emp){showToast("お試し送信先の職員を選んでください",true);return;}
+    if(!emp.lineUserId){showToast("その職員はLINE連携されていません",true);return;}
+    setSaving(true);
+    try{
+      const baseMsg=gForm.lineMessage||buildAutoMsg(gForm.title,gForm.body,cat);
+      const withFile=gForm.fileUrl?baseMsg.replace("詳細は研修管理システムをご確認ください。",`📄 添付資料：\n${gForm.fileUrl}\n\n詳細は研修管理システムをご確認ください。`):baseMsg;
+      const msg=`🧪【お試し配信】\n`+withFile;
+      const res=await fetch("https://nncousuugjntzovtmkvt.supabase.co/functions/v1/line-notify",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({notifications:[{lineUserId:emp.lineUserId,message:msg}],immediate:true})
+      });
+      const j=await res.json().catch(()=>null);
+      if(j&&j.ok&&j.sent>0) showToast(`✅ ${emp.name} さんにお試し配信しました（今すぐ送信）`);
+      else showToast("お試し送信しましたが届いていない可能性があります。LINE連携・チャネル設定をご確認ください",true);
+    }catch(e){ showToast("お試し配信に失敗しました: "+(e.message||e),true); }
     setSaving(false);
   };
   const handleSaveCommittee=async()=>{
@@ -4202,8 +4227,24 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
               </div>
               <div style={{display:"flex",gap:8}}>
                 <button onClick={handleSaveGeneral} disabled={saving} style={{flex:1,padding:"9px",background:catColor,color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>{saving?"保存中…":"投稿する"}</button>
-                <button onClick={()=>{setShowForm(false);resetGForm();}} style={{flex:1,padding:"9px",background:"#f3f4f6",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>キャンセル</button>
+                <button onClick={()=>setShowTest(v=>!v)} disabled={saving} style={{flex:1,padding:"9px",background:showTest?"#0e7490":"#ecfeff",color:showTest?"#fff":"#0e7490",border:"1.5px solid #0e7490",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>🧪 お試し</button>
+                <button onClick={()=>{setShowForm(false);resetGForm();setShowTest(false);}} style={{flex:1,padding:"9px",background:"#f3f4f6",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>キャンセル</button>
               </div>
+              {showTest&&(
+                <div style={{marginTop:10,padding:"12px 14px",background:"#ecfeff",border:"1.5px solid #67e8f9",borderRadius:10}}>
+                  <div style={{fontSize:13,fontWeight:700,color:"#0e7490",marginBottom:6}}>🧪 お試し配信（今すぐ・時間制限なし）</div>
+                  <div style={{fontSize:11,color:"#155e75",marginBottom:8,lineHeight:1.7}}>1名を選んで、今の内容をその人のLINEに<b>すぐに</b>送ります。<br/>※ この操作では<b>投稿（保存）されません</b>。10:00〜17:00の制限も無視して届きます。</div>
+                  {lineEmps.length===0
+                    ?<div style={{fontSize:12,color:"#dc2626",background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:8,padding:"8px 10px"}}>LINE連携済みの職員がいません。公式LINEで職員番号を登録した人が対象です。</div>
+                    :<div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                      <select value={testEmpId} onChange={e=>setTestEmpId(e.target.value)} style={{...S.input,flex:1,minWidth:160,borderColor:"#67e8f9"}}>
+                        <option value="">送信先を選択…</option>
+                        {lineEmps.map(e=><option key={e.id} value={e.id}>{e.name}（{e.dept}）</option>)}
+                      </select>
+                      <button onClick={handleTestSend} disabled={saving||!testEmpId} style={{padding:"9px 16px",background:(saving||!testEmpId)?"#9ca3af":"#0e7490",color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:(saving||!testEmpId)?"default":"pointer",whiteSpace:"nowrap"}}>{saving?"送信中…":"今すぐ送る"}</button>
+                    </div>}
+                </div>
+              )}
             </div>
           )}
           {myGeneral.length===0&&!showForm&&<div style={{textAlign:"center",padding:24,color:"#9ca3af",fontSize:13}}>お知らせなし</div>}
