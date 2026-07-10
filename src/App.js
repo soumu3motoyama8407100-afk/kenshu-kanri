@@ -139,7 +139,7 @@ const db = {
   },
   async getInternals() {
     const {data} = await supabase.from("internals").select("*").order("date");
-    return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,date2:r.date2||"",required:r.required,requiredEmpIds:r.required_emp_ids||[],targetEmpIds:r.target_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||"",endTime:r.end_time||"",noReport:r.no_report===true,noVideo:r.no_video===true}));
+    return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,date2:r.date2||"",required:r.required,requiredEmpIds:r.required_emp_ids||[],targetEmpIds:r.target_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||"",endTime:r.end_time||"",noReport:r.no_report===true,noVideo:r.no_video===true,createdAt:r.created_at}));
   },
   async upsertInternal(t) {
     const {error} = await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,date2:t.date2||"",required:t.required===true,required_emp_ids:t.requiredEmpIds||[],target_emp_ids:t.targetEmpIds||[],video_url:toEmbedUrl(t.videoUrl)||"",description:t.description||"",location:t.location||"",start_time:t.startTime||"",end_time:t.endTime||"",no_report:t.noReport===true,no_video:t.noVideo===true},{onConflict:"id"});
@@ -262,10 +262,10 @@ const db = {
   },
   async getGeneralNotices() {
     const {data} = await supabase.from("general_notices").select("*").order("created_at",{ascending:false});
-    return (data||[]).map(r=>({id:r.id,category:r.category||"各種お知らせ",title:r.title,body:r.body||"",fileUrl:r.file_url||null,filePath:r.file_path||null,fileName:r.file_name||null,targetEmpIds:r.target_emp_ids||[],postedBy:r.posted_by||"",createdAt:r.created_at}));
+    return (data||[]).map(r=>({id:r.id,category:r.category||"各種お知らせ",title:r.title,body:r.body||"",fileUrl:r.file_url||null,filePath:r.file_path||null,fileName:r.file_name||null,targetEmpIds:r.target_emp_ids||[],postedBy:r.posted_by||"",createdAt:r.created_at,deadline:r.deadline||null}));
   },
   async upsertGeneralNotice(n) {
-    await supabase.from("general_notices").upsert({id:n.id,category:n.category||"各種お知らせ",title:n.title,body:n.body||"",file_url:n.fileUrl||null,file_path:n.filePath||null,file_name:n.fileName||null,target_emp_ids:n.targetEmpIds||[],posted_by:n.postedBy||"ADMIN",updated_at:new Date().toISOString()},{onConflict:"id"});
+    await supabase.from("general_notices").upsert({id:n.id,category:n.category||"各種お知らせ",title:n.title,body:n.body||"",file_url:n.fileUrl||null,file_path:n.filePath||null,file_name:n.fileName||null,target_emp_ids:n.targetEmpIds||[],posted_by:n.postedBy||"ADMIN",deadline:n.deadline||null,updated_at:new Date().toISOString()},{onConflict:"id"});
   },
   async uploadGeneralNoticePdf(id,file) {
     const MAX=20*1024*1024;
@@ -1421,7 +1421,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
             ["chair","🏛 委員会"],
             ["notices","📢 お知らせ"]]
             .map(([k,l])=>{
-              const isLocked=k==="notices"||k==="chair"; // お知らせは準備完了済み・公開時はここから"notices"を外す
+              const isLocked=k==="chair"; // 委員会のみ準備中
               return(
               <button key={k}
                 disabled={isLocked}
@@ -1488,70 +1488,106 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
           {tab==="chair"&&committeeProps&&(
             <ChairCommitteeView emp={emp} {...committeeProps}/>
           )}
-          {tab==="notices"&&(
+          {tab==="notices"&&(()=>{
+            const today=new Date(); today.setHours(0,0,0,0);
+            const dleft=d=>{ const x=new Date(d); x.setHours(0,0,0,0); return Math.round((x-today)/86400000); };
+            const eom=dateStr=>{ const d=new Date(dateStr); return new Date(d.getFullYear(),d.getMonth()+1,0); };
+            const nowY=today.getFullYear(), nowM=today.getMonth();
+            const dueBadge=days=>{
+              if(days<0) return {label:`${-days}日超過`,color:"#b91c1c",bg:"#fef2f2",bd:"#fca5a5"};
+              if(days===0) return {label:"本日締切",color:"#b91c1c",bg:"#fef2f2",bd:"#fca5a5"};
+              if(days<=3) return {label:`あと${days}日`,color:"#dc2626",bg:"#fef2f2",bd:"#fca5a5"};
+              if(days<=7) return {label:`あと${days}日`,color:"#c2410c",bg:"#fff7ed",bd:"#fdba74"};
+              return {label:`あと${days}日`,color:"#6b7280",bg:"#f3f4f6",bd:"#e5e7eb"};
+            };
+            const catColor=c=>({"事務連絡":"#0369a1","研修のお知らせ":"#C89A55","アンケート":"#16a34a"})[c]||"#7c3aed";
+            // ① 復命書 締切（当月末）
+            const reportDue=internals.filter(t=>{
+              if(t.noReport||!isTargetedFor(t,emp))return false;
+              const s=getIS(emp.id,t.id);
+              const required=(t.requiredEmpIds||[]).includes(emp.id)||t.required===true||s.attendance==="参加済";
+              return required&&s.report!=="提出済"&&s.report!=="提出しない"&&!s.reportConfirmed;
+            }).map(t=>({t,due:eom(t.date)})).sort((a,b)=>a.due-b.due);
+            // ② お知らせ（締切あり/なし）
+            const myNotices=(committeeProps?.generalNotices||[]).filter(n=>(n.targetEmpIds||[]).length===0||(n.targetEmpIds||[]).includes(emp.id));
+            const noticeDue=myNotices.filter(n=>n.deadline).map(n=>({n,due:new Date(n.deadline)})).sort((a,b)=>a.due-b.due);
+            const noticePlain=myNotices.filter(n=>!n.deadline);
+            // ③ 今月の内部研修予定
+            const thisMonth=internals.filter(t=>{ if(!isTargetedFor(t,emp))return false; const d=new Date(t.date); return d.getFullYear()===nowY&&d.getMonth()===nowM; }).sort((a,b)=>new Date(a.date)-new Date(b.date));
+            const isNew=t=> t.createdAt&&(Date.now()-new Date(t.createdAt).getTime())<10*86400000;
+            const nothing=reportDue.length===0&&noticeDue.length===0&&thisMonth.length===0&&noticePlain.length===0;
+            const badgePill=b=><span style={{fontSize:12,fontWeight:800,color:b.color,background:"#fff",border:`1px solid ${b.bd}`,borderRadius:12,padding:"2px 10px",whiteSpace:"nowrap"}}>{b.label}</span>;
+            return(
             <div>
-              <div style={{fontWeight:700,fontSize:14,color:"#1e3a5f",marginBottom:14}}>📢 お知らせ</div>
-              {/* 復命書 未提出アラート（常時表示） */}
-              {(()=>{
-                const pending=internals.filter(t=>{
-                  if(!inFiscalYear(t.date,fiscalYear)||t.noReport||!isTargetedFor(t,emp))return false;
-                  const s=getIS(emp.id,t.id);
-                  const required=(t.requiredEmpIds||[]).includes(emp.id)||t.required===true||s.attendance==="参加済";
-                  return required&&s.report!=="提出済"&&s.report!=="提出しない"&&!s.reportConfirmed;
-                }).sort((a,b)=>new Date(a.date)-new Date(b.date));
-                if(pending.length===0)return null;
-                return(
-                  <div style={{background:"#fef2f2",border:"2px solid #fca5a5",borderRadius:14,padding:"14px 16px",marginBottom:16}}>
-                    <div style={{fontWeight:800,fontSize:14,color:"#dc2626",marginBottom:6}}>⚠ 復命書が未提出の研修があります（{pending.length}件）</div>
-                    <div style={{fontSize:12,color:"#7f1d1d",marginBottom:10,lineHeight:1.7}}>復命書は<b>原則、研修のあった当月中に提出</b>してください。間に合わない場合や月末の研修は、良識の範囲内で速やかにお願いします。</div>
-                    {pending.map(t=>(
-                      <div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,background:"#fff",border:"1px solid #fca5a5",borderRadius:10,padding:"9px 12px",marginBottom:6}}>
-                        <div>
-                          <div style={{fontWeight:700,fontSize:13,color:"#4A3020"}}>{t.title}</div>
-                          <div style={{fontSize:11,color:"#9ca3af"}}>📅 {formatDate(t.date)}{t.date2&&` / ${formatDate(t.date2)}`}</div>
-                        </div>
-                        <button onClick={()=>switchTab("training")} style={{flexShrink:0,fontSize:11,fontWeight:700,padding:"6px 12px",borderRadius:16,border:"none",background:"#dc2626",color:"#fff",cursor:"pointer"}}>提出する →</button>
+              <div style={{fontWeight:700,fontSize:14,color:"#1e3a5f",marginBottom:14}}>🔔 お知らせ・締切</div>
+              {/* ⏰ 締切が近いもの */}
+              {(reportDue.length>0||noticeDue.length>0)&&(
+                <div style={{marginBottom:18}}>
+                  <div style={{fontWeight:800,fontSize:13,color:"#c2410c",marginBottom:8}}>⏰ 締切が近いもの</div>
+                  {reportDue.map(({t,due})=>{ const b=dueBadge(dleft(due)); return(
+                    <div key={"r"+t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,background:b.bg,border:`1px solid ${b.bd}`,borderRadius:10,padding:"9px 12px",marginBottom:6}}>
+                      <div style={{minWidth:0}}>
+                        <div style={{fontSize:11,color:"#6b7280",marginBottom:2}}>復命書の提出</div>
+                        <div style={{fontWeight:700,fontSize:13,color:"#4A3020",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{t.title}</div>
+                        <div style={{fontSize:11,color:"#9ca3af"}}>締切 {formatDate(due.toISOString().slice(0,10))}（当月末）</div>
                       </div>
-                    ))}
-                  </div>
-                );
-              })()}
-              {/* 自分宛のお知らせ */}
-              {(()=>{
-                const myNotices=(committeeProps?.generalNotices||[]).filter(n=>(n.targetEmpIds||[]).length===0||(n.targetEmpIds||[]).includes(emp.id));
-                const catColor=c=>({"事務連絡":"#0369a1","研修のお知らせ":"#C89A55","アンケート":"#16a34a"})[c]||"#7c3aed";
-                if(myNotices.length===0)return <div style={{textAlign:"center",padding:32,color:"#9ca3af",fontSize:13}}>現在お知らせはありません</div>;
-                return myNotices.map(n=>(
-                  <div key={n.id} style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:12,padding:"12px 14px",marginBottom:8}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
-                      <span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:10,background:`${catColor(n.category)}18`,color:catColor(n.category)}}>{n.category}</span>
-                      <span style={{fontWeight:700,fontSize:14,color:"#1e3a5f"}}>{n.title}</span>
+                      <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6,flexShrink:0}}>
+                        {badgePill(b)}
+                        <button onClick={()=>switchTab("training")} style={{fontSize:11,fontWeight:700,padding:"5px 12px",borderRadius:16,border:"none",background:"#2563eb",color:"#fff",cursor:"pointer"}}>提出する →</button>
+                      </div>
                     </div>
-                    {n.body&&<div style={{fontSize:13,color:"#374151",whiteSpace:"pre-wrap",lineHeight:1.7,marginBottom:6}}>{n.body}</div>}
-                    {n.fileUrl&&<a href={n.fileUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:12,color:"#2563eb",fontWeight:600,textDecoration:"underline",marginBottom:4}}>📄 {n.fileName||"添付PDF"}</a>}
-                    <div style={{fontSize:11,color:"#9ca3af"}}>{n.createdAt?new Date(n.createdAt).toLocaleDateString("ja-JP"):""}</div>
-                  </div>
-                ));
-              })()}
-              {false&&visibleNotices.length===0&&<div style={{textAlign:"center",padding:40,color:"#9ca3af",fontSize:13}}>現在お知らせはありません</div>}
-              {false&&visibleNotices.map(n=>{
-                const c=committeeProps?.committees?.find(x=>x.id===n.committeeId);
-                const isUnread=!readIds.includes(n.id);
-                return(
-                  <div key={n.id} style={{background:"#fff",border:`1.5px solid ${isUnread?"#fcd34d":"#e5e7eb"}`,borderRadius:12,padding:"12px 14px",marginBottom:8,position:"relative"}}>
-                    {isUnread&&<span style={{position:"absolute",top:10,right:12,width:8,height:8,borderRadius:"50%",background:"#ef4444",display:"block"}}/>}
-                    <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
-                      {c&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:10,background:`${c.color||"#7c3aed"}20`,color:c.color||"#7c3aed"}}>{c.name}</span>}
-                      <span style={{fontWeight:700,fontSize:14,color:"#1e3a5f"}}>{n.title}</span>
-                      {n.isPublic&&<span style={{fontSize:10,background:"#dcfce7",color:"#15803d",borderRadius:10,padding:"1px 8px",fontWeight:700}}>全体</span>}
+                  );})}
+                  {noticeDue.map(({n,due})=>{ const b=dueBadge(dleft(due)); return(
+                    <div key={"n"+n.id} style={{background:b.bg,border:`1px solid ${b.bd}`,borderRadius:10,padding:"9px 12px",marginBottom:6}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:3}}>
+                        <span style={{fontSize:11,fontWeight:700,padding:"1px 8px",borderRadius:10,background:`${catColor(n.category)}18`,color:catColor(n.category)}}>{n.category}</span>
+                        {badgePill(b)}
+                      </div>
+                      <div style={{fontWeight:700,fontSize:13,color:"#1e3a5f"}}>{n.title}</div>
+                      {n.body&&<div style={{fontSize:12,color:"#374151",whiteSpace:"pre-wrap",lineHeight:1.6,marginTop:2}}>{n.body}</div>}
+                      {n.fileUrl&&<a href={n.fileUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:12,color:"#2563eb",fontWeight:600,textDecoration:"underline",marginTop:4}}>📄 {n.fileName||"添付PDF"}</a>}
+                      <div style={{fontSize:11,color:"#9ca3af",marginTop:3}}>締切 {formatDate(n.deadline)}</div>
                     </div>
-                    {n.body&&<div style={{fontSize:13,color:"#374151",whiteSpace:"pre-wrap",lineHeight:1.7,marginBottom:6}}>{n.body}</div>}
-                    <div style={{fontSize:11,color:"#9ca3af"}}>{n.createdAt?new Date(n.createdAt).toLocaleDateString("ja-JP"):""}</div>
-                  </div>
-                );
-              })}
+                  );})}
+                </div>
+              )}
+              {/* 📅 今月の研修予定 */}
+              {thisMonth.length>0&&(
+                <div style={{marginBottom:18}}>
+                  <div style={{fontWeight:800,fontSize:13,color:"#0e7490",marginBottom:8}}>📅 今月の研修予定</div>
+                  {thisMonth.map(t=>{ const d=dleft(new Date(t.date)); const s=getIS(emp.id,t.id); const doneMark=s.attendance==="参加済"?"✅ 参加済":s.video==="視聴済"?"✅ 視聴済":""; return(
+                    <div key={t.id} onClick={()=>switchTab("training")} style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:10,padding:"9px 12px",marginBottom:6,cursor:"pointer"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:2}}>
+                        {isNew(t)&&<span style={{fontSize:10,fontWeight:800,color:"#fff",background:"#ef4444",borderRadius:6,padding:"1px 6px"}}>NEW</span>}
+                        <span style={{fontWeight:700,fontSize:13,color:"#4A3020"}}>{t.title}</span>
+                        {doneMark&&<span style={{fontSize:11,color:"#15803d",fontWeight:700}}>{doneMark}</span>}
+                      </div>
+                      <div style={{fontSize:11,color:"#9ca3af"}}>📅 {formatDate(t.date)}{t.startTime&&` ${t.startTime}`}{t.location&&` ・ ${t.location}`}{d>=0&&d<=7&&<span style={{color:"#0e7490",fontWeight:700,marginLeft:6}}>あと{d}日</span>}</div>
+                    </div>
+                  );})}
+                </div>
+              )}
+              {/* 📢 その他のお知らせ（締切なし） */}
+              {noticePlain.length>0&&(
+                <div>
+                  <div style={{fontWeight:800,fontSize:13,color:"#1e3a5f",marginBottom:8}}>📢 お知らせ</div>
+                  {noticePlain.map(n=>(
+                    <div key={n.id} style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:12,padding:"12px 14px",marginBottom:8}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
+                        <span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:10,background:`${catColor(n.category)}18`,color:catColor(n.category)}}>{n.category}</span>
+                        <span style={{fontWeight:700,fontSize:14,color:"#1e3a5f"}}>{n.title}</span>
+                      </div>
+                      {n.body&&<div style={{fontSize:13,color:"#374151",whiteSpace:"pre-wrap",lineHeight:1.7,marginBottom:6}}>{n.body}</div>}
+                      {n.fileUrl&&<a href={n.fileUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:12,color:"#2563eb",fontWeight:600,textDecoration:"underline",marginBottom:4}}>📄 {n.fileName||"添付PDF"}</a>}
+                      <div style={{fontSize:11,color:"#9ca3af"}}>{n.createdAt?new Date(n.createdAt).toLocaleDateString("ja-JP"):""}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {nothing&&<div style={{textAlign:"center",padding:32,color:"#9ca3af",fontSize:13}}>現在、締切・お知らせ・今月の研修予定はありません</div>}
             </div>
-          )}
+            );
+          })()}
         </div>
         {/* 下部固定ぶんの余白（コンテンツが隠れないように） */}
         <div style={{height:72}}/>
@@ -3992,7 +4028,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   const [selectedId,setSelectedId]=useState(committees[0]?.id||null); // 委員会用
   const [showForm,setShowForm]=useState(false);
   const [form,setForm]=useState({id:"",title:"",body:"",isPublic:false});
-  const [gForm,setGForm]=useState({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:"",lineMessage:"",lineMessageEdited:false});
+  const [gForm,setGForm]=useState({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:"",lineMessage:"",lineMessageEdited:false,deadline:""});
   const [pdfFile,setPdfFile]=useState(null);
   const [showTargetSel,setShowTargetSel]=useState(false);
   const [selDept,setSelDept]=useState("すべて");
@@ -4022,7 +4058,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   const selected=committees.find(c=>c.id===selectedId);
   const myCommNotices=(committeeNotices||[]).filter(n=>n.committeeId===selectedId);
 
-  const resetGForm=()=>{setGForm({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:"",lineMessage:"",lineMessageEdited:false});setPdfFile(null);setShowTargetSel(false);setSelDept("すべて");};
+  const resetGForm=()=>{setGForm({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:"",lineMessage:"",lineMessageEdited:false,deadline:""});setPdfFile(null);setShowTargetSel(false);setSelDept("すべて");};
   const buildAutoMsg=(title,body,cat2)=>`📢【${cat2||cat}】${title}${body?"\n\n"+body:""}`;
   // メッセージにPDF添付リンクを確実に差し込む（文面を編集していても付くように）
   const appendFileLink=(msg,url)=>{
@@ -4233,6 +4269,15 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
                   <span style={{fontSize:20}}>📄</span>
                   <span style={{fontSize:13,fontWeight:600,color:"#475569"}}>{pdfFile?"✅ "+pdfFile.name:gForm.fileName?"✅ "+gForm.fileName:"クリックしてPDFをアップロード"}</span>
                 </label>
+              </div>
+              {/* 締切日（任意） */}
+              <div style={{marginBottom:12,padding:"10px 12px",background:"#fff7ed",borderRadius:10,border:"1px solid #fdba74"}}>
+                <label style={{fontSize:13,fontWeight:700,color:"#c2410c",display:"block",marginBottom:6}}>⏰ 締切日（任意）</label>
+                <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                  <input type="date" style={{...S.input,borderColor:"#fdba74",width:"auto"}} value={gForm.deadline||""} onChange={e=>setGForm(p=>({...p,deadline:e.target.value}))}/>
+                  {gForm.deadline&&<button type="button" onClick={()=>setGForm(p=>({...p,deadline:""}))} style={{fontSize:12,color:"#9ca3af",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"4px 10px",cursor:"pointer"}}>クリア</button>}
+                </div>
+                <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>※ 設定すると、職員の「締切」タブに残り日数付きで表示されます（提出物・アンケート等の締切に）。</div>
               </div>
               {/* LINEメッセージプレビュー＆編集 */}
               <div style={{marginBottom:12,padding:"12px",background:"#f0f9ff",borderRadius:10,border:"1.5px solid #7dd3fc"}}>
