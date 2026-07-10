@@ -4010,6 +4010,9 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   // 休職中はお知らせ・LINE配信の対象外
   const activeEmps=(employees||[]).filter(e=>e.isActive!==false&&e.onLeave!==true);
   const lineEmps=activeEmps.filter(e=>e.lineUserId); // LINE連携済み（お試し送信先候補）
+  // お試し送信先：総務を先頭に、以降は通常の部署順で並べる
+  const testDeptRank=d=>{ if(d==="総務") return -1; const i=DEPT_ORDER.indexOf(d); return i<0?999:i; };
+  const testDeptList=[...new Set(lineEmps.map(e=>e.dept||"部署未設定"))].sort((a,b)=>testDeptRank(a)-testDeptRank(b)||a.localeCompare(b,"ja"));
   const depts=["すべて",...sortDepts(Array.from(new Set(activeEmps.map(e=>e.dept).filter(Boolean))))];
   const filteredEmps=selDept==="すべて"?activeEmps:activeEmps.filter(e=>e.dept===selDept);
 
@@ -4320,7 +4323,13 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
                     :<div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
                       <select value={testEmpId} onChange={e=>setTestEmpId(e.target.value)} style={{...S.input,flex:1,minWidth:160,borderColor:"#67e8f9"}}>
                         <option value="">送信先を選択…</option>
-                        {lineEmps.map(e=><option key={e.id} value={e.id}>{e.name}（{e.dept}）</option>)}
+                        {testDeptList.map(d=>(
+                          <optgroup key={d} label={d}>
+                            {lineEmps.filter(e=>(e.dept||"部署未設定")===d).sort((a,b)=>roleRank(a)-roleRank(b)||String(a.id).localeCompare(String(b.id),undefined,{numeric:true})).map(e=>(
+                              <option key={e.id} value={e.id}>{e.name}</option>
+                            ))}
+                          </optgroup>
+                        ))}
                       </select>
                       <button onClick={handleTestSend} disabled={saving||!testEmpId} style={{padding:"9px 16px",background:(saving||!testEmpId)?"#9ca3af":"#0e7490",color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:(saving||!testEmpId)?"default":"pointer",whiteSpace:"nowrap"}}>{saving?"送信中…":"今すぐ送る"}</button>
                     </div>}
