@@ -1418,10 +1418,10 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
         </div>
         {/* タブバー */}
         <div style={S.tabBar}>
-          {[["training","📚 研修"],["seminar","📺 セミナー"],
+          {[["notices","📢 お知らせ"],
+            ["training","📚 研修"],["seminar","📺 セミナー"],
             ...((isManager||isViewer)?[["mgr","📋 部署管理"]]:[]),
-            ["chair","🏛 委員会"],
-            ["notices","📢 お知らせ"]]
+            ["chair","🏛 委員会"]]
             .map(([k,l])=>{
               // 確認用：お知らせタブは ID158・ID103 のみ公開、他は準備中
               const noticeTesters=["158","103"];
