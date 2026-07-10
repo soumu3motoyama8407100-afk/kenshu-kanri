@@ -1421,7 +1421,10 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
             ["chair","🏛 委員会"],
             ["notices","📢 お知らせ"]]
             .map(([k,l])=>{
-              const isLocked=k==="chair"; // 委員会のみ準備中
+              // 確認用：お知らせタブは ID158・ID103 のみ公開、他は準備中
+              const noticeTesters=["158","103"];
+              const canSeeNotices=noticeTesters.includes(String(emp.id).replace(/\D/g,""));
+              const isLocked=k==="chair"||(k==="notices"&&!canSeeNotices);
               return(
               <button key={k}
                 disabled={isLocked}
