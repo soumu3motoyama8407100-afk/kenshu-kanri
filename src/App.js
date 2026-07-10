@@ -62,6 +62,8 @@ const getBadge = c => c===0?null:BADGES.find(b=>c>=b.min&&c<=b.max)||BADGES[BADG
 const rankStyle = r => r===1?{icon:"🥇",color:"#d97706"}:r===2?{icon:"🥈",color:"#6b7280"}:r===3?{icon:"🥉",color:"#b45309"}:{icon:`${r}`,color:"#374151"};
 const isPast = ds => { if(!ds)return false; const t=new Date();t.setHours(0,0,0,0);const d=new Date(ds);d.setHours(0,0,0,0);return t>d; };
 const formatDate = ds => { if(!ds)return ""; const d=new Date(ds+"T00:00:00"); const w=["日","月","火","水","木","金","土"][d.getDay()]; return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}（${w}）`; };
+// 令和表記（例：令和8年7月20日(月)）
+const formatReiwa = ds => { if(!ds)return ""; const d=new Date(ds+"T00:00:00"); const w=["日","月","火","水","木","金","土"][d.getDay()]; const ry=d.getFullYear()-2018; return `令和${ry===1?"元":ry}年${d.getMonth()+1}月${d.getDate()}日(${w})`; };
 const calcYears = jd => { if(!jd)return ""; const j=new Date(jd),n=new Date();let y=n.getFullYear()-j.getFullYear(),m=n.getMonth()-j.getMonth();if(m<0){y--;m+=12;}return `${y}年${m}ヶ月`; };
 const makeAttendUrl = tid => `${window.location.href.split("?")[0]}?attend=${tid}`;
 // セミナーの月別視聴用ユーティリティ（"2026-06" 形式）
@@ -1513,12 +1515,12 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
             }).map(t=>({t,due:eom(t.date)})).sort((a,b)=>a.due-b.due);
             // ② お知らせ（締切あり/なし）
             const myNotices=(committeeProps?.generalNotices||[]).filter(n=>(n.targetEmpIds||[]).length===0||(n.targetEmpIds||[]).includes(emp.id));
+            // 締切のあるお知らせのみ表示（締切なしは表示しない）
             const noticeDue=myNotices.filter(n=>n.deadline).map(n=>({n,due:new Date(n.deadline)})).sort((a,b)=>a.due-b.due);
-            const noticePlain=myNotices.filter(n=>!n.deadline);
             // ③ 今月の内部研修予定
             const thisMonth=internals.filter(t=>{ if(!isTargetedFor(t,emp))return false; const d=new Date(t.date); return d.getFullYear()===nowY&&d.getMonth()===nowM; }).sort((a,b)=>new Date(a.date)-new Date(b.date));
             const isNew=t=> t.createdAt&&(Date.now()-new Date(t.createdAt).getTime())<10*86400000;
-            const nothing=reportDue.length===0&&noticeDue.length===0&&thisMonth.length===0&&noticePlain.length===0;
+            const nothing=reportDue.length===0&&noticeDue.length===0&&thisMonth.length===0;
             const badgePill=b=><span style={{fontSize:12,fontWeight:800,color:b.color,background:"#fff",border:`1px solid ${b.bd}`,borderRadius:12,padding:"2px 10px",whiteSpace:"nowrap"}}>{b.label}</span>;
             return(
             <div>
@@ -1568,23 +1570,6 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                       <div style={{fontSize:11,color:"#9ca3af"}}>📅 {formatDate(t.date)}{t.startTime&&` ${t.startTime}`}{t.location&&` ・ ${t.location}`}{d>=0&&d<=7&&<span style={{color:"#0e7490",fontWeight:700,marginLeft:6}}>あと{d}日</span>}</div>
                     </div>
                   );})}
-                </div>
-              )}
-              {/* 📢 その他のお知らせ（締切なし） */}
-              {noticePlain.length>0&&(
-                <div>
-                  <div style={{fontWeight:800,fontSize:13,color:"#1e3a5f",marginBottom:8}}>📢 お知らせ</div>
-                  {noticePlain.map(n=>(
-                    <div key={n.id} style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:12,padding:"12px 14px",marginBottom:8}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
-                        <span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:10,background:`${catColor(n.category)}18`,color:catColor(n.category)}}>{n.category}</span>
-                        <span style={{fontWeight:700,fontSize:14,color:"#1e3a5f"}}>{n.title}</span>
-                      </div>
-                      {n.body&&<div style={{fontSize:13,color:"#374151",whiteSpace:"pre-wrap",lineHeight:1.7,marginBottom:6}}>{n.body}</div>}
-                      {n.fileUrl&&<a href={n.fileUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:12,color:"#2563eb",fontWeight:600,textDecoration:"underline",marginBottom:4}}>📄 {n.fileName||"添付PDF"}</a>}
-                      <div style={{fontSize:11,color:"#9ca3af"}}>{n.createdAt?new Date(n.createdAt).toLocaleDateString("ja-JP"):""}</div>
-                    </div>
-                  ))}
                 </div>
               )}
               {nothing&&<div style={{textAlign:"center",padding:32,color:"#9ca3af",fontSize:13}}>現在、締切・お知らせ・今月の研修予定はありません</div>}
@@ -4062,20 +4047,20 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   const myCommNotices=(committeeNotices||[]).filter(n=>n.committeeId===selectedId);
 
   const resetGForm=()=>{setGForm({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:"",lineMessage:"",lineMessageEdited:false,deadline:""});setPdfFile(null);setShowTargetSel(false);setSelDept("すべて");};
-  const buildAutoMsg=(title,body,cat2)=>`📢【${cat2||cat}】${title}${body?"\n\n"+body:""}`;
-  // メッセージにPDF添付リンクを確実に差し込む（文面を編集していても付くように）
+  const buildAutoMsg=(title,body,cat2,deadline)=>`📢【${cat2||cat}】${title}${body?"\n\n"+body:""}${deadline?`\n\n回答期限：${formatReiwa(deadline)}`:""}`;
+  // メッセージにPDF添付リンクを差し込む（「回答期限：」行がある場合はその前に入れて期限を最終行に保つ）
   const appendFileLink=(msg,url)=>{
     if(!url||(msg&&msg.includes(url))) return msg;
     const block=`📄 添付資料（PDF）：\n${url}`;
-    if(msg&&msg.includes("詳細は研修管理システムをご確認ください。"))
-      return msg.replace("詳細は研修管理システムをご確認ください。",`${block}\n\n詳細は研修管理システムをご確認ください。`);
+    const idx=(msg||"").indexOf("\n回答期限：");
+    if(idx>=0) return msg.slice(0,idx)+`\n\n${block}`+msg.slice(idx);
     return `${msg}\n\n${block}`;
   };
   useEffect(()=>{
     if(!gForm.lineMessageEdited){
-      setGForm(p=>({...p,lineMessage:buildAutoMsg(p.title,p.body,cat)}));
+      setGForm(p=>({...p,lineMessage:buildAutoMsg(p.title,p.body,cat,p.deadline)}));
     }
-  },[gForm.title,gForm.body,cat,gForm.lineMessageEdited]);
+  },[gForm.title,gForm.body,cat,gForm.deadline,gForm.lineMessageEdited]);
 
   // 保存期間(12ヶ月)を過ぎた添付PDFを削除（お知らせ本文・送信履歴は残す）。差し替え・お試しの消し残りも掃除
   const cleanupOldPdfs=async(silent)=>{
@@ -4140,7 +4125,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
       const lineTargets=(targetIds.length>0?activeEmps.filter(e=>targetIds.includes(e.id)):activeEmps).filter(e=>e.lineUserId);
       if(lineTargets.length>0){
         const sendAfter=new Date(`${gForm.lineDate}T${gForm.lineTime}:00`).toISOString();
-        const baseMsg=gForm.lineMessage||buildAutoMsg(gForm.title,gForm.body,cat);
+        const baseMsg=gForm.lineMessage||buildAutoMsg(gForm.title,gForm.body,cat,gForm.deadline);
         const msg=appendFileLink(baseMsg,fileMeta.fileUrl);
         await fetch("https://nncousuugjntzovtmkvt.supabase.co/functions/v1/line-notify",{
           method:"POST",
@@ -4173,7 +4158,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
         setPdfFile(null);
         setPendingUploadPath(fm.filePath); // 投稿せずキャンセルされたら削除するため記録
       }
-      const baseMsg=gForm.lineMessage||buildAutoMsg(gForm.title,gForm.body,cat);
+      const baseMsg=gForm.lineMessage||buildAutoMsg(gForm.title,gForm.body,cat,gForm.deadline);
       const msg=`🧪【お試し配信】\n`+appendFileLink(baseMsg,fileUrl);
       const res=await fetch("https://nncousuugjntzovtmkvt.supabase.co/functions/v1/line-notify",{
         method:"POST",
