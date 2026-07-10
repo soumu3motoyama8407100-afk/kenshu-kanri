@@ -4016,6 +4016,14 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
 
   const resetGForm=()=>{setGForm({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:"",lineMessage:"",lineMessageEdited:false});setPdfFile(null);setShowTargetSel(false);setSelDept("すべて");};
   const buildAutoMsg=(title,body,cat2)=>`📢【${cat2||cat}】${title}\n\n${body?body+"\n\n":""}詳細は研修管理システムをご確認ください。`;
+  // メッセージにPDF添付リンクを確実に差し込む（文面を編集していても付くように）
+  const appendFileLink=(msg,url)=>{
+    if(!url||(msg&&msg.includes(url))) return msg;
+    const block=`📄 添付資料（PDF）：\n${url}`;
+    if(msg&&msg.includes("詳細は研修管理システムをご確認ください。"))
+      return msg.replace("詳細は研修管理システムをご確認ください。",`${block}\n\n詳細は研修管理システムをご確認ください。`);
+    return `${msg}\n\n${block}`;
+  };
   useEffect(()=>{
     if(!gForm.lineMessageEdited){
       setGForm(p=>({...p,lineMessage:buildAutoMsg(p.title,p.body,cat)}));
@@ -4040,7 +4048,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
       if(lineTargets.length>0){
         const sendAfter=new Date(`${gForm.lineDate}T${gForm.lineTime}:00`).toISOString();
         const baseMsg=gForm.lineMessage||buildAutoMsg(gForm.title,gForm.body,cat);
-        const msg=fileMeta.fileUrl?baseMsg.replace("詳細は研修管理システムをご確認ください。",`📄 添付資料：\n${fileMeta.fileUrl}\n\n詳細は研修管理システムをご確認ください。`):baseMsg;
+        const msg=appendFileLink(baseMsg,fileMeta.fileUrl);
         await fetch("https://nncousuugjntzovtmkvt.supabase.co/functions/v1/line-notify",{
           method:"POST",
           headers:{"Content-Type":"application/json"},
@@ -4062,9 +4070,17 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
     if(!emp.lineUserId){showToast("その職員はLINE連携されていません",true);return;}
     setSaving(true);
     try{
+      // 新規PDFが未アップロードなら、お試し前にアップロードして本番でも再利用（重複アップロード防止）
+      let fileUrl=gForm.fileUrl;
+      if(pdfFile){
+        const nid=gForm.id||`GN${Date.now()}`;
+        const fm=await uploadGeneralNoticePdf(nid,pdfFile);
+        fileUrl=fm.fileUrl;
+        setGForm(p=>({...p,id:nid,...fm}));
+        setPdfFile(null);
+      }
       const baseMsg=gForm.lineMessage||buildAutoMsg(gForm.title,gForm.body,cat);
-      const withFile=gForm.fileUrl?baseMsg.replace("詳細は研修管理システムをご確認ください。",`📄 添付資料：\n${gForm.fileUrl}\n\n詳細は研修管理システムをご確認ください。`):baseMsg;
-      const msg=`🧪【お試し配信】\n`+withFile;
+      const msg=`🧪【お試し配信】\n`+appendFileLink(baseMsg,fileUrl);
       const res=await fetch("https://nncousuugjntzovtmkvt.supabase.co/functions/v1/line-notify",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
