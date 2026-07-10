@@ -264,10 +264,10 @@ const db = {
   },
   async getGeneralNotices() {
     const {data} = await supabase.from("general_notices").select("*").order("created_at",{ascending:false});
-    return (data||[]).map(r=>({id:r.id,category:r.category||"各種お知らせ",title:r.title,body:r.body||"",fileUrl:r.file_url||null,filePath:r.file_path||null,fileName:r.file_name||null,targetEmpIds:r.target_emp_ids||[],postedBy:r.posted_by||"",createdAt:r.created_at,deadline:r.deadline||null}));
+    return (data||[]).map(r=>({id:r.id,category:r.category||"各種お知らせ",title:r.title,body:r.body||"",fileUrl:r.file_url||null,filePath:r.file_path||null,fileName:r.file_name||null,targetEmpIds:r.target_emp_ids||[],postedBy:r.posted_by||"",createdAt:r.created_at,deadline:r.deadline||null,lineDate:r.line_date||"",lineTime:r.line_time||""}));
   },
   async upsertGeneralNotice(n) {
-    await supabase.from("general_notices").upsert({id:n.id,category:n.category||"各種お知らせ",title:n.title,body:n.body||"",file_url:n.fileUrl||null,file_path:n.filePath||null,file_name:n.fileName||null,target_emp_ids:n.targetEmpIds||[],posted_by:n.postedBy||"ADMIN",deadline:n.deadline||null,updated_at:new Date().toISOString()},{onConflict:"id"});
+    await supabase.from("general_notices").upsert({id:n.id,category:n.category||"各種お知らせ",title:n.title,body:n.body||"",file_url:n.fileUrl||null,file_path:n.filePath||null,file_name:n.fileName||null,target_emp_ids:n.targetEmpIds||[],posted_by:n.postedBy||"ADMIN",deadline:n.deadline||null,line_date:n.lineDate||null,line_time:n.lineTime||null,updated_at:new Date().toISOString()},{onConflict:"id"});
   },
   async uploadGeneralNoticePdf(id,file) {
     const MAX=20*1024*1024;
@@ -1559,13 +1559,19 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                 <div style={{marginBottom:18}}>
                   <div style={{fontWeight:800,fontSize:13,color:"#0e7490",marginBottom:8}}>📅 今月の研修予定</div>
                   {thisMonth.map(t=>{ const d=dleft(new Date(t.date)); const s=getIS(emp.id,t.id); const doneMark=s.attendance==="参加済"?"✅ 参加済":s.video==="視聴済"?"✅ 視聴済":""; return(
-                    <div key={t.id} onClick={()=>switchTab("training")} style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:10,padding:"9px 12px",marginBottom:6,cursor:"pointer"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:2}}>
+                    <div key={t.id} onClick={()=>switchTab("training")} style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:10,padding:"10px 12px",marginBottom:6,cursor:"pointer"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:5}}>
                         {isNew(t)&&<span style={{fontSize:10,fontWeight:800,color:"#fff",background:"#ef4444",borderRadius:6,padding:"1px 6px"}}>NEW</span>}
-                        <span style={{fontWeight:700,fontSize:13,color:"#4A3020"}}>{t.title}</span>
+                        <span style={{fontWeight:700,fontSize:14,color:"#4A3020"}}>{t.title}</span>
                         {doneMark&&<span style={{fontSize:11,color:"#15803d",fontWeight:700}}>{doneMark}</span>}
                       </div>
-                      <div style={{fontSize:11,color:"#9ca3af"}}>📅 {formatDate(t.date)}{t.startTime&&` ${t.startTime}`}{t.location&&` ・ ${t.location}`}{d>=0&&d<=7&&<span style={{color:"#0e7490",fontWeight:700,marginLeft:6}}>あと{d}日</span>}</div>
+                      {/* 日程を大きく表示（場所などは詳細で） */}
+                      <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                        <span style={{fontSize:14,fontWeight:800,color:"#0e7490"}}>📅 {formatDate(t.date)}{t.startTime?` ${t.startTime}${t.endTime?`〜${t.endTime}`:""}`:""}</span>
+                        {t.date2&&<span style={{fontSize:13,fontWeight:700,color:"#0e7490"}}>／ {formatDate(t.date2)}</span>}
+                        {d>=0&&<span style={{fontSize:12,fontWeight:800,color:d<=3?"#dc2626":"#0e7490",background:d<=3?"#fef2f2":"#ecfeff",border:`1px solid ${d<=3?"#fca5a5":"#67e8f9"}`,borderRadius:12,padding:"1px 9px"}}>{d===0?"本日":`あと${d}日`}</span>}
+                      </div>
+                      <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>タップで詳細（場所・動画・復命書）</div>
                     </div>
                   );})}
                 </div>
@@ -4107,6 +4113,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
       return;
     }
     setSaving(true);
+    const isEditing=!!gForm.id;
     try{
       const id=gForm.id||`GN${Date.now()}`;
       let fileMeta={fileUrl:gForm.fileUrl,filePath:gForm.filePath,fileName:gForm.fileName};
@@ -4128,11 +4135,13 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
         await fetch("https://nncousuugjntzovtmkvt.supabase.co/functions/v1/line-notify",{
           method:"POST",
           headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({notifications:lineTargets.map(t=>({lineUserId:t.lineUserId,message:msg})),sendAfter})
+          body:JSON.stringify({notifications:lineTargets.map(t=>({lineUserId:t.lineUserId,message:msg})),sendAfter,refId:id,replaceRefId:id})
         });
-        showToast(`✅ 投稿しました。LINEは ${gForm.lineDate} ${gForm.lineTime} 以降に ${lineTargets.length}名へ配信されます`);
+        showToast(`✅ ${isEditing?"更新":"投稿"}しました。LINEは ${gForm.lineDate} ${gForm.lineTime} 以降に ${lineTargets.length}名へ配信されます`);
       } else {
-        showToast("✅ 投稿しました（LINE紐づけ済みの対象職員がいないためLINE配信はありません）");
+        // 編集で対象がいなくなった場合、予約中の未送信分を消しておく
+        if(isEditing){ try{ await fetch("https://nncousuugjntzovtmkvt.supabase.co/functions/v1/line-notify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({replaceRefId:id,notifications:[]})}); }catch(_){} }
+        showToast(`✅ ${isEditing?"更新":"投稿"}しました（LINE紐づけ済みの対象職員がいないためLINE配信はありません）`);
       }
       setShowForm(false); resetGForm();
     }catch(e){ showToast("保存に失敗しました: "+(e.message||e),true); }
@@ -4240,6 +4249,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
           </button>
           {showForm&&(
             <div style={{background:"#f8fafc",border:`1.5px solid ${catColor}55`,borderRadius:12,padding:14,marginBottom:12}}>
+              {gForm.id&&<div style={{fontSize:12,fontWeight:800,color:"#2563eb",background:"#eff6ff",border:"1px solid #93c5fd",borderRadius:8,padding:"6px 10px",marginBottom:10}}>✏️ お知らせを編集中（更新すると予約中のLINE配信も新しい内容に差し替わります）</div>}
               <div style={{marginBottom:10}}>
                 <label style={S.label}>タイトル <span style={{color:"#dc2626"}}>*</span></label>
                 <input style={S.input} placeholder="例: 年末調整書類の提出について" value={gForm.title} onChange={e=>setGForm(p=>({...p,title:e.target.value}))}/>
@@ -4341,7 +4351,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
                 </div>}
               </div>
               <div style={{display:"flex",gap:8}}>
-                <button onClick={handleSaveGeneral} disabled={saving} style={{flex:1,padding:"9px",background:catColor,color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>{saving?"保存中…":"投稿する"}</button>
+                <button onClick={handleSaveGeneral} disabled={saving} style={{flex:1,padding:"9px",background:catColor,color:"#fff",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>{saving?"保存中…":gForm.id?"更新する":"投稿する"}</button>
                 <button onClick={()=>setShowTest(v=>!v)} disabled={saving} style={{flex:1,padding:"9px",background:showTest?"#0e7490":"#ecfeff",color:showTest?"#fff":"#0e7490",border:"1.5px solid #0e7490",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>🧪 お試し</button>
                 <button onClick={async()=>{ if(pendingUploadPath){ try{ await supabase.storage.from("training-files").remove([pendingUploadPath]); }catch(_){} setPendingUploadPath(null);} setShowForm(false);resetGForm();setShowTest(false);}} style={{flex:1,padding:"9px",background:"#f3f4f6",border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"}}>キャンセル</button>
               </div>
@@ -4381,7 +4391,10 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
                   {n.body&&<div style={{fontSize:12,color:"#6b7280",marginTop:6,whiteSpace:"pre-wrap"}}>{n.body}</div>}
                   {n.fileUrl&&<a href={n.fileUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:6,fontSize:12,color:"#2563eb",fontWeight:600,textDecoration:"underline"}}>📄 {n.fileName||"添付PDF"}</a>}
                 </div>
-                <button onClick={async()=>{if(window.confirm("削除しますか？"))await deleteGeneralNotice(n.id);}} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #fca5a5",background:"#fff",color:"#dc2626",fontSize:11,fontWeight:600,cursor:"pointer",flexShrink:0}}>削除</button>
+                <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+                  <button onClick={()=>{ setCat(n.category); setGForm({id:n.id,title:n.title,body:n.body||"",fileUrl:n.fileUrl||null,filePath:n.filePath||null,fileName:n.fileName||null,targetEmpIds:n.targetEmpIds||[],lineDate:n.lineDate||"",lineTime:n.lineTime||"",lineMessage:"",lineMessageEdited:false,deadline:n.deadline||""}); setShowTargetSel((n.targetEmpIds||[]).length>0); setPdfFile(null); setShowTest(false); setShowForm(true); }} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #93c5fd",background:"#eff6ff",color:"#2563eb",fontSize:11,fontWeight:600,cursor:"pointer"}}>編集</button>
+                  <button onClick={async()=>{if(window.confirm("削除しますか？"))await deleteGeneralNotice(n.id);}} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #fca5a5",background:"#fff",color:"#dc2626",fontSize:11,fontWeight:600,cursor:"pointer"}}>削除</button>
+                </div>
               </div>
             </div>
           ))}
