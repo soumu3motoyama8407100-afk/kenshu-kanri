@@ -1167,7 +1167,7 @@ function PointCard({count,fiscalYear}){
   );
 }
 
-function ProfileModal({emp,onClose}){
+function ProfileModal({emp,onClose,onLogout}){
   const yrs=calcYears(emp.joinDate);
   return(
     <div style={S.overlay} onClick={onClose}>
@@ -1184,7 +1184,10 @@ function ProfileModal({emp,onClose}){
         <div style={S.profileSection}><div style={S.profileLabel}>📜 受講済み認定研修</div>
           {(emp.certTrainings||[]).length===0?<div style={{fontSize:13,color:"#9ca3af"}}>未登録</div>
             :<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:4}}>{emp.certTrainings.map((c,i)=><span key={i} style={{...S.qBadge,background:"#ede9fe",color:"#7c3aed",borderColor:"#c4b5fd"}}>{c}</span>)}</div>}</div>
-        <button style={{...S.btn,marginTop:4}} onClick={onClose}>閉じる</button>
+        <div style={{display:"flex",gap:8,marginTop:8}}>
+          <button style={{...S.btn,flex:1}} onClick={onClose}>閉じる</button>
+          {onLogout&&<button style={{flex:1,padding:"11px",background:"#4A3020",color:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer"}} onClick={onLogout}>ログアウト</button>}
+        </div>
       </div>
     </div>
   );
@@ -1315,7 +1318,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
       {toast&&<div style={S.toast}>{toast}</div>}
       {showTutorial&&<TutorialModal onClose={closeTutorial}/>}
       {pdfExt&&<PdfModal ext={pdfExt} onClose={()=>setPdfExt(null)}/>}
-      {showProfile&&<ProfileModal emp={emp} onClose={()=>setShowProfile(false)}/>}
+      {showProfile&&<ProfileModal emp={emp} onClose={()=>setShowProfile(false)} onLogout={onLogout}/>}
       {/* 動画モーダル（浮動ボタンから開く） */}
       {showVideoModal&&(
         <div style={S.overlay} onClick={()=>setShowVideoModal(false)}>
@@ -1389,12 +1392,12 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
         <div style={{background:"#C89A55",color:"#fff",padding:"12px 16px",display:"block",boxSizing:"border-box"}}>
           {/* 上段：アバター + 名前 + 実績 */}
           <div style={{display:"-webkit-box",display:"-webkit-flex",display:"flex",WebkitFlexDirection:"row",flexDirection:"row",WebkitAlignItems:"center",alignItems:"center",gap:10,width:"100%",boxSizing:"border-box"}}>
-            <button onClick={()=>setShowProfile(true)} style={{width:42,height:42,minWidth:42,borderRadius:"50%",background:"rgba(255,255,255,.25)",border:"2px solid rgba(255,255,255,.5)",color:"#fff",fontSize:18,cursor:"pointer",display:"flex",WebkitAlignItems:"center",alignItems:"center",WebkitJustifyContent:"center",justifyContent:"center",flexShrink:0,WebkitFlexShrink:0}}>👤</button>
+            <button onClick={()=>setShowProfile(true)} style={{width:44,height:44,minWidth:44,borderRadius:"50%",background:"rgba(255,255,255,.35)",border:"2px solid rgba(255,255,255,.85)",color:"#fff",fontSize:19,cursor:"pointer",display:"flex",WebkitAlignItems:"center",alignItems:"center",WebkitJustifyContent:"center",justifyContent:"center",flexShrink:0,WebkitFlexShrink:0,boxShadow:"0 2px 7px rgba(0,0,0,.22)",position:"relative"}}>👤<span style={{position:"absolute",right:-2,bottom:-2,width:16,height:16,borderRadius:"50%",background:"#fff",color:"#A07840",fontSize:10,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 1px 3px rgba(0,0,0,.25)"}}>▾</span></button>
             <div style={{flex:1,WebkitFlex:1,minWidth:0,overflow:"hidden"}}>
               <div style={{fontSize:18,fontWeight:800,color:"#fff",lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.name}</div>
             </div>
             {/* 実績（コンパクト） */}
-            <button onClick={()=>setShowScore(true)} style={{display:"flex",WebkitFlexDirection:"row",flexDirection:"row",WebkitAlignItems:"center",alignItems:"center",gap:6,padding:"6px 12px",background:"rgba(255,255,255,.18)",border:"1.5px solid rgba(255,255,255,.4)",borderRadius:20,cursor:"pointer",flexShrink:0,WebkitFlexShrink:0,minWidth:"fit-content"}}>
+            <button onClick={()=>setShowScore(true)} style={{display:"flex",WebkitFlexDirection:"row",flexDirection:"row",WebkitAlignItems:"center",alignItems:"center",gap:6,padding:"7px 13px",background:"rgba(255,255,255,.28)",border:"1.5px solid rgba(255,255,255,.7)",borderRadius:20,cursor:"pointer",flexShrink:0,WebkitFlexShrink:0,minWidth:"fit-content",boxShadow:"0 2px 6px rgba(0,0,0,.16)"}}>
               <span style={{fontSize:18}}>{count>=20?"👑":count>=15?"💎":count>=10?"🏆":count>=5?"⭐":"🌱"}</span>
               <span style={{fontSize:14,color:"#fff",fontWeight:800}}>{count}<span style={{fontSize:11,fontWeight:400}}>件</span></span>
             </button>
@@ -1421,10 +1424,9 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
         <div style={S.tabBar}>
           {[["notices","📢 お知らせ"],
             ["training","📚 研修"],["seminar","📺 セミナー"],
-            ...((isManager||isViewer)?[["mgr","📋 部署管理"]]:[]),
-            ["chair","🏛 委員会"]]
+            ...((isManager||isViewer)?[["mgr","📋 部署管理"]]:[])]
             .map(([k,l])=>{
-              const isLocked=k==="chair"; // 委員会のみ準備中（お知らせは全職員に公開）
+              const isLocked=false; // 委員会タブは準備中のため非表示（配列から除外済み）
               return(
               <button key={k}
                 disabled={isLocked}
@@ -1576,18 +1578,21 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                   );})}
                 </div>
               )}
-              {nothing&&<div style={{textAlign:"center",padding:32,color:"#9ca3af",fontSize:13}}>現在、締切・お知らせ・今月の研修予定はありません</div>}
+              {nothing&&(
+                <div style={{textAlign:"center",padding:"36px 20px",background:"#fff",border:"1px solid #E8D5B0",borderRadius:14}}>
+                  <div style={{fontSize:40,marginBottom:10}}>☕</div>
+                  <div style={{fontSize:14,fontWeight:700,color:"#4A3020",marginBottom:6}}>今は締切のある予定はありません</div>
+                  <div style={{fontSize:12.5,color:"#6b7280",lineHeight:1.7,marginBottom:16}}>新しいお知らせや今月の研修があると、ここに表示されます。</div>
+                  <button onClick={()=>switchTab("training")} style={{padding:"10px 20px",background:"#C89A55",color:"#fff",border:"none",borderRadius:22,fontSize:13,fontWeight:700,cursor:"pointer"}}>📚 研修タブを見る →</button>
+                </div>
+              )}
             </div>
             );
           })()}
         </div>
-        {/* 下部固定ぶんの余白（コンテンツが隠れないように） */}
-        <div style={{height:72}}/>
+        {/* 下部固定ぶんの余白（動画ボタン等に隠れないように） */}
+        <div style={{height:40}}/>
       </div>
-      {/* ログアウト（全タブ共通・下部中央に固定表示） */}
-      <button onClick={onLogout} style={{position:"fixed",left:"50%",transform:"translateX(-50%)",bottom:16,zIndex:940,padding:"9px 24px",background:"#4A3020",color:"#fff",border:"none",borderRadius:24,fontSize:13,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 16px rgba(74,48,32,.4)",letterSpacing:.5,whiteSpace:"nowrap"}}>
-        ログアウト
-      </button>
     </div>
   );
 }
@@ -1927,11 +1932,12 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineRe
               :<SPill color="#6b7280" bg="#f9fafb" border="#e5e7eb">🔲 未参加 ─ 当日QRをスキャン</SPill>}
             {/* 2回開催：どちらに参加したかの記録 */}
             {hasTwoDates&&!readonly&&onAttendSession&&(!attended||!sessionMark)&&!absentFix&&(
-              <div style={{marginTop:10}}>
-                <div style={{fontSize:11,color:"#6b7280",marginBottom:6}}>{attended?"どちらの日程に参加しましたか？":"参加した日程を選んでください："}</div>
-                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                  <button style={{fontSize:12,padding:"7px 14px",borderRadius:20,border:"1.5px solid #16a34a",background:"#f0fdf4",color:"#15803d",cursor:"pointer",fontWeight:600}} onClick={()=>onAttendSession("1")}>① {formatDate(training.date)}に参加</button>
-                  <button style={{fontSize:12,padding:"7px 14px",borderRadius:20,border:"1.5px solid #16a34a",background:"#f0fdf4",color:"#15803d",cursor:"pointer",fontWeight:600}} onClick={()=>onAttendSession("2")}>② {formatDate(training.date2)}に参加</button>
+              <div style={{marginTop:12,padding:"12px 14px",background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:12}}>
+                <div style={{fontSize:14,fontWeight:800,color:"#15803d",marginBottom:4}}>📅 参加した日を選んでください</div>
+                <div style={{fontSize:12,color:"#6b7280",marginBottom:10}}>この研修は2日程あります。参加した方をタップしてください。</div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  <button style={{fontSize:15,padding:"14px",borderRadius:12,border:"2px solid #16a34a",background:"#fff",color:"#15803d",cursor:"pointer",fontWeight:700,textAlign:"left"}} onClick={()=>onAttendSession("1")}>① {formatDate(training.date)}<span style={{float:"right"}}>→</span></button>
+                  <button style={{fontSize:15,padding:"14px",borderRadius:12,border:"2px solid #16a34a",background:"#fff",color:"#15803d",cursor:"pointer",fontWeight:700,textAlign:"left"}} onClick={()=>onAttendSession("2")}>② {formatDate(training.date2)}<span style={{float:"right"}}>→</span></button>
                 </div>
               </div>
             )}
@@ -1971,7 +1977,7 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineRe
                       ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">未提出</SPill>
                       : <div style={{display:"flex",flexDirection:"column",gap:8}}>
                           <button style={{...S.actionBtn,background:"#2563eb"}} onClick={onReport}>復命書を提出する</button>
-                          {!reportRequired&&<button style={{fontSize:12,color:"#9ca3af",background:"none",border:"1px solid #e5e7eb",borderRadius:10,padding:"8px 12px",cursor:"pointer"}} onClick={onDeclineReport}>この研修は提出しない</button>}
+                          {!reportRequired&&<button style={{fontSize:12,color:"#9ca3af",background:"none",border:"1px solid #e5e7eb",borderRadius:10,padding:"8px 12px",cursor:"pointer"}} onClick={()=>{ if(window.confirm("この研修の復命書は提出しない、でよろしいですか？（任意研修のため提出は必須ではありません）")) onDeclineReport(); }}>復命書は提出しません</button>}
                         </div>
             }
           </div>}
@@ -4696,8 +4702,8 @@ const S={
   scroll:{padding:"clamp(12px,2vw,24px)",overflowY:"auto",maxHeight:"calc(100vh - 180px)"},
   card:{border:"1px solid #E8D5B0",borderRadius:12,marginBottom:10,overflow:"hidden"},
   cardHead:{padding:"11px 14px",display:"flex",alignItems:"flex-start",cursor:"pointer",gap:8},
-  cardTitle:{fontWeight:700,color:"#4A3020",fontSize:14,marginTop:4},
-  cardDate:{fontSize:11,color:"#6b7280",marginTop:2},
+  cardTitle:{fontWeight:800,color:"#4A3020",fontSize:15,marginTop:4},
+  cardDate:{fontSize:12.5,color:"#5b4a33",fontWeight:600,marginTop:3},
   cardBody:{padding:"0 14px 14px",borderTop:"1px solid #F0D9B0"},
   sBlock:{marginBottom:14},
   sLabel:{fontSize:12,fontWeight:600,color:"#374151",marginBottom:6,display:"flex",alignItems:"center",gap:6},
