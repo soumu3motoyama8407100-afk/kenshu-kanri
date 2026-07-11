@@ -1519,8 +1519,9 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
             const myNotices=(committeeProps?.generalNotices||[]).filter(n=>(n.targetEmpIds||[]).length===0||(n.targetEmpIds||[]).includes(emp.id));
             // 締切のあるお知らせのみ表示（締切なしは表示しない）
             const noticeDue=myNotices.filter(n=>n.deadline).map(n=>({n,due:new Date(n.deadline)})).sort((a,b)=>a.due-b.due);
-            // ③ 今月の内部研修予定
-            const thisMonth=internals.filter(t=>{ if(!isTargetedFor(t,emp))return false; const d=new Date(t.date); return d.getFullYear()===nowY&&d.getMonth()===nowM; }).sort((a,b)=>new Date(a.date)-new Date(b.date));
+            // ③ 研修開催予定（今日から1ヶ月先までのローリング表示。月初の研修も前月から見える）
+            const in1Month=new Date(today); in1Month.setMonth(in1Month.getMonth()+1);
+            const thisMonth=internals.filter(t=>{ if(!isTargetedFor(t,emp))return false; const d=new Date(t.date+"T00:00:00"); return d>=today&&d<=in1Month; }).sort((a,b)=>new Date(a.date)-new Date(b.date));
             const isNew=t=> t.createdAt&&(Date.now()-new Date(t.createdAt).getTime())<10*86400000;
             const nothing=reportDue.length===0&&noticeDue.length===0&&thisMonth.length===0;
             const badgePill=b=><span style={{fontSize:12,fontWeight:800,color:b.color,background:"#fff",border:`1px solid ${b.bd}`,borderRadius:12,padding:"2px 10px",whiteSpace:"nowrap"}}>{b.label}</span>;
@@ -1558,10 +1559,10 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                   );})}
                 </div>
               )}
-              {/* 📅 今月の研修予定 */}
+              {/* 📅 研修開催予定（ローリング1ヶ月） */}
               {thisMonth.length>0&&(
                 <div style={{marginBottom:18}}>
-                  <div style={{fontWeight:800,fontSize:13,color:"#0e7490",marginBottom:8}}>📅 今月の研修予定</div>
+                  <div style={{fontWeight:800,fontSize:13,color:"#0e7490",marginBottom:8}}>📅 研修開催予定（今日から1ヶ月以内）</div>
                   {thisMonth.map(t=>{ const d=dleft(new Date(t.date)); const s=getIS(emp.id,t.id); const doneMark=s.attendance==="参加済"?"✅ 参加済":s.video==="視聴済"?"✅ 視聴済":""; return(
                     <div key={t.id} onClick={()=>{setFocusTrainingId(t.id);switchTab("training");}} style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:10,padding:"10px 12px",marginBottom:6,cursor:"pointer"}}>
                       <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:5}}>
@@ -1584,7 +1585,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                 <div style={{textAlign:"center",padding:"36px 20px",background:"#fff",border:"1px solid #E8D5B0",borderRadius:14}}>
                   <div style={{fontSize:40,marginBottom:10}}>☕</div>
                   <div style={{fontSize:14,fontWeight:700,color:"#4A3020",marginBottom:6}}>今は締切のある予定はありません</div>
-                  <div style={{fontSize:12.5,color:"#6b7280",lineHeight:1.7,marginBottom:16}}>新しいお知らせや今月の研修があると、ここに表示されます。</div>
+                  <div style={{fontSize:12.5,color:"#6b7280",lineHeight:1.7,marginBottom:16}}>新しいお知らせや、1ヶ月以内の研修開催予定があると、ここに表示されます。</div>
                   <button onClick={()=>switchTab("training")} style={{padding:"10px 20px",background:"#C89A55",color:"#fff",border:"none",borderRadius:22,fontSize:13,fontWeight:700,cursor:"pointer"}}>📚 研修タブを見る →</button>
                 </div>
               )}
