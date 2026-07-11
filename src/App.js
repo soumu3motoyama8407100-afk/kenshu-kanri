@@ -1889,8 +1889,11 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineRe
   const reportRequired=!training.noReport&&(training.required===true||(training.requiredEmpIds||[]).includes(empId)||attended);
   // 復命書必須バッジの表示（必須の人にだけ出す。動画視聴のみの人には出さない）
   const showReqBadge=reportRequired;
+  // 開催日が今日より前かどうか（終了済み／これから、を色だけで示す）
+  const lastDate=training.date2||training.date;
+  const isPast=new Date(lastDate+"T23:59:59")<new Date();
   const dateLine=(
-    <div style={S.cardDate}>
+    <div style={{...S.cardDate,color:isPast?"#9ca3af":S.cardDate.color}}>
       📅 {hasTwoDates?<>① {formatDate(training.date)}　② {formatDate(training.date2)}</>:formatDate(training.date)}
       {training.startTime&&<span style={{marginLeft:8}}>🕐 {training.startTime}{training.endTime&&`〜${training.endTime}`}</span>}
       {training.location&&<span style={{marginLeft:8}}>📍 {training.location}</span>}
@@ -1898,12 +1901,12 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineRe
   );
   return(
     <>
-    <div style={S.card}>
+    <div style={{...S.card,background:isPast?"#FAF8F3":"#fff",borderLeft:`4px solid ${isPast?"#E8D5B0":"#C89A55"}`}}>
       <div style={S.cardHead} onClick={()=>setOpen(true)}>
         <div style={{flex:1}}>
           {showReqBadge&&<span style={S.reqBadge}>復命書必須</span>}
           {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
-          <div style={S.cardTitle}>{training.title}</div>
+          <div style={{...S.cardTitle,color:isPast?"#8a7660":S.cardTitle.color}}>{training.title}</div>
           {dateLine}
         </div>
         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}><InternalProgress status={status} noReport={training.noReport}/><span style={{color:"#C89A55",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>詳細 ›</span></div>
