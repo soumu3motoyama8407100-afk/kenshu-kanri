@@ -1286,6 +1286,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
   // 対応済みにしたお知らせ（LINEで届いても、既に提出・回答済みなら締切一覧から消せる）
   const [dismissedNotices,setDismissedNotices]=useState(()=>{ try{return JSON.parse(localStorage.getItem(`ndismissed_${emp.id}`)||"[]");}catch{return[];} });
   const dismissNotice=id=>{ const next=[...new Set([...dismissedNotices,id])]; setDismissedNotices(next); try{localStorage.setItem(`ndismissed_${emp.id}`,JSON.stringify(next));}catch(_){} };
+  const restoreNotice=id=>{ const next=dismissedNotices.filter(x=>x!==id); setDismissedNotices(next); try{localStorage.setItem(`ndismissed_${emp.id}`,JSON.stringify(next));}catch(_){} };
+  const [showDismissed,setShowDismissed]=useState(false);
   const [showTutorial,setShowTutorial]=useState(()=>{ try{ return localStorage.getItem("tutorial_seen")!=="1"; }catch(_){ return false; } });
   const closeTutorial=()=>{ try{ localStorage.setItem("tutorial_seen","1"); }catch(_){}; setShowTutorial(false); };
   const [viewFY,setViewFY]=useState(fiscalYear);
@@ -1570,21 +1572,18 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                     </div>
                   );})}
                   {noticeDue.map(({n,due})=>{ const b=dueBadge(dleft(due)); return(
-                    <div key={"n"+n.id} style={{background:b.bg,border:`1px solid ${b.bd}`,borderRadius:10,marginBottom:6,overflow:"hidden"}}>
-                      <div onClick={()=>setOpenNoticeId(n.id)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,padding:"10px 12px",cursor:"pointer"}}>
-                        <div style={{minWidth:0,flex:1}}>
-                          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
-                            <span style={{fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:10,background:`${catColor(n.category)}18`,color:catColor(n.category),flexShrink:0}}>{n.category}</span>
-                            <span style={{fontWeight:700,fontSize:13,color:"#1e3a5f",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{n.title}</span>
-                          </div>
-                          <div style={{fontSize:11,color:"#9ca3af"}}>締切 {formatDate(n.deadline)}</div>
+                    <div key={"n"+n.id} onClick={()=>setOpenNoticeId(n.id)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,background:b.bg,border:`1px solid ${b.bd}`,borderRadius:10,padding:"10px 12px",marginBottom:6,cursor:"pointer"}}>
+                      <div style={{minWidth:0,flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                          <span style={{fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:10,background:`${catColor(n.category)}18`,color:catColor(n.category),flexShrink:0}}>{n.category}</span>
+                          <span style={{fontWeight:700,fontSize:13,color:"#1e3a5f",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{n.title}</span>
                         </div>
-                        <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-                          {badgePill(b)}
-                          <span style={{color:"#C89A55",fontSize:11,fontWeight:700}}>詳細 ›</span>
-                        </div>
+                        <div style={{fontSize:11,color:"#9ca3af"}}>締切 {formatDate(n.deadline)}</div>
                       </div>
-                      <button onClick={e=>{e.stopPropagation();dismissNotice(n.id);}} style={{width:"100%",padding:"6px",background:"rgba(255,255,255,.6)",border:"none",borderTop:`1px solid ${b.bd}`,color:"#6b7280",fontSize:11,fontWeight:600,cursor:"pointer"}}>✓ 対応済みにする</button>
+                      <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+                        {badgePill(b)}
+                        <span style={{color:"#C89A55",fontSize:11,fontWeight:700}}>詳細 ›</span>
+                      </div>
                     </div>
                   );})}
                 </div>
@@ -1619,6 +1618,21 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                   <button onClick={()=>switchTab("training")} style={{padding:"10px 20px",background:"#C89A55",color:"#fff",border:"none",borderRadius:22,fontSize:13,fontWeight:700,cursor:"pointer"}}>📚 研修タブを見る →</button>
                 </div>
               )}
+              {/* 対応済みにしたお知らせを元に戻す */}
+              {(()=>{ const dismissedList=myNotices.filter(x=>x.deadline&&dismissedNotices.includes(x.id)); if(dismissedList.length===0)return null; return(
+                <div style={{marginTop:18,textAlign:"center"}}>
+                  {!showDismissed
+                    ?<span onClick={()=>setShowDismissed(true)} style={{fontSize:11.5,color:"#9ca3af",textDecoration:"underline",cursor:"pointer"}}>対応済みにしたお知らせ（{dismissedList.length}）</span>
+                    :<div style={{textAlign:"left"}}>
+                      {dismissedList.map(n=>(
+                        <div key={n.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:10,padding:"8px 12px",marginBottom:6}}>
+                          <span style={{fontSize:12,color:"#6b7280",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{n.title}</span>
+                          <button onClick={()=>restoreNotice(n.id)} style={{fontSize:11,fontWeight:600,color:"#2563eb",background:"none",border:"1px solid #93c5fd",borderRadius:8,padding:"3px 10px",cursor:"pointer",flexShrink:0}}>元に戻す</button>
+                        </div>
+                      ))}
+                    </div>}
+                </div>
+              );})()}
             </div>
             );
           })()}
