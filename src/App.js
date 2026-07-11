@@ -1283,6 +1283,9 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
   const [showScore,setShowScore]=useState(false);
   const [focusTrainingId,setFocusTrainingId]=useState(null); // お知らせから研修詳細を直接開く
   const [openNoticeId,setOpenNoticeId]=useState(null); // お知らせ（締切あり）の詳細モーダル
+  // 対応済みにしたお知らせ（LINEで届いても、既に提出・回答済みなら締切一覧から消せる）
+  const [dismissedNotices,setDismissedNotices]=useState(()=>{ try{return JSON.parse(localStorage.getItem(`ndismissed_${emp.id}`)||"[]");}catch{return[];} });
+  const dismissNotice=id=>{ const next=[...new Set([...dismissedNotices,id])]; setDismissedNotices(next); try{localStorage.setItem(`ndismissed_${emp.id}`,JSON.stringify(next));}catch(_){} };
   const [showTutorial,setShowTutorial]=useState(()=>{ try{ return localStorage.getItem("tutorial_seen")!=="1"; }catch(_){ return false; } });
   const closeTutorial=()=>{ try{ localStorage.setItem("tutorial_seen","1"); }catch(_){}; setShowTutorial(false); };
   const [viewFY,setViewFY]=useState(fiscalYear);
@@ -1521,7 +1524,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
             // ② お知らせ（締切あり/なし）
             const myNotices=(committeeProps?.generalNotices||[]).filter(n=>(n.targetEmpIds||[]).length===0||(n.targetEmpIds||[]).includes(emp.id));
             // 締切のあるお知らせのみ表示（締切なしは表示しない）
-            const noticeDue=myNotices.filter(n=>n.deadline).map(n=>({n,due:new Date(n.deadline)})).sort((a,b)=>a.due-b.due);
+            const noticeDue=myNotices.filter(n=>n.deadline&&!dismissedNotices.includes(n.id)).map(n=>({n,due:new Date(n.deadline)})).sort((a,b)=>a.due-b.due);
             // ③ 研修開催予定（今日から1ヶ月先までのローリング表示。月初の研修も前月から見える）
             const in1Month=new Date(today); in1Month.setMonth(in1Month.getMonth()+1);
             const thisMonth=internals.filter(t=>{ if(!isTargetedFor(t,emp))return false; const d=new Date(t.date+"T00:00:00"); return d>=today&&d<=in1Month; }).sort((a,b)=>new Date(a.date)-new Date(b.date));
@@ -1545,7 +1548,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                     </div>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>{badgePill(b)}<span style={{fontSize:12,color:"#6b7280"}}>締切 {formatDate(n.deadline)}</span></div>
                     {n.body&&<div style={{fontSize:14,color:"#374151",whiteSpace:"pre-wrap",lineHeight:1.8,marginBottom:14}}>{n.body}</div>}
-                    {n.fileUrl&&<a href={n.fileUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:13,color:"#2563eb",fontWeight:600,textDecoration:"underline"}}>📄 {n.fileName||"添付PDF"}</a>}
+                    {n.fileUrl&&<a href={n.fileUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:13,color:"#2563eb",fontWeight:600,textDecoration:"underline",marginBottom:16}}>📄 {n.fileName||"添付PDF"}</a>}
+                    <button onClick={()=>{dismissNotice(n.id);setOpenNoticeId(null);}} style={{width:"100%",padding:"11px",background:"#f3f4f6",border:"1px solid #e5e7eb",borderRadius:12,color:"#4A3020",fontSize:13,fontWeight:700,cursor:"pointer",marginTop:n.fileUrl?12:0}}>✓ 提出・回答済みなので締切一覧から消す</button>
                   </div>
                 </div>
               );})()}
@@ -1567,18 +1571,21 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                     </div>
                   );})}
                   {noticeDue.map(({n,due})=>{ const b=dueBadge(dleft(due)); return(
-                    <div key={"n"+n.id} onClick={()=>setOpenNoticeId(n.id)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,background:b.bg,border:`1px solid ${b.bd}`,borderRadius:10,padding:"10px 12px",marginBottom:6,cursor:"pointer"}}>
-                      <div style={{minWidth:0,flex:1}}>
-                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
-                          <span style={{fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:10,background:`${catColor(n.category)}18`,color:catColor(n.category),flexShrink:0}}>{n.category}</span>
-                          <span style={{fontWeight:700,fontSize:13,color:"#1e3a5f",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{n.title}</span>
+                    <div key={"n"+n.id} style={{background:b.bg,border:`1px solid ${b.bd}`,borderRadius:10,marginBottom:6,overflow:"hidden"}}>
+                      <div onClick={()=>setOpenNoticeId(n.id)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,padding:"10px 12px",cursor:"pointer"}}>
+                        <div style={{minWidth:0,flex:1}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                            <span style={{fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:10,background:`${catColor(n.category)}18`,color:catColor(n.category),flexShrink:0}}>{n.category}</span>
+                            <span style={{fontWeight:700,fontSize:13,color:"#1e3a5f",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{n.title}</span>
+                          </div>
+                          <div style={{fontSize:11,color:"#9ca3af"}}>締切 {formatDate(n.deadline)}</div>
                         </div>
-                        <div style={{fontSize:11,color:"#9ca3af"}}>締切 {formatDate(n.deadline)}</div>
+                        <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+                          {badgePill(b)}
+                          <span style={{color:"#C89A55",fontSize:11,fontWeight:700}}>詳細 ›</span>
+                        </div>
                       </div>
-                      <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-                        {badgePill(b)}
-                        <span style={{color:"#C89A55",fontSize:11,fontWeight:700}}>詳細 ›</span>
-                      </div>
+                      <button onClick={e=>{e.stopPropagation();dismissNotice(n.id);}} style={{width:"100%",padding:"6px",background:"rgba(255,255,255,.6)",border:"none",borderTop:`1px solid ${b.bd}`,color:"#6b7280",fontSize:11,fontWeight:600,cursor:"pointer"}}>✓ 提出・回答済みなので消す</button>
                     </div>
                   );})}
                 </div>
