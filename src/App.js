@@ -1288,7 +1288,9 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
   // お知らせ既読管理（localStorage）
   const [readIds,setReadIds]=useState(()=>{ try{return JSON.parse(localStorage.getItem(`nread_${emp.id}`)||"[]");}catch{return[];} });
   const isCurrentFY=viewFY===fiscalYear;
-  const fyInternals=internals.filter(t=>inFiscalYear(t.date,viewFY)&&isTargetedFor(t,emp)).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  // 今年度は開催日の1ヶ月前になるまで研修タブに表示しない（先の予定が多すぎて分かりにくくなるため）。過去の研修は引き続き表示
+  const trainingVisibleFrom=(()=>{ const d=new Date(); d.setMonth(d.getMonth()+1); return d; })();
+  const fyInternals=internals.filter(t=>inFiscalYear(t.date,viewFY)&&isTargetedFor(t,emp)&&(!isCurrentFY||new Date(t.date+"T00:00:00")<=trainingVisibleFrom)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const fyExternals=externals.filter(x=>x.targetEmpIds.includes(emp.id)&&inFiscalYear(x.date,viewFY)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const fySeminars=(seminars||[]).filter(s=>inFiscalYear(s.date,viewFY)).sort((a,b)=>new Date(a.date)-new Date(b.date));
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(null),2500);};
