@@ -1282,6 +1282,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
   const [showQRScan,setShowQRScan]=useState(false);
   const [showScore,setShowScore]=useState(false);
   const [focusTrainingId,setFocusTrainingId]=useState(null); // お知らせから研修詳細を直接開く
+  const [openNoticeId,setOpenNoticeId]=useState(null); // お知らせ（締切あり）の詳細モーダル
   const [showTutorial,setShowTutorial]=useState(()=>{ try{ return localStorage.getItem("tutorial_seen")!=="1"; }catch(_){ return false; } });
   const closeTutorial=()=>{ try{ localStorage.setItem("tutorial_seen","1"); }catch(_){}; setShowTutorial(false); };
   const [viewFY,setViewFY]=useState(fiscalYear);
@@ -1527,9 +1528,27 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
             const isNew=t=> t.createdAt&&(Date.now()-new Date(t.createdAt).getTime())<10*86400000;
             const nothing=reportDue.length===0&&noticeDue.length===0&&thisMonth.length===0;
             const badgePill=b=><span style={{fontSize:12,fontWeight:800,color:b.color,background:"#fff",border:`1px solid ${b.bd}`,borderRadius:12,padding:"2px 10px",whiteSpace:"nowrap"}}>{b.label}</span>;
+            const openNotice=noticeDue.find(x=>x.n.id===openNoticeId);
             return(
             <div>
               <div style={{fontWeight:700,fontSize:14,color:"#1e3a5f",marginBottom:14}}>🔔 お知らせ・締切</div>
+              {/* お知らせ詳細モーダル */}
+              {openNotice&&(()=>{ const {n,due}=openNotice; const b=dueBadge(dleft(due)); return(
+                <div style={{...S.overlay,zIndex:1500}} onClick={()=>setOpenNoticeId(null)}>
+                  <div style={{...S.modal,maxWidth:480,width:"92vw",maxHeight:"85vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,marginBottom:12}}>
+                      <div style={{minWidth:0}}>
+                        <span style={{fontSize:11,fontWeight:700,padding:"2px 9px",borderRadius:10,background:`${catColor(n.category)}18`,color:catColor(n.category)}}>{n.category}</span>
+                        <div style={{fontSize:17,fontWeight:800,color:"#1e3a5f",marginTop:6}}>{n.title}</div>
+                      </div>
+                      <button style={S.logoutBtn} onClick={()=>setOpenNoticeId(null)}>✕</button>
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>{badgePill(b)}<span style={{fontSize:12,color:"#6b7280"}}>締切 {formatDate(n.deadline)}</span></div>
+                    {n.body&&<div style={{fontSize:14,color:"#374151",whiteSpace:"pre-wrap",lineHeight:1.8,marginBottom:14}}>{n.body}</div>}
+                    {n.fileUrl&&<a href={n.fileUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:13,color:"#2563eb",fontWeight:600,textDecoration:"underline"}}>📄 {n.fileName||"添付PDF"}</a>}
+                  </div>
+                </div>
+              );})()}
               {/* ⏰ 締切が近いもの */}
               {(reportDue.length>0||noticeDue.length>0)&&(
                 <div style={{marginBottom:18}}>
@@ -1548,15 +1567,18 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                     </div>
                   );})}
                   {noticeDue.map(({n,due})=>{ const b=dueBadge(dleft(due)); return(
-                    <div key={"n"+n.id} style={{background:b.bg,border:`1px solid ${b.bd}`,borderRadius:10,padding:"9px 12px",marginBottom:6}}>
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:3}}>
-                        <span style={{fontSize:11,fontWeight:700,padding:"1px 8px",borderRadius:10,background:`${catColor(n.category)}18`,color:catColor(n.category)}}>{n.category}</span>
-                        {badgePill(b)}
+                    <div key={"n"+n.id} onClick={()=>setOpenNoticeId(n.id)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,background:b.bg,border:`1px solid ${b.bd}`,borderRadius:10,padding:"10px 12px",marginBottom:6,cursor:"pointer"}}>
+                      <div style={{minWidth:0,flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                          <span style={{fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:10,background:`${catColor(n.category)}18`,color:catColor(n.category),flexShrink:0}}>{n.category}</span>
+                          <span style={{fontWeight:700,fontSize:13,color:"#1e3a5f",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{n.title}</span>
+                        </div>
+                        <div style={{fontSize:11,color:"#9ca3af"}}>締切 {formatDate(n.deadline)}</div>
                       </div>
-                      <div style={{fontWeight:700,fontSize:13,color:"#1e3a5f"}}>{n.title}</div>
-                      {n.body&&<div style={{fontSize:12,color:"#374151",whiteSpace:"pre-wrap",lineHeight:1.6,marginTop:2}}>{n.body}</div>}
-                      {n.fileUrl&&<a href={n.fileUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:12,color:"#2563eb",fontWeight:600,textDecoration:"underline",marginTop:4}}>📄 {n.fileName||"添付PDF"}</a>}
-                      <div style={{fontSize:11,color:"#9ca3af",marginTop:3}}>締切 {formatDate(n.deadline)}</div>
+                      <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+                        {badgePill(b)}
+                        <span style={{color:"#C89A55",fontSize:11,fontWeight:700}}>詳細 ›</span>
+                      </div>
                     </div>
                   );})}
                 </div>
