@@ -1281,6 +1281,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
   const [showProfile,setShowProfile]=useState(false);
   const [showQRScan,setShowQRScan]=useState(false);
   const [showScore,setShowScore]=useState(false);
+  const [focusTrainingId,setFocusTrainingId]=useState(null); // お知らせから研修詳細を直接開く
   const [showTutorial,setShowTutorial]=useState(()=>{ try{ return localStorage.getItem("tutorial_seen")!=="1"; }catch(_){ return false; } });
   const closeTutorial=()=>{ try{ localStorage.setItem("tutorial_seen","1"); }catch(_){}; setShowTutorial(false); };
   const [viewFY,setViewFY]=useState(fiscalYear);
@@ -1462,6 +1463,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                   <div className="app-content-grid">
                     {fyInternals.map(t=>(
                       <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)} empId={emp.id} readonly={!isCurrentFY}
+                        focusId={focusTrainingId} onFocused={()=>setFocusTrainingId(null)}
                         onReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","提出済");showToast("復命書を提出しました");} }}
                         onCancelReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","未提出");showToast("提出を取り消しました");} }}
                         onDeclineReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","提出しない");showToast("「提出しない」にしました");} }}
@@ -1561,7 +1563,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                 <div style={{marginBottom:18}}>
                   <div style={{fontWeight:800,fontSize:13,color:"#0e7490",marginBottom:8}}>📅 今月の研修予定</div>
                   {thisMonth.map(t=>{ const d=dleft(new Date(t.date)); const s=getIS(emp.id,t.id); const doneMark=s.attendance==="参加済"?"✅ 参加済":s.video==="視聴済"?"✅ 視聴済":""; return(
-                    <div key={t.id} onClick={()=>switchTab("training")} style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:10,padding:"10px 12px",marginBottom:6,cursor:"pointer"}}>
+                    <div key={t.id} onClick={()=>{setFocusTrainingId(t.id);switchTab("training");}} style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:10,padding:"10px 12px",marginBottom:6,cursor:"pointer"}}>
                       <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:5}}>
                         {isNew(t)&&<span style={{fontSize:10,fontWeight:800,color:"#fff",background:"#ef4444",borderRadius:6,padding:"1px 6px"}}>NEW</span>}
                         <span style={{fontWeight:700,fontSize:14,color:"#4A3020"}}>{t.title}</span>
@@ -1870,9 +1872,11 @@ function ExternalProgress({status}){
   );
 }
 
-function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineReport,onVideo,onWatchVideo,onAttendSession,readonly}){
+function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineReport,onVideo,onWatchVideo,onAttendSession,readonly,focusId,onFocused}){
   const [open,setOpen]=useState(false);
   const [playVideo,setPlayVideo]=useState(false);
+  // お知らせから指定された研修は詳細モーダルを自動で開く
+  useEffect(()=>{ if(focusId&&focusId===training.id){ setOpen(true); onFocused&&onFocused(); } },[focusId]);// eslint-disable-line
   const attended=status.attendance==="参加済";
   const hasTwoDates=!!training.date2;
   const sessionMark=status.attendedSession==="1"?"①":status.attendedSession==="2"?"②":"";
