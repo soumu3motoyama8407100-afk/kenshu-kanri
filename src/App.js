@@ -3366,34 +3366,37 @@ function InternalManageTab({internals,setInternals,deleteInternal,employees}){
     setEditId(null); setEditT(null);
   };
 
+  // 新しい開催日が上、古いものが下（2回開催は後日程を基準）
+  const sorted=[...internals].sort((a,b)=>new Date(b.date2||b.date)-new Date(a.date2||a.date));
   return(
     <div style={{padding:4}}>
       <button style={{...S.btn,marginBottom:16}} onClick={()=>{setShowAdd(!showAdd);setEditId(null);}}>＋ 研修を追加</button>
       {showAdd&&<InternalTrainingForm data={newT} onChange={setNewT} onSave={add} onCancel={()=>setShowAdd(false)} title="新しい内部研修を登録" allEmployees={employees}/>}
-      {internals.map(t=>(
-        <div key={t.id}>
-          <div style={{...S.card,padding:"12px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div style={{flex:1}}>
-              <div style={S.cardTitle}>{t.title}</div>
-              <div style={S.cardDate}>📅 {t.date2?<>① {formatDate(t.date)}　② {formatDate(t.date2)}</>:formatDate(t.date)}
-                {(t.requiredEmpIds||[]).length>0&&<span style={{marginLeft:8,fontSize:11,color:"#dc2626",fontWeight:600}}>復命書必須 {(t.requiredEmpIds||[]).length}名</span>}
-                {t.noVideo?<span style={{marginLeft:8,color:"#9ca3af",fontSize:11}}>動画なし</span>:t.videoUrl?<span style={{marginLeft:8,color:"#7c3aed",fontSize:11}}>▶ 動画あり</span>:<span style={{marginLeft:8,color:"#9ca3af",fontSize:11}}>動画未設定</span>}
-              </div>
-            </div>
-            <div className="btn-col-sp" style={{display:"flex",gap:6,flexShrink:0}}>
-              <button style={{...S.qrBtn,background:"#eff6ff",borderColor:"#bfdbfe",color:"#2563eb"}} onClick={()=>editId===t.id?setEditId(null):startEdit(t)}>
-                {editId===t.id?"閉じる":"編集"}
-              </button>
-              <button style={S.delBtn} onClick={()=>{if(window.confirm("削除しますか？"))deleteInternal(t.id);}}>削除</button>
+      {sorted.map(t=>{
+        const isPast=new Date((t.date2||t.date)+"T23:59:59")<new Date();
+        return(
+        <div key={t.id} style={{...S.card,padding:"12px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",background:isPast?"#FAF8F3":"#fff",borderLeft:`4px solid ${isPast?"#E8D5B0":"#C89A55"}`}}>
+          <div style={{flex:1}}>
+            <div style={{...S.cardTitle,color:isPast?"#8a7660":S.cardTitle.color}}>{t.title}</div>
+            <div style={{...S.cardDate,color:isPast?"#9ca3af":S.cardDate.color}}>📅 {t.date2?<>① {formatDate(t.date)}　② {formatDate(t.date2)}</>:formatDate(t.date)}
+              {(t.requiredEmpIds||[]).length>0&&<span style={{marginLeft:8,fontSize:11,color:"#dc2626",fontWeight:600}}>復命書必須 {(t.requiredEmpIds||[]).length}名</span>}
+              {t.noVideo?<span style={{marginLeft:8,color:"#9ca3af",fontSize:11}}>動画なし</span>:t.videoUrl?<span style={{marginLeft:8,color:"#7c3aed",fontSize:11}}>▶ 動画あり</span>:<span style={{marginLeft:8,color:"#9ca3af",fontSize:11}}>動画未設定</span>}
             </div>
           </div>
-          {editId===t.id&&editT&&(
-            <div style={{marginTop:-8,marginBottom:8}}>
-              <InternalTrainingForm data={editT} onChange={setEditT} onSave={saveEdit} onCancel={()=>{setEditId(null);setEditT(null);}} title="研修を編集" allEmployees={employees}/>
-            </div>
-          )}
+          <div className="btn-col-sp" style={{display:"flex",gap:6,flexShrink:0}}>
+            <button style={{...S.qrBtn,background:"#eff6ff",borderColor:"#bfdbfe",color:"#2563eb"}} onClick={()=>startEdit(t)}>編集</button>
+            <button style={S.delBtn} onClick={()=>{if(window.confirm("削除しますか？"))deleteInternal(t.id);}}>削除</button>
+          </div>
         </div>
-      ))}
+        );
+      })}
+      {editId&&editT&&(
+        <div style={{...S.overlay,zIndex:1500}} onClick={()=>{setEditId(null);setEditT(null);}}>
+          <div style={{...S.modal,maxWidth:640,width:"94vw",maxHeight:"88vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+            <InternalTrainingForm data={editT} onChange={setEditT} onSave={saveEdit} onCancel={()=>{setEditId(null);setEditT(null);}} title="研修を編集" allEmployees={employees}/>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
