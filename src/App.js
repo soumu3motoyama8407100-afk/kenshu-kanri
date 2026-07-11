@@ -1549,7 +1549,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>{badgePill(b)}<span style={{fontSize:12,color:"#6b7280"}}>締切 {formatDate(n.deadline)}</span></div>
                     {n.body&&<div style={{fontSize:14,color:"#374151",whiteSpace:"pre-wrap",lineHeight:1.8,marginBottom:14}}>{n.body}</div>}
                     {n.fileUrl&&<a href={n.fileUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:13,color:"#2563eb",fontWeight:600,textDecoration:"underline",marginBottom:16}}>📄 {n.fileName||"添付PDF"}</a>}
-                    <button onClick={()=>{dismissNotice(n.id);setOpenNoticeId(null);}} style={{width:"100%",padding:"11px",background:"#f3f4f6",border:"1px solid #e5e7eb",borderRadius:12,color:"#4A3020",fontSize:13,fontWeight:700,cursor:"pointer",marginTop:n.fileUrl?12:0}}>✓ 提出・回答済みなので締切一覧から消す</button>
+                    <button onClick={()=>{dismissNotice(n.id);setOpenNoticeId(null);}} style={{width:"100%",padding:"11px",background:"#f3f4f6",border:"1px solid #e5e7eb",borderRadius:12,color:"#4A3020",fontSize:13,fontWeight:700,cursor:"pointer",marginTop:n.fileUrl?12:0}}>✓ 対応済みにする</button>
                   </div>
                 </div>
               );})()}
@@ -1560,9 +1560,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                   {reportDue.map(({t,due})=>{ const b=dueBadge(dleft(due)); return(
                     <div key={"r"+t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,background:b.bg,border:`1px solid ${b.bd}`,borderRadius:10,padding:"9px 12px",marginBottom:6}}>
                       <div style={{minWidth:0}}>
-                        <div style={{fontSize:11,color:"#6b7280",marginBottom:2}}>復命書の提出</div>
                         <div style={{fontWeight:700,fontSize:13,color:"#4A3020",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{t.title}</div>
-                        <div style={{fontSize:11,color:"#9ca3af"}}>締切 {formatDate(due.toISOString().slice(0,10))}（当月末）</div>
+                        <div style={{fontSize:11,color:"#9ca3af"}}>締切 {formatDate(due.toISOString().slice(0,10))}</div>
                       </div>
                       <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6,flexShrink:0}}>
                         {badgePill(b)}
@@ -1585,7 +1584,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                           <span style={{color:"#C89A55",fontSize:11,fontWeight:700}}>詳細 ›</span>
                         </div>
                       </div>
-                      <button onClick={e=>{e.stopPropagation();dismissNotice(n.id);}} style={{width:"100%",padding:"6px",background:"rgba(255,255,255,.6)",border:"none",borderTop:`1px solid ${b.bd}`,color:"#6b7280",fontSize:11,fontWeight:600,cursor:"pointer"}}>✓ 提出・回答済みなので消す</button>
+                      <button onClick={e=>{e.stopPropagation();dismissNotice(n.id);}} style={{width:"100%",padding:"6px",background:"rgba(255,255,255,.6)",border:"none",borderTop:`1px solid ${b.bd}`,color:"#6b7280",fontSize:11,fontWeight:600,cursor:"pointer"}}>✓ 対応済みにする</button>
                     </div>
                   );})}
                 </div>
@@ -1593,21 +1592,22 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
               {/* 📅 研修開催予定（ローリング1ヶ月） */}
               {thisMonth.length>0&&(
                 <div style={{marginBottom:18}}>
-                  <div style={{fontWeight:800,fontSize:13,color:"#0e7490",marginBottom:8}}>📅 研修開催予定（今日から1ヶ月以内）</div>
-                  {thisMonth.map(t=>{ const d=dleft(new Date(t.date)); const s=getIS(emp.id,t.id); const doneMark=s.attendance==="参加済"?"✅ 参加済":s.video==="視聴済"?"✅ 視聴済":""; return(
-                    <div key={t.id} onClick={()=>{setFocusTrainingId(t.id);switchTab("training");}} style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:10,padding:"10px 12px",marginBottom:6,cursor:"pointer"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:5}}>
-                        {isNew(t)&&<span style={{fontSize:10,fontWeight:800,color:"#fff",background:"#ef4444",borderRadius:6,padding:"1px 6px"}}>NEW</span>}
-                        <span style={{fontWeight:700,fontSize:14,color:"#4A3020"}}>{t.title}</span>
-                        {doneMark&&<span style={{fontSize:11,color:"#15803d",fontWeight:700}}>{doneMark}</span>}
+                  <div style={{fontWeight:800,fontSize:13,color:"#0e7490",marginBottom:8}}>📅 研修開催予定</div>
+                  {thisMonth.map(t=>{ const d=dleft(new Date(t.date)); const s=getIS(emp.id,t.id); const doneMark=s.attendance==="参加済"?"✅":s.video==="視聴済"?"✅":""; return(
+                    <div key={t.id} onClick={()=>{setFocusTrainingId(t.id);switchTab("training");}} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,background:"#fff",border:"1px solid #E8D5B0",borderRadius:10,padding:"10px 12px",marginBottom:6,cursor:"pointer"}}>
+                      <div style={{minWidth:0}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:5}}>
+                          {isNew(t)&&<span style={{fontSize:10,fontWeight:800,color:"#fff",background:"#ef4444",borderRadius:6,padding:"1px 6px"}}>NEW</span>}
+                          <span style={{fontWeight:700,fontSize:14,color:"#4A3020"}}>{t.title}</span>
+                          {doneMark&&<span style={{fontSize:12}}>{doneMark}</span>}
+                        </div>
+                        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                          <span style={{fontSize:14,fontWeight:800,color:"#0e7490"}}>📅 {formatDate(t.date)}{t.startTime?` ${t.startTime}${t.endTime?`〜${t.endTime}`:""}`:""}</span>
+                          {t.date2&&<span style={{fontSize:13,fontWeight:700,color:"#0e7490"}}>／ {formatDate(t.date2)}</span>}
+                          {d>=0&&<span style={{fontSize:12,fontWeight:800,color:d<=3?"#dc2626":"#0e7490",background:d<=3?"#fef2f2":"#ecfeff",border:`1px solid ${d<=3?"#fca5a5":"#67e8f9"}`,borderRadius:12,padding:"1px 9px"}}>{d===0?"本日":`あと${d}日`}</span>}
+                        </div>
                       </div>
-                      {/* 日程を大きく表示（場所などは詳細で） */}
-                      <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                        <span style={{fontSize:14,fontWeight:800,color:"#0e7490"}}>📅 {formatDate(t.date)}{t.startTime?` ${t.startTime}${t.endTime?`〜${t.endTime}`:""}`:""}</span>
-                        {t.date2&&<span style={{fontSize:13,fontWeight:700,color:"#0e7490"}}>／ {formatDate(t.date2)}</span>}
-                        {d>=0&&<span style={{fontSize:12,fontWeight:800,color:d<=3?"#dc2626":"#0e7490",background:d<=3?"#fef2f2":"#ecfeff",border:`1px solid ${d<=3?"#fca5a5":"#67e8f9"}`,borderRadius:12,padding:"1px 9px"}}>{d===0?"本日":`あと${d}日`}</span>}
-                      </div>
-                      <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>タップで詳細（場所・動画・復命書）</div>
+                      <span style={{color:"#C89A55",fontSize:11,fontWeight:700,flexShrink:0}}>詳細 ›</span>
                     </div>
                   );})}
                 </div>
@@ -1615,8 +1615,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
               {nothing&&(
                 <div style={{textAlign:"center",padding:"36px 20px",background:"#fff",border:"1px solid #E8D5B0",borderRadius:14}}>
                   <div style={{fontSize:40,marginBottom:10}}>☕</div>
-                  <div style={{fontSize:14,fontWeight:700,color:"#4A3020",marginBottom:6}}>今は締切のある予定はありません</div>
-                  <div style={{fontSize:12.5,color:"#6b7280",lineHeight:1.7,marginBottom:16}}>新しいお知らせや、1ヶ月以内の研修開催予定があると、ここに表示されます。</div>
+                  <div style={{fontSize:14,fontWeight:700,color:"#4A3020",marginBottom:16}}>今は締切のある予定はありません</div>
                   <button onClick={()=>switchTab("training")} style={{padding:"10px 20px",background:"#C89A55",color:"#fff",border:"none",borderRadius:22,fontSize:13,fontWeight:700,cursor:"pointer"}}>📚 研修タブを見る →</button>
                 </div>
               )}
