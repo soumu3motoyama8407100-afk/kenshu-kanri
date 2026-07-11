@@ -141,10 +141,10 @@ const db = {
   },
   async getInternals() {
     const {data} = await supabase.from("internals").select("*").order("date");
-    return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,date2:r.date2||"",required:r.required,requiredEmpIds:r.required_emp_ids||[],targetEmpIds:r.target_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||"",endTime:r.end_time||"",noReport:r.no_report===true,noVideo:r.no_video===true,createdAt:r.created_at}));
+    return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,date2:r.date2||"",required:r.required,requiredEmpIds:r.required_emp_ids||[],targetEmpIds:r.target_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||"",endTime:r.end_time||"",noReport:r.no_report===true,noVideo:r.no_video===true,lecturer:r.lecturer||"",createdAt:r.created_at}));
   },
   async upsertInternal(t) {
-    const {error} = await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,date2:t.date2||"",required:t.required===true,required_emp_ids:t.requiredEmpIds||[],target_emp_ids:t.targetEmpIds||[],video_url:toEmbedUrl(t.videoUrl)||"",description:t.description||"",location:t.location||"",start_time:t.startTime||"",end_time:t.endTime||"",no_report:t.noReport===true,no_video:t.noVideo===true},{onConflict:"id"});
+    const {error} = await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,date2:t.date2||"",required:t.required===true,required_emp_ids:t.requiredEmpIds||[],target_emp_ids:t.targetEmpIds||[],video_url:toEmbedUrl(t.videoUrl)||"",description:t.description||"",location:t.location||"",start_time:t.startTime||"",end_time:t.endTime||"",no_report:t.noReport===true,no_video:t.noVideo===true,lecturer:t.lecturer||""},{onConflict:"id"});
     if(error) throw new Error(error.message);
   },
   async deleteInternal(id) { await supabase.from("internals").delete().eq("id",id); },
@@ -1917,14 +1917,20 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineRe
               <div style={{flex:1,minWidth:0}}>
                 {showReqBadge&&<span style={S.reqBadge}>復命書必須</span>}
                 {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
-                <div style={{fontSize:17,fontWeight:800,color:"#4A3020",margin:"4px 0 2px"}}>{training.title}</div>
-                {dateLine}
+                <div style={{fontSize:17,fontWeight:800,color:"#4A3020",margin:"4px 0 0"}}>{training.title}</div>
               </div>
               <button style={S.logoutBtn} onClick={()=>setOpen(false)}>✕</button>
             </div>
           </div>
           {/* ボディ */}
           <div style={{padding:"16px 18px"}}>
+          {/* 研修情報：日程・時間・場所・講師 */}
+          <div style={{background:"#FDF6EC",border:"1px solid #E8D5B0",borderRadius:12,padding:"12px 14px",marginBottom:14,display:"flex",flexDirection:"column",gap:8}}>
+            <div style={{display:"flex",gap:10,fontSize:13.5}}><span style={{color:"#A07840",fontWeight:700,minWidth:56,flexShrink:0}}>📅 日程</span><span style={{color:"#4A3020",fontWeight:700}}>{hasTwoDates?<>① {formatDate(training.date)}　② {formatDate(training.date2)}</>:formatDate(training.date)}</span></div>
+            <div style={{display:"flex",gap:10,fontSize:13.5}}><span style={{color:"#A07840",fontWeight:700,minWidth:56,flexShrink:0}}>🕐 時間</span><span style={{color:(training.startTime||training.endTime)?"#4A3020":"#9ca3af",fontWeight:700}}>{(training.startTime||training.endTime)?`${training.startTime||""}${training.endTime?`〜${training.endTime}`:""}`:"未設定"}</span></div>
+            <div style={{display:"flex",gap:10,fontSize:13.5}}><span style={{color:"#A07840",fontWeight:700,minWidth:56,flexShrink:0}}>📍 場所</span><span style={{color:training.location?"#4A3020":"#9ca3af",fontWeight:700}}>{training.location||"未設定"}</span></div>
+            <div style={{display:"flex",gap:10,fontSize:13.5}}><span style={{color:"#A07840",fontWeight:700,minWidth:56,flexShrink:0}}>👤 講師</span><span style={{color:training.lecturer?"#4A3020":"#9ca3af",fontWeight:700}}>{training.lecturer||"未設定"}</span></div>
+          </div>
           <div style={{marginBottom:14}}><InternalProgress status={status} noReport={training.noReport}/></div>
           {training.description&&<p style={{color:"#6b7280",fontSize:13,marginBottom:14,lineHeight:1.7}}>{training.description}</p>}
           <div style={S.sBlock}>
@@ -3234,6 +3240,10 @@ function InternalTrainingForm({data,onChange,onSave,onCancel,title,allEmployees}
       <div style={{marginBottom:10}}>
         <label style={S.label}>場所</label>
         <LocationSelect value={data.location||""} onChange={v=>onChange(p=>({...p,location:v}))}/>
+      </div>
+      <div style={{marginBottom:10}}>
+        <label style={S.label}>講師（任意）</label>
+        <input type="text" style={S.input} placeholder="例: ○○ 太郎 先生 ／ △△株式会社" value={data.lecturer||""} onChange={e=>onChange(p=>({...p,lecturer:e.target.value}))}/>
       </div>
       {/* 動画なしフラグ */}
       <div style={{marginBottom:10,padding:"10px 12px",background:"#faf5ff",borderRadius:10,border:"1px solid #d8b4fe"}}>
