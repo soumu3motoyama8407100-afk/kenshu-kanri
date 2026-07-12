@@ -1282,6 +1282,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
   const [showQRScan,setShowQRScan]=useState(false);
   const [showScore,setShowScore]=useState(false);
   const [focusTrainingId,setFocusTrainingId]=useState(null); // お知らせから研修詳細を直接開く
+  const [returnTab,setReturnTab]=useState(null); // 詳細を閉じたら戻るタブ
   const [openNoticeId,setOpenNoticeId]=useState(null); // お知らせ（締切あり）の詳細モーダル
   // 対応済みにしたお知らせ（LINEで届いても、既に提出・回答済みなら締切一覧から消せる）
   const [dismissedNotices,setDismissedNotices]=useState(()=>{ try{return JSON.parse(localStorage.getItem(`ndismissed_${emp.id}`)||"[]");}catch{return[];} });
@@ -1426,7 +1427,6 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
             {[fiscalYear-2,fiscalYear-1,fiscalYear].map(y=><option key={y} value={y}>{y}年度</option>)}
           </select>
           {!isCurrentFY&&<span style={{fontSize:11,color:"#d97706",fontWeight:600,background:"#fef3c7",padding:"2px 8px",borderRadius:20}}>過去年度閲覧中</span>}
-          {onRefresh&&<button onClick={onRefresh} disabled={refreshing} style={{fontSize:12,fontWeight:600,padding:"4px 12px",borderRadius:8,border:"1px solid #67e8f9",background:refreshing?"#e0f2fe":"#ecfeff",color:"#0e7490",cursor:refreshing?"default":"pointer"}}>{refreshing?"更新中…":"🔄 更新"}</button>}
           <button onClick={()=>setShowTutorial(true)} style={{fontSize:12,fontWeight:600,padding:"4px 12px",borderRadius:8,border:"1px solid #E8D5B0",background:"#fff",color:"#A07840",cursor:"pointer"}}>❓ 使い方</button>
         </div>
         {/* タブバー */}
@@ -1472,6 +1472,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                     {fyInternals.map(t=>(
                       <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)} empId={emp.id} readonly={!isCurrentFY}
                         focusId={focusTrainingId} onFocused={()=>setFocusTrainingId(null)}
+                        onDetailClosed={()=>{ if(returnTab){ switchTab(returnTab); setReturnTab(null); } }}
                         onReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","提出済");showToast("復命書を提出しました");} }}
                         onCancelReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","未提出");showToast("提出を取り消しました");} }}
                         onDeclineReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","提出しない");showToast("「提出しない」にしました");} }}
@@ -1549,7 +1550,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                       <button style={S.logoutBtn} onClick={()=>setOpenNoticeId(null)}>✕</button>
                     </div>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>{badgePill(b)}<span style={{fontSize:12,color:"#6b7280"}}>締切 {formatDate(n.deadline)}</span></div>
-                    {n.body&&<div style={{fontSize:14,color:"#374151",whiteSpace:"pre-wrap",lineHeight:1.8,marginBottom:14}}>{n.body}</div>}
+                    {n.body&&<div style={{fontSize:14,color:"#374151",whiteSpace:"pre-wrap",lineHeight:1.8,marginBottom:14}}><LinkifiedText text={n.body}/></div>}
                     {n.fileUrl&&<a href={n.fileUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:13,color:"#2563eb",fontWeight:600,textDecoration:"underline",marginBottom:16}}>📄 {n.fileName||"添付PDF"}</a>}
                     <button onClick={()=>{dismissNotice(n.id);setOpenNoticeId(null);}} style={{width:"100%",padding:"11px",background:"#f3f4f6",border:"1px solid #e5e7eb",borderRadius:12,color:"#4A3020",fontSize:13,fontWeight:700,cursor:"pointer",marginTop:n.fileUrl?12:0}}>✓ 対応済みにする</button>
                   </div>
@@ -1593,7 +1594,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                 <div style={{marginBottom:18}}>
                   <div style={{fontWeight:800,fontSize:13,color:"#0e7490",marginBottom:8}}>📅 研修開催予定</div>
                   {thisMonth.map(t=>{ const d=dleft(new Date(t.date)); const s=getIS(emp.id,t.id); const doneMark=s.attendance==="参加済"?"✅":s.video==="視聴済"?"✅":""; return(
-                    <div key={t.id} onClick={()=>{setFocusTrainingId(t.id);switchTab("training");}} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,background:"#fff",border:"1px solid #E8D5B0",borderRadius:10,padding:"10px 12px",marginBottom:6,cursor:"pointer"}}>
+                    <div key={t.id} onClick={()=>{setFocusTrainingId(t.id);setReturnTab("notices");switchTab("training");}} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,background:"#fff",border:"1px solid #E8D5B0",borderRadius:10,padding:"10px 12px",marginBottom:6,cursor:"pointer"}}>
                       <div style={{minWidth:0}}>
                         <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:5}}>
                           {isNew(t)&&<span style={{fontSize:10,fontWeight:800,color:"#fff",background:"#ef4444",borderRadius:6,padding:"1px 6px"}}>NEW</span>}
@@ -1917,11 +1918,14 @@ function ExternalProgress({status}){
   );
 }
 
-function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineReport,onVideo,onWatchVideo,onAttendSession,readonly,focusId,onFocused}){
+function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineReport,onVideo,onWatchVideo,onAttendSession,readonly,focusId,onFocused,onDetailClosed}){
   const [open,setOpen]=useState(false);
   const [playVideo,setPlayVideo]=useState(false);
+  const autoOpenedRef=useRef(false);
   // お知らせから指定された研修は詳細モーダルを自動で開く
-  useEffect(()=>{ if(focusId&&focusId===training.id){ setOpen(true); onFocused&&onFocused(); } },[focusId]);// eslint-disable-line
+  useEffect(()=>{ if(focusId&&focusId===training.id){ autoOpenedRef.current=true; setOpen(true); onFocused&&onFocused(); } },[focusId]);// eslint-disable-line
+  // 詳細モーダルを閉じる（お知らせから開いた場合は呼び出し元タブへ戻す）
+  const closeModal=()=>{ setOpen(false); if(autoOpenedRef.current){ autoOpenedRef.current=false; onDetailClosed&&onDetailClosed(); } };
   const attended=status.attendance==="参加済";
   const hasTwoDates=!!training.date2;
   const sessionMark=status.attendedSession==="1"?"①":status.attendedSession==="2"?"②":"";
@@ -1957,7 +1961,7 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineRe
       </div>
     </div>
       {open&&(
-        <div style={{...S.overlay,zIndex:1500}} onClick={()=>setOpen(false)}>
+        <div style={{...S.overlay,zIndex:1500}} onClick={closeModal}>
         <div style={{...S.modal,maxWidth:560,width:"94vw",maxHeight:"88vh",overflowY:"auto",padding:0}} onClick={e=>e.stopPropagation()}>
           {/* ヘッダー */}
           <div style={{position:"sticky",top:0,background:"#fff",borderBottom:"1px solid #F0D9B0",padding:"16px 18px",zIndex:2}}>
@@ -1967,7 +1971,7 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineRe
                 {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
                 <div style={{fontSize:17,fontWeight:800,color:"#4A3020",margin:"4px 0 0"}}>{training.title}</div>
               </div>
-              <button style={S.logoutBtn} onClick={()=>setOpen(false)}>✕</button>
+              <button style={S.logoutBtn} onClick={closeModal}>✕</button>
             </div>
           </div>
           {/* ボディ */}
@@ -2493,6 +2497,16 @@ function SeminarReportCheer({fy,empId,seminars,getSMV}){
   );
 }
 function SPill({color,bg,border,children}){return <div style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 14px",borderRadius:20,background:bg,color,fontSize:13,fontWeight:600,border:`1.5px solid ${border}`}}>{children}</div>;}
+// 本文中のURLをタップ可能にし、外部サイトへ移動する前に確認を挟む
+function LinkifiedText({text}){
+  if(!text) return null;
+  const parts=String(text).split(/(https?:\/\/[^\s]+)/g);
+  return <>{parts.map((part,i)=>
+    /^https?:\/\//.test(part)
+      ? <span key={i} onClick={e=>{e.stopPropagation(); if(window.confirm(`外部サイトに移動します。よろしいですか？\n\n${part}`)){ window.open(part,"_blank","noopener,noreferrer"); }}} style={{color:"#2563eb",textDecoration:"underline",cursor:"pointer",wordBreak:"break-all"}}>{part}</span>
+      : <React.Fragment key={i}>{part}</React.Fragment>
+  )}</>;
+}
 function ToggleChip({label,active,color,onClick}){return <button onClick={onClick} style={{padding:"5px 14px",borderRadius:20,border:"1.5px solid",borderColor:active?color:"#e5e7eb",background:active?color:"#fff",color:active?"#fff":"#6b7280",fontSize:12,fontWeight:active?700:400,cursor:"pointer"}}>{label}</button>;}
 
 function PdfModal({ext,onClose}){
@@ -4617,7 +4631,7 @@ function NoticeCard({n,canDelete,onDelete,committeeName,color}){
             <span style={{fontWeight:700,fontSize:14,color:"#1e3a5f"}}>{n.title}</span>
             {n.isPublic&&<span style={{fontSize:10,background:"#dcfce7",color:"#15803d",borderRadius:10,padding:"1px 8px",fontWeight:700}}>全体公開</span>}
           </div>
-          {n.body&&<div style={{fontSize:13,color:"#374151",whiteSpace:"pre-wrap",lineHeight:1.7,marginBottom:6}}>{n.body}</div>}
+          {n.body&&<div style={{fontSize:13,color:"#374151",whiteSpace:"pre-wrap",lineHeight:1.7,marginBottom:6}}><LinkifiedText text={n.body}/></div>}
           <div style={{fontSize:11,color:"#9ca3af"}}>{n.createdAt?new Date(n.createdAt).toLocaleDateString("ja-JP"):""}</div>
         </div>
         {canDelete&&<button onClick={onDelete} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #fca5a5",background:"#fff",color:"#dc2626",fontSize:11,fontWeight:600,cursor:"pointer",flexShrink:0}}>削除</button>}
