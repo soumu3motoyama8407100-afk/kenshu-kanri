@@ -451,6 +451,19 @@ export default function App() {
   const today10 = ()=>new Date().toISOString().slice(0,10);
   const [showDemoNotice,setShowDemoNotice] = useState(()=>{ try{ return localStorage.getItem("demo_notice_date")!==today10(); }catch(_){ return true; } });
   const dismissDemoNotice = ()=>{ try{ localStorage.setItem("demo_notice_date",today10()); }catch(_){}; setShowDemoNotice(false); };
+  // 固定NFCタグ用：?attend=today を、本日開催の研修IDに自動変換（研修が読み込まれてから解決）
+  useEffect(()=>{
+    if(loading||pendingAttend!=="today") return;
+    const t=today10();
+    const matches=internals.filter(x=>x.date===t||x.date2===t);
+    if(matches.length===1){ setPendingAttend(matches[0].id); }
+    else{
+      setPendingAttend(null);
+      setLineMsg(matches.length===0
+        ?"本日開催予定の研修が見つかりませんでした。研修担当者にご確認ください。"
+        :"本日は複数の研修が予定されているため自動判定できませんでした。各研修専用のQRコードをご利用ください。");
+    }
+  },[loading,pendingAttend,internals]);// eslint-disable-line
   const withDemo = (screen)=> <>{screen}<DemoRibbon/>{showDemoNotice&&<DemoNoticeModal onClose={dismissDemoNotice}/>}</>;
   const finishLineLogin = async(idToken) => {
     idToken = idToken || (window.liff && window.liff.getIDToken());
@@ -515,9 +528,9 @@ export default function App() {
       setLineMsg("LINEログインでエラーが発生しました。通信環境をご確認のうえ、ID・パスワードでお試しください。");
     }finally{ setLineLoggingIn(false); }
   };
-  // QRモード：マウント直後にLIFFログイン済みか確認し、済みなら即出席登録（loading待ちなし）
+  // QRモード：マウント直後にLIFFログイン済みか確認し、済みなら即出席登録（loading待ちなし。"today"は研修IDに解決されるまで待つ）
   useEffect(()=>{
-    if(!pendingAttend||session||qrAttendDone) return;
+    if(!pendingAttend||pendingAttend==="today"||session||qrAttendDone) return;
     setQrChecking(true);
     (async()=>{
       try{
@@ -563,7 +576,7 @@ export default function App() {
 
   if(qrAttendDone) return withDemo(<QRSuccessScreen empName={qrAttendDone.empName} trainingName={qrAttendDone.trainingName}/>);
   if(!session&&pendingAttend){
-    if(qrChecking) return withDemo(<QRCheckingScreen/>);
+    if(qrChecking||pendingAttend==="today") return withDemo(<QRCheckingScreen/>);
     return withDemo(<QRLandingScreen training={internals.find(t=>t.id===pendingAttend)} employees={employees} onLogin={handleLogin} onLineLogin={handleLineLogin} lineLoggingIn={lineLoggingIn} lineMsg={lineMsg}/>);
   }
   if(!session) return withDemo(<DualLoginScreen pendingAttend={pendingAttend} internals={internals} employees={employees} onLogin={handleLogin} onManualLogin={(empId,isAdmin)=>setManualSession({empId,isAdmin})} onLineLogin={handleLineLogin} lineLoggingIn={lineLoggingIn} lineMsg={lineMsg}/>);
