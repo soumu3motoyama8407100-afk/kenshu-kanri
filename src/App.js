@@ -4197,6 +4197,11 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
       showToast("⚠ LINE配信日時が指定されていません。即時配信は行われません。必ず配信したい日時を指定してください（配信は10:00〜17:00）",true);
       return;
     }
+    // LINEメッセージが手動編集されている場合、タイトル・本文の変更が反映されていない可能性があるため、送信内容を最終確認する
+    if(gForm.lineMessageEdited){
+      const preview=gForm.lineMessage||buildAutoMsg(gForm.title,gForm.body,cat,gForm.deadline);
+      if(!window.confirm(`⚠ LINEメッセージが手動編集されています。\nタイトルや内容を変更しても、この文面には自動反映されません。\n\n【実際に送信される内容】\n${preview}\n\nこの内容で送信してよろしいですか？`)) return;
+    }
     setSaving(true);
     const isEditing=!!gForm.id;
     try{
@@ -4364,13 +4369,16 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
               <div style={{marginBottom:12,padding:"12px",background:"#f0f9ff",borderRadius:10,border:"1.5px solid #7dd3fc"}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                   <div style={{fontSize:13,fontWeight:700,color:"#0369a1"}}>📱 LINEメッセージ</div>
-                  {gForm.lineMessageEdited&&(
-                    <button type="button" onClick={()=>setGForm(p=>({...p,lineMessage:buildAutoMsg(p.title,p.body,cat),lineMessageEdited:false}))}
-                      style={{fontSize:11,color:"#6b7280",background:"#e5e7eb",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer"}}>
-                      自動生成に戻す
-                    </button>
-                  )}
                 </div>
+                {gForm.lineMessageEdited&&(
+                  <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",background:"#fffbeb",border:"1.5px solid #fbbf24",borderRadius:8,padding:"8px 10px",marginBottom:8}}>
+                    <span style={{fontSize:12,color:"#92400e",fontWeight:700,flex:1,minWidth:200}}>⚠ 手動編集中：タイトル・内容を変更してもこの文面には反映されません</span>
+                    <button type="button" onClick={()=>setGForm(p=>({...p,lineMessage:buildAutoMsg(p.title,p.body,cat,p.deadline),lineMessageEdited:false}))}
+                      style={{fontSize:12,fontWeight:700,color:"#fff",background:"#d97706",border:"none",borderRadius:8,padding:"5px 12px",cursor:"pointer",whiteSpace:"nowrap"}}>
+                      🔄 最新の内容で作り直す
+                    </button>
+                  </div>
+                )}
                 {/* スマホ風プレビュー */}
                 <div style={{background:"#e8f5e9",borderRadius:10,padding:"10px 12px",marginBottom:8,position:"relative"}}>
                   <div style={{fontSize:10,color:"#388e3c",fontWeight:700,marginBottom:4}}>プレビュー（LINEでの表示イメージ）</div>
