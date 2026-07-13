@@ -448,7 +448,8 @@ export default function App() {
   const [lineMsg,setLineMsg] = useState("");
   const [qrAttendDone,setQrAttendDone] = useState(null); // {empName, trainingName}
   // デモ運用中のお知らせポップアップ（1日1回）
-  const today10 = ()=>new Date().toISOString().slice(0,10);
+  // ローカル日付をYYYY-MM-DDで返す（toISOStringはUTC基準になり、日本時間の深夜〜9時台に日付がズレるため使わない）
+  const today10 = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
   const [showDemoNotice,setShowDemoNotice] = useState(()=>{ try{ return localStorage.getItem("demo_notice_date")!==today10(); }catch(_){ return true; } });
   const dismissDemoNotice = ()=>{ try{ localStorage.setItem("demo_notice_date",today10()); }catch(_){}; setShowDemoNotice(false); };
   // 固定NFCタグ用：?attend=today を、本日開催の研修IDに自動変換（研修が読み込まれてから解決）
