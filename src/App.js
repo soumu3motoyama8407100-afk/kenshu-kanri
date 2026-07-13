@@ -4135,7 +4135,8 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   const selected=committees.find(c=>c.id===selectedId);
   const myCommNotices=(committeeNotices||[]).filter(n=>n.committeeId===selectedId);
 
-  const resetGForm=()=>{setGForm({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:"",lineMessage:"",lineMessageEdited:false,deadline:""});setPdfFile(null);setShowTargetSel(false);setSelDept("すべて");};
+  const resetGForm=()=>{setGForm({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:"",lineMessage:"",lineMessageEdited:false,deadline:""});setPdfFile(null);setShowTargetSel(false);setSelDept("すべて");setShowLineEditor(false);};
+  const [showLineEditor,setShowLineEditor]=useState(false); // LINEメッセージの直接編集欄（普段は隠してプレビューのみ表示）
   const buildAutoMsg=(title,body,cat2,deadline)=>`📢【${cat2||cat}】${title}${body?"\n\n"+body:""}${deadline?`\n\n回答期限：${formatReiwa(deadline)}`:""}`;
   // メッセージにPDF添付リンクを差し込む（「回答期限：」行がある場合はその前に入れて期限を最終行に保つ）
   const appendFileLink=(msg,url)=>{
@@ -4367,20 +4368,18 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
               </div>
               {/* LINEメッセージプレビュー＆編集 */}
               <div style={{marginBottom:12,padding:"12px",background:"#f0f9ff",borderRadius:10,border:"1.5px solid #7dd3fc"}}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                  <div style={{fontSize:13,fontWeight:700,color:"#0369a1"}}>📱 LINEメッセージ</div>
-                </div>
+                <div style={{fontSize:13,fontWeight:700,color:"#0369a1",marginBottom:8}}>📱 LINEメッセージ</div>
                 {gForm.lineMessageEdited&&(
                   <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",background:"#fffbeb",border:"1.5px solid #fbbf24",borderRadius:8,padding:"8px 10px",marginBottom:8}}>
                     <span style={{fontSize:12,color:"#92400e",fontWeight:700,flex:1,minWidth:200}}>⚠ 手動編集中：タイトル・内容を変更してもこの文面には反映されません</span>
-                    <button type="button" onClick={()=>setGForm(p=>({...p,lineMessage:buildAutoMsg(p.title,p.body,cat,p.deadline),lineMessageEdited:false}))}
+                    <button type="button" onClick={()=>{setGForm(p=>({...p,lineMessage:buildAutoMsg(p.title,p.body,cat,p.deadline),lineMessageEdited:false}));setShowLineEditor(false);}}
                       style={{fontSize:12,fontWeight:700,color:"#fff",background:"#d97706",border:"none",borderRadius:8,padding:"5px 12px",cursor:"pointer",whiteSpace:"nowrap"}}>
                       🔄 最新の内容で作り直す
                     </button>
                   </div>
                 )}
                 {/* スマホ風プレビュー */}
-                <div style={{background:"#e8f5e9",borderRadius:10,padding:"10px 12px",marginBottom:8,position:"relative"}}>
+                <div style={{background:"#e8f5e9",borderRadius:10,padding:"10px 12px",position:"relative"}}>
                   <div style={{fontSize:10,color:"#388e3c",fontWeight:700,marginBottom:4}}>プレビュー（LINEでの表示イメージ）</div>
                   <div style={{display:"flex",alignItems:"flex-end",gap:6}}>
                     <div style={{width:32,height:32,borderRadius:"50%",background:"#06c755",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
@@ -4393,12 +4392,16 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
                     </div>
                   </div>
                 </div>
-                {/* 編集エリア */}
-                <textarea rows={5} style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1.5px solid #7dd3fc",fontSize:12,boxSizing:"border-box",resize:"vertical",fontFamily:"inherit",lineHeight:1.6}}
-                  value={gForm.lineMessage}
-                  onChange={e=>setGForm(p=>({...p,lineMessage:e.target.value,lineMessageEdited:true}))}
-                  placeholder="LINEに送るメッセージを入力（タイトル・本文から自動生成されます）"/>
-                <div style={{fontSize:11,color:"#6b7280",marginTop:4}}>※ 直接編集できます。「自動生成に戻す」で元に戻せます。</div>
+                {!showLineEditor
+                  ?<button type="button" onClick={()=>setShowLineEditor(true)} style={{marginTop:8,fontSize:11.5,color:"#0369a1",background:"none",border:"none",textDecoration:"underline",cursor:"pointer",padding:0}}>✏️ 文面を手動で編集する</button>
+                  :<>
+                    {/* 編集エリア */}
+                    <textarea rows={5} style={{width:"100%",marginTop:8,padding:"8px 10px",borderRadius:8,border:"1.5px solid #7dd3fc",fontSize:12,boxSizing:"border-box",resize:"vertical",fontFamily:"inherit",lineHeight:1.6}}
+                      value={gForm.lineMessage}
+                      onChange={e=>setGForm(p=>({...p,lineMessage:e.target.value,lineMessageEdited:true}))}
+                      placeholder="LINEに送るメッセージを入力（タイトル・本文から自動生成されます）"/>
+                    <div style={{fontSize:11,color:"#6b7280",marginTop:4}}>※ 直接編集できます。「最新の内容で作り直す」で元に戻せます。</div>
+                  </>}
               </div>
               {/* LINE配信日時（必須） */}
               <div style={{marginBottom:12,padding:"10px 12px",background:"#f0fdf4",borderRadius:10,border:"1.5px solid #4ade80"}}>
@@ -4485,7 +4488,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
                   {n.fileUrl&&<a href={n.fileUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:6,fontSize:12,color:"#2563eb",fontWeight:600,textDecoration:"underline"}}>📄 {n.fileName||"添付PDF"}</a>}
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
-                  <button onClick={()=>{ setCat(n.category); setGForm({id:n.id,title:n.title,body:n.body||"",fileUrl:n.fileUrl||null,filePath:n.filePath||null,fileName:n.fileName||null,targetEmpIds:n.targetEmpIds||[],lineDate:n.lineDate||"",lineTime:n.lineTime||"",lineMessage:"",lineMessageEdited:false,deadline:n.deadline||""}); setShowTargetSel((n.targetEmpIds||[]).length>0); setPdfFile(null); setShowTest(false); setShowForm(true); }} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #93c5fd",background:"#eff6ff",color:"#2563eb",fontSize:11,fontWeight:600,cursor:"pointer"}}>編集</button>
+                  <button onClick={()=>{ setCat(n.category); setGForm({id:n.id,title:n.title,body:n.body||"",fileUrl:n.fileUrl||null,filePath:n.filePath||null,fileName:n.fileName||null,targetEmpIds:n.targetEmpIds||[],lineDate:n.lineDate||"",lineTime:n.lineTime||"",lineMessage:"",lineMessageEdited:false,deadline:n.deadline||""}); setShowTargetSel((n.targetEmpIds||[]).length>0); setPdfFile(null); setShowTest(false); setShowLineEditor(false); setShowForm(true); }} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #93c5fd",background:"#eff6ff",color:"#2563eb",fontSize:11,fontWeight:600,cursor:"pointer"}}>編集</button>
                   <button onClick={async()=>{if(window.confirm("削除しますか？"))await deleteGeneralNotice(n.id);}} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #fca5a5",background:"#fff",color:"#dc2626",fontSize:11,fontWeight:600,cursor:"pointer"}}>削除</button>
                 </div>
               </div>
