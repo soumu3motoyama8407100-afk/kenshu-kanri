@@ -770,7 +770,7 @@ function DemoNoticeModal({onClose}){
 const TUTORIAL_STEPS=[
   {icon:"👋",title:"ようこそ！",body:<>この研修管理アプリの使い方をかんたんにご案内します。<br/>あとから <b>「❓使い方」</b> でいつでも見返せます。</>},
   {icon:"📢",title:"お知らせタブ",body:<>ログインすると最初に開くタブです。<br/><b>今月ある研修</b>と、<b>締切のあるお知らせ</b>がここに表示されます。まずはここをチェック！</>},
-  {icon:"📚",title:"研修タブ",body:<>内部研修は、研修会場にある <b>QRコードを読み取る</b> と、自動で「参加済」になります。<br/>当日の研修時は<b>スマホを持参</b>してくださいね。</>},
+  {icon:"📚",title:"研修タブ",ribbon:"近日公開",body:<>内部研修は、研修会場にある <b>QRコードを読み取る</b> と、自動で「参加済」になります。<br/>当日の研修時は<b>スマホを持参</b>してくださいね。<br/><span style={{color:"#c2410c",fontWeight:700}}>※ QRでの参加登録は現在準備中です。ご利用いただけるようになりましたら、あらためてご連絡します。</span></>},
   {icon:"▶",title:"動画で振り返る",body:<>当日参加できなかった研修は、画面右下の <b>「▶動画」ボタン</b> や各研修の「動画を視聴」から見てフォローできます。<br/>動画を <b>9割ほど視聴すると自動で「視聴済」</b> になります。</>},
   {icon:"📄",title:"復命書を提出する",body:<>参加または動画視聴のあと <b>「復命書を提出する」</b> が押せるようになります。<br/>提出が必須のものは <b>「復命書必須」マーク</b> でひと目でわかります。<br/>提出数は人事考課の参考になります（⭐5件→+1点 / 🏆10件→+2点）。<br/>提出数は<b>所属長の確認をもってカウント</b>されます。</>},
   {icon:"📺",title:"セミナータブ",body:<><b>「📺 セミナー」タブ</b> で、毎月のリブドゥ オンラインセミナー動画を視聴・記録できます。<br/>視聴チェックや復命書の管理もこちらから。</>},
@@ -788,7 +788,14 @@ function TutorialModal({onClose}){
           <span style={{fontSize:12,fontWeight:700,color:"#A07840"}}>使い方 {i+1}/{TUTORIAL_STEPS.length}</span>
           <button onClick={onClose} style={{background:"none",border:"none",color:"#9ca3af",fontSize:12,cursor:"pointer",fontWeight:600}}>スキップ ✕</button>
         </div>
-        <div style={{textAlign:"center",padding:"12px 0 18px"}}>
+        <div style={{textAlign:"center",padding:"12px 0 18px",position:"relative"}}>
+          {step.ribbon&&(
+            <div style={{position:"absolute",top:0,right:0,width:110,height:110,overflow:"hidden",pointerEvents:"none"}}>
+              <div style={{position:"absolute",top:18,right:-32,width:160,transform:"rotate(45deg)",background:"#f59e0b",color:"#fff",fontSize:11,fontWeight:800,textAlign:"center",padding:"4px 0",letterSpacing:1,boxShadow:"0 2px 6px rgba(0,0,0,.15)"}}>
+                {step.ribbon}
+              </div>
+            </div>
+          )}
           <div style={{width:88,height:88,margin:"0 auto 16px",borderRadius:"50%",background:"#FDF6EC",border:"2px solid #E8D5B0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:44,lineHeight:1}}>{step.icon}</div>
           <div style={{fontSize:20,fontWeight:800,color:"#4A3020",marginBottom:10}}>{step.title}</div>
           <div style={{fontSize:14,color:"#6b7280",lineHeight:1.9,minHeight:76}}>{step.body}</div>
