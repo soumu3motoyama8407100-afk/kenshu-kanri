@@ -4308,7 +4308,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
       });
       const j=await res.json().catch(()=>null);
       if(j&&j.ok&&j.sent>0) showToast(`✅ ${emp.name} さんにお試し配信しました（今すぐ送信）`);
-      else showToast("お試し送信しましたが届いていない可能性があります。LINE連携・チャネル設定をご確認ください",true);
+      else showToast(`送信に失敗しました。${j&&j.error?`LINE側のエラー：${j.error}`:"LINE連携・チャネル設定をご確認ください"}`,true);
     }catch(e){ showToast("お試し配信に失敗しました: "+(e.message||e),true); }
     setSaving(false);
   };

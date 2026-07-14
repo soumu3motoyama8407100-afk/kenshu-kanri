@@ -33,7 +33,7 @@ async function isWithinSendingHours(): Promise<boolean> {
   return true;
 }
 
-async function sendPush(lineUserId: string, message: string): Promise<boolean> {
+async function sendPush(lineUserId: string, message: string): Promise<{ ok: boolean; status: number; error?: string }> {
   const res = await fetch("https://api.line.me/v2/bot/message/push", {
     method: "POST",
     headers: {
@@ -45,7 +45,12 @@ async function sendPush(lineUserId: string, message: string): Promise<boolean> {
       messages: [{ type: "text", text: message }],
     }),
   });
-  return res.ok;
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    console.error(`LINE push failed (status ${res.status}) for ${lineUserId}: ${errBody}`);
+    return { ok: false, status: res.status, error: errBody };
+  }
+  return { ok: true, status: res.status };
 }
 
 const CORS_HEADERS = {
@@ -71,11 +76,13 @@ serve(async (req) => {
       // refId: 予約に紐づけるID（お知らせIDなど）、replaceRefId: 指定すると未送信分を削除してから入れ直す（編集用）
       if (immediate && Array.isArray(notifications) && notifications.length > 0) {
         let sentNow = 0;
+        let lastError = "";
         for (const n of notifications) {
-          const ok = await sendPush(n.lineUserId, n.message);
-          if (ok) sentNow++;
+          const r = await sendPush(n.lineUserId, n.message);
+          if (r.ok) sentNow++;
+          else lastError = `status ${r.status}: ${r.error ?? ""}`;
         }
-        return new Response(JSON.stringify({ ok: true, sent: sentNow, immediate: true }), {
+        return new Response(JSON.stringify({ ok: true, sent: sentNow, immediate: true, error: sentNow === 0 ? lastError : undefined }), {
           headers: { "Content-Type": "application/json", ...CORS_HEADERS },
         });
       }
@@ -115,12 +122,12 @@ serve(async (req) => {
 
   let sent = 0;
   for (const item of pending ?? []) {
-    const ok = await sendPush(item.line_user_id, item.message);
+    const r = await sendPush(item.line_user_id, item.message);
     await supabase
       .from("line_notification_queue")
-      .update({ status: ok ? "sent" : "failed", sent_at: new Date().toISOString() })
+      .update({ status: r.ok ? "sent" : "failed", sent_at: new Date().toISOString() })
       .eq("id", item.id);
-    if (ok) sent++;
+    if (r.ok) sent++;
   }
 
   return new Response(JSON.stringify({ ok: true, sent }), {
