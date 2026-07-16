@@ -3539,19 +3539,84 @@ function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear}){
   );
 }
 
+function ExternalTrainingForm({data,onChange,onSave,onCancel,title,employees}){
+  const [selDept,setSelDept]=useState("すべて");
+  const depts=["すべて",...sortDepts(Array.from(new Set((employees||[]).map(e=>e.dept).filter(Boolean))))];
+  const filteredEmps=selDept==="すべて"?(employees||[]):(employees||[]).filter(e=>e.dept===selDept);
+  const toggleEmp=id=>onChange(p=>({...p,targetEmpIds:(p.targetEmpIds||[]).includes(id)?p.targetEmpIds.filter(x=>x!==id):[...(p.targetEmpIds||[]),id]}));
+  const toggleDeptAll=()=>{
+    const ids=filteredEmps.map(e=>e.id);
+    const allSelected=ids.every(id=>(data.targetEmpIds||[]).includes(id));
+    onChange(p=>({...p,targetEmpIds:allSelected?(p.targetEmpIds||[]).filter(id=>!ids.includes(id)):[...new Set([...(p.targetEmpIds||[]),...ids])]}));
+  };
+  const handlePdf=e=>{const f=e.target.files[0];if(!f)return;if(f.size>20*1024*1024){alert("20MBを超えるファイルはアップロードできません");return;}onChange(p=>({...p,_pendingFile:f,pdfName:f.name}));};
+  return(
+    <div style={S.formBox}>
+      <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>{title}</div>
+      {[{key:"title",label:"研修名",placeholder:"例：DXセミナー"},{key:"date",label:"実施日",type:"date"},{key:"organizer",label:"主催団体",placeholder:"例：総務省"},{key:"location",label:"場所",placeholder:"例：東京"}]
+        .map(f=><div key={f.key} style={{marginBottom:10}}><label style={S.label}>{f.label}</label><input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={data[f.key]||""} onChange={e=>onChange(p=>({...p,[f.key]:e.target.value}))}/></div>)}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+        <div><label style={S.label}>開始時間（任意）</label><input type="time" style={S.input} value={data.startTime||""} onChange={e=>onChange(p=>({...p,startTime:e.target.value}))}/></div>
+        <div><label style={S.label}>終了時間（任意）</label><input type="time" style={S.input} value={data.endTime||""} onChange={e=>onChange(p=>({...p,endTime:e.target.value}))}/></div>
+      </div>
+      <div style={{marginBottom:14}}>
+        <label style={S.label}>研修要綱PDF（任意）</label>
+        <label style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,border:"1.5px dashed #E8D5B0",background:"#FDF6EC",cursor:"pointer"}}>
+          <input type="file" accept="application/pdf" style={{display:"none"}} onChange={handlePdf}/>
+          <span style={{fontSize:20}}>📄</span>
+          <div><div style={{fontSize:13,fontWeight:600,color:"#A07840"}}>{data.pdfName?"✅ "+data.pdfName:"クリックしてPDFをアップロード"}</div></div>
+        </label>
+      </div>
+      <div style={{marginBottom:14}}>
+        <label style={S.label}>対象者を選択（{(data.targetEmpIds||[]).length}名選択中）</label>
+        {(data.targetEmpIds||[]).length>0&&(
+          <div style={{marginBottom:8,padding:"8px 10px",background:"#FDF6EC",borderRadius:10,border:"1px solid #E8D5B0"}}>
+            <div style={{fontSize:11,color:"#A07840",fontWeight:600,marginBottom:4}}>選択中の職員：</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+              {(data.targetEmpIds||[]).map(id=>{const emp=(employees||[]).find(e=>e.id===id);return emp?(
+                <span key={id} style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:12,padding:"2px 8px",background:"#fff",border:"1px solid #C89A55",borderRadius:16,color:"#4A3020"}}>
+                  {emp.name}
+                  <button onClick={()=>toggleEmp(id)} style={{background:"none",border:"none",cursor:"pointer",color:"#9ca3af",fontSize:12,padding:0,lineHeight:1}}>×</button>
+                </span>
+              ):null;})}
+            </div>
+          </div>
+        )}
+        <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
+          {depts.map(d=>(
+            <button key={d} type="button" onClick={()=>setSelDept(d)} style={{padding:"4px 12px",borderRadius:16,border:"1.5px solid",borderColor:selDept===d?"#C89A55":"#e5e7eb",background:selDept===d?"#FDF6EC":"#fff",color:selDept===d?"#A07840":"#374151",fontSize:12,fontWeight:selDept===d?700:400,cursor:"pointer"}}>
+              {d}
+            </button>
+          ))}
+        </div>
+        <div style={{marginBottom:8}}>
+          <button type="button" onClick={toggleDeptAll} style={{fontSize:12,color:"#A07840",background:"#FDF6EC",border:"1px solid #E8D5B0",borderRadius:8,padding:"4px 12px",cursor:"pointer"}}>
+            {filteredEmps.every(e=>(data.targetEmpIds||[]).includes(e.id))?"✓ "+selDept+"の選択を解除":"＋ "+selDept+"を全員選択"}
+          </button>
+        </div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8,maxHeight:200,overflowY:"auto",padding:"8px",background:"#f9fafb",borderRadius:10,border:"1px solid #e5e7eb"}}>
+          {filteredEmps.map(e=>(
+            <label key={e.id} style={{display:"flex",alignItems:"center",gap:5,fontSize:13,cursor:"pointer",padding:"4px 10px",borderRadius:20,border:"1.5px solid",borderColor:(data.targetEmpIds||[]).includes(e.id)?"#C89A55":"#e5e7eb",background:(data.targetEmpIds||[]).includes(e.id)?"#FDF6EC":"#fff",color:(data.targetEmpIds||[]).includes(e.id)?"#A07840":"#374151"}}>
+              <input type="checkbox" checked={(data.targetEmpIds||[]).includes(e.id)} onChange={()=>toggleEmp(e.id)} style={{display:"none"}}/>{e.name}
+            </label>
+          ))}
+          {filteredEmps.length===0&&<div style={{fontSize:12,color:"#9ca3af",padding:"8px"}}>この部署の職員はいません</div>}
+        </div>
+        {(data.targetEmpIds||[]).length===0&&<div style={{fontSize:11,color:"#dc2626",marginTop:6}}>※ 1名以上選択してください</div>}
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <button style={S.btn} onClick={onSave}>{data.id?"更新する":"登録する"}</button>
+        <button style={{...S.btn,background:"#f3f4f6",color:"#374151"}} onClick={onCancel}>キャンセル</button>
+      </div>
+    </div>
+  );
+}
+
 function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
   const [showAdd,setShowAdd]=useState(false);
   const [newX,setNewX]=useState({title:"",date:"",organizer:"",location:"",targetEmpIds:[],pdfUrl:null,pdfPath:null,pdfName:null});
-  const [selDept,setSelDept]=useState("すべて");
-  const depts=["すべて",...sortDepts(Array.from(new Set(employees.map(e=>e.dept).filter(Boolean))))];
-  const filteredEmps=selDept==="すべて"?employees:employees.filter(e=>e.dept===selDept);
-  const toggleEmp=id=>setNewX(p=>({...p,targetEmpIds:p.targetEmpIds.includes(id)?p.targetEmpIds.filter(x=>x!==id):[...p.targetEmpIds,id]}));
-  const toggleDeptAll=()=>{
-    const ids=filteredEmps.map(e=>e.id);
-    const allSelected=ids.every(id=>newX.targetEmpIds.includes(id));
-    setNewX(p=>({...p,targetEmpIds:allSelected?p.targetEmpIds.filter(id=>!ids.includes(id)):[...new Set([...p.targetEmpIds,...ids])]}));
-  };
-  const handlePdf=e=>{const f=e.target.files[0];if(!f)return;if(f.size>20*1024*1024){alert("20MBを超えるファイルはアップロードできません");return;}setNewX(p=>({...p,_pendingFile:f,pdfName:f.name}));};
+  const [editId,setEditId]=useState(null);
+  const [editX,setEditX]=useState(null);
   const handleExistPdf=async(xId,e)=>{
     const f=e.target.files[0];if(!f)return;
     if(f.size>20*1024*1024){alert("20MBを超えるファイルはアップロードできません");return;}
@@ -3569,12 +3634,11 @@ function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
     }catch(err){alert("アップロードに失敗しました: "+err.message);}
   };
   const add=async()=>{
-    if(!newX.title||!newX.date||newX.targetEmpIds.length===0)return;
+    if(!newX.title||!newX.date||(newX.targetEmpIds||[]).length===0){alert("研修名・実施日・対象者は必須です。");return;}
     const xId="X"+String(Date.now()).slice(-6);
-    let pdfUrl=null,pdfPath=null,pdfName=newX.pdfName||null;
-    // まず研修をDBに保存してからPDFをアップロード
-    const x={...newX,id:xId,pdfUrl,pdfPath,pdfName};
-    await setExternals(p=>[...p,x]);
+    let updated={...newX,id:xId,pdfUrl:null,pdfPath:null,pdfName:newX.pdfName||null};
+    delete updated._pendingFile;
+    await setExternals(p=>[...p,updated]);
     if(newX._pendingFile){
       try{
         const result=await db.uploadExternalPdf(xId,newX._pendingFile);
@@ -3583,75 +3647,35 @@ function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
     }
     setNewX({title:"",date:"",organizer:"",location:"",targetEmpIds:[],pdfUrl:null,pdfPath:null,pdfName:null});setShowAdd(false);
   };
+  const startEdit=x=>{ setEditId(x.id); setEditX({...x,targetEmpIds:x.targetEmpIds||[]}); };
+  const saveEdit=async()=>{
+    if(!editX.title||!editX.date||(editX.targetEmpIds||[]).length===0){alert("研修名・実施日・対象者は必須です。");return;}
+    let updated={...editX};
+    if(updated._pendingFile){
+      try{
+        const result=await db.uploadExternalPdf(updated.id,updated._pendingFile);
+        updated={...updated,...result};
+      }catch(err){alert("PDF アップロードに失敗しました: "+err.message);return;}
+    }
+    delete updated._pendingFile;
+    await setExternals(p=>p.map(x=>x.id===updated.id?updated:x));
+    setEditId(null); setEditX(null);
+  };
+  // 新しい実施日が上、古いものが下
+  const sorted=[...externals].sort((a,b)=>new Date(b.date)-new Date(a.date));
   return(
     <div style={{padding:4}}>
-      <button style={{...S.btn,marginBottom:16}} onClick={()=>setShowAdd(!showAdd)}>＋ 外部研修を申し込み登録</button>
-      {showAdd&&(
-        <div style={S.formBox}>
-          <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>外部研修を登録</div>
-          {[{key:"title",label:"研修名",placeholder:"例：DXセミナー"},{key:"date",label:"実施日",type:"date"},{key:"organizer",label:"主催団体",placeholder:"例：総務省"},{key:"location",label:"場所",placeholder:"例：東京"}]
-            .map(f=><div key={f.key} style={{marginBottom:10}}><label style={S.label}>{f.label}</label><input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={newX[f.key]} onChange={e=>setNewX(p=>({...p,[f.key]:e.target.value}))}/></div>)}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
-            <div><label style={S.label}>開始時間（任意）</label><input type="time" style={S.input} value={newX.startTime||""} onChange={e=>setNewX(p=>({...p,startTime:e.target.value}))}/></div>
-            <div><label style={S.label}>終了時間（任意）</label><input type="time" style={S.input} value={newX.endTime||""} onChange={e=>setNewX(p=>({...p,endTime:e.target.value}))}/></div>
-          </div>
-          <div style={{marginBottom:14}}>
-            <label style={S.label}>研修要綱PDF（任意）</label>
-            <label style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,border:"1.5px dashed #E8D5B0",background:"#FDF6EC",cursor:"pointer"}}>
-              <input type="file" accept="application/pdf" style={{display:"none"}} onChange={handlePdf}/>
-              <span style={{fontSize:20}}>📄</span>
-              <div><div style={{fontSize:13,fontWeight:600,color:"#A07840"}}>{newX.pdfName?"✅ "+newX.pdfName:"クリックしてPDFをアップロード"}</div></div>
-            </label>
-          </div>
-          <div style={{marginBottom:14}}>
-            <label style={S.label}>対象者を選択（{newX.targetEmpIds.length}名選択中）</label>
-            {newX.targetEmpIds.length>0&&(
-              <div style={{marginBottom:8,padding:"8px 10px",background:"#FDF6EC",borderRadius:10,border:"1px solid #E8D5B0"}}>
-                <div style={{fontSize:11,color:"#A07840",fontWeight:600,marginBottom:4}}>選択中の職員：</div>
-                <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-                  {newX.targetEmpIds.map(id=>{const emp=employees.find(e=>e.id===id);return emp?(
-                    <span key={id} style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:12,padding:"2px 8px",background:"#fff",border:"1px solid #C89A55",borderRadius:16,color:"#4A3020"}}>
-                      {emp.name}
-                      <button onClick={()=>toggleEmp(id)} style={{background:"none",border:"none",cursor:"pointer",color:"#9ca3af",fontSize:12,padding:0,lineHeight:1}}>×</button>
-                    </span>
-                  ):null;})}
-                </div>
-              </div>
-            )}
-            {/* 部署フィルター */}
-            <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
-              {depts.map(d=>(
-                <button key={d} onClick={()=>setSelDept(d)} style={{padding:"4px 12px",borderRadius:16,border:"1.5px solid",borderColor:selDept===d?"#C89A55":"#e5e7eb",background:selDept===d?"#FDF6EC":"#fff",color:selDept===d?"#A07840":"#374151",fontSize:12,fontWeight:selDept===d?700:400,cursor:"pointer"}}>
-                  {d}
-                </button>
-              ))}
-            </div>
-            {/* 一括選択ボタン */}
-            <div style={{marginBottom:8}}>
-              <button onClick={toggleDeptAll} style={{fontSize:12,color:"#A07840",background:"#FDF6EC",border:"1px solid #E8D5B0",borderRadius:8,padding:"4px 12px",cursor:"pointer"}}>
-                {filteredEmps.every(e=>newX.targetEmpIds.includes(e.id))?"✓ "+selDept+"の選択を解除":"＋ "+selDept+"を全員選択"}
-              </button>
-            </div>
-            {/* 職員一覧 */}
-            <div style={{display:"flex",flexWrap:"wrap",gap:8,maxHeight:200,overflowY:"auto",padding:"8px",background:"#f9fafb",borderRadius:10,border:"1px solid #e5e7eb"}}>
-              {filteredEmps.map(e=>(
-                <label key={e.id} style={{display:"flex",alignItems:"center",gap:5,fontSize:13,cursor:"pointer",padding:"4px 10px",borderRadius:20,border:"1.5px solid",borderColor:newX.targetEmpIds.includes(e.id)?"#C89A55":"#e5e7eb",background:newX.targetEmpIds.includes(e.id)?"#FDF6EC":"#fff",color:newX.targetEmpIds.includes(e.id)?"#A07840":"#374151"}}>
-                  <input type="checkbox" checked={newX.targetEmpIds.includes(e.id)} onChange={()=>toggleEmp(e.id)} style={{display:"none"}}/>{e.name}
-                </label>
-              ))}
-              {filteredEmps.length===0&&<div style={{fontSize:12,color:"#9ca3af",padding:"8px"}}>この部署の職員はいません</div>}
-            </div>
-            {newX.targetEmpIds.length===0&&<div style={{fontSize:11,color:"#dc2626",marginTop:6}}>※ 1名以上選択してください</div>}
-          </div>
-          <button style={S.btn} onClick={add}>登録する</button>
-        </div>
-      )}
-      {externals.map(x=>{const targets=employees.filter(e=>x.targetEmpIds.includes(e.id));return(
-        <div key={x.id} style={{...S.card,padding:"14px",marginBottom:10}}>
+      <button style={{...S.btn,marginBottom:16}} onClick={()=>{setShowAdd(!showAdd);setEditId(null);}}>＋ 外部研修を申し込み登録</button>
+      {showAdd&&<ExternalTrainingForm data={newX} onChange={setNewX} onSave={add} onCancel={()=>setShowAdd(false)} title="外部研修を登録" employees={employees}/>}
+      {sorted.map(x=>{
+        const targets=employees.filter(e=>x.targetEmpIds.includes(e.id));
+        const xPast=new Date(x.date+"T23:59:59")<new Date();
+        return(
+        <div key={x.id} style={{...S.card,padding:"14px",marginBottom:10,background:xPast?"#FAF8F3":"#fff",borderLeft:`4px solid ${xPast?"#E8D5B0":"#C89A55"}`}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
             <div style={{flex:1}}>
-              <span style={S.extBadge}>外部</span><div style={S.cardTitle}>{x.title}</div>
-              <div style={S.cardDate}>📅 {formatDate(x.date)} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}</div>
+              <span style={S.extBadge}>外部</span><div style={{...S.cardTitle,color:xPast?"#8a7660":S.cardTitle.color}}>{x.title}</div>
+              <div style={{...S.cardDate,color:xPast?"#9ca3af":S.cardDate.color}}>📅 {formatDate(x.date)} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}</div>
               <div style={{marginTop:6,fontSize:12,color:"#6b7280"}}>対象: {targets.map(e=>e.name).join("、")}</div>
               <div style={{marginTop:8}}>
                 <div style={{display:"flex",flexDirection:"column",gap:4}}>
@@ -3664,10 +3688,21 @@ function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
                 </div>
               </div>
             </div>
-            <button style={S.delBtn} onClick={()=>{if(window.confirm("削除しますか？"))deleteExternal(x.id);}}>削除</button>
+            <div className="btn-col-sp" style={{display:"flex",gap:6,flexShrink:0}}>
+              <button style={{...S.qrBtn,background:"#eff6ff",borderColor:"#bfdbfe",color:"#2563eb"}} onClick={()=>startEdit(x)}>編集</button>
+              <button style={S.delBtn} onClick={()=>{if(window.confirm("削除しますか？"))deleteExternal(x.id);}}>削除</button>
+            </div>
           </div>
         </div>
-      );})}
+        );
+      })}
+      {editId&&editX&&(
+        <div style={{...S.overlay,zIndex:1500}} onClick={()=>{setEditId(null);setEditX(null);}}>
+          <div style={{...S.modal,maxWidth:640,width:"94vw",maxHeight:"88vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+            <ExternalTrainingForm data={editX} onChange={setEditX} onSave={saveEdit} onCancel={()=>{setEditId(null);setEditX(null);}} title="外部研修を編集" employees={employees}/>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
