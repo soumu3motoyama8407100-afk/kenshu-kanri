@@ -159,9 +159,9 @@ const db = {
         r.file_url=null; r.file_path=null; r.pdf_name=null;
       }
     }
-    return data.map(r=>({id:r.id,title:r.title,date:r.date,organizer:r.organizer,location:r.location,startTime:r.start_time||"",endTime:r.end_time||"",targetEmpIds:r.target_emp_ids||[],pdfUrl:r.file_url||null,pdfPath:r.file_path||null,pdfName:r.pdf_name,noticePdfUrl:r.notice_file_url||null,noticePdfPath:r.notice_file_path||null,noticePdfName:r.notice_file_name||null}));
+    return data.map(r=>({id:r.id,title:r.title,date:r.date,organizer:r.organizer,location:r.location,startTime:r.start_time||"",endTime:r.end_time||"",targetEmpIds:r.target_emp_ids||[],requiredEmpIds:r.required_emp_ids||[],pdfUrl:r.file_url||null,pdfPath:r.file_path||null,pdfName:r.pdf_name,noticePdfUrl:r.notice_file_url||null,noticePdfPath:r.notice_file_path||null,noticePdfName:r.notice_file_name||null}));
   },
-  async upsertExternal(x) { await supabase.from("externals").upsert({id:x.id,title:x.title,date:x.date,organizer:x.organizer,location:x.location,start_time:x.startTime||"",end_time:x.endTime||"",target_emp_ids:x.targetEmpIds,pdf_name:x.pdfName,file_url:x.pdfUrl,file_path:x.pdfPath,notice_file_url:x.noticePdfUrl||null,notice_file_path:x.noticePdfPath||null,notice_file_name:x.noticePdfName||null},{onConflict:"id"}); },
+  async upsertExternal(x) { await supabase.from("externals").upsert({id:x.id,title:x.title,date:x.date,organizer:x.organizer,location:x.location,start_time:x.startTime||"",end_time:x.endTime||"",target_emp_ids:x.targetEmpIds,required_emp_ids:x.requiredEmpIds||[],pdf_name:x.pdfName,file_url:x.pdfUrl,file_path:x.pdfPath,notice_file_url:x.noticePdfUrl||null,notice_file_path:x.noticePdfPath||null,notice_file_name:x.noticePdfName||null},{onConflict:"id"}); },
   async uploadExternalPdf(xId,file) {
     const MAX=20*1024*1024;
     if(file.size>MAX)throw new Error("20MBを超えるファイルはアップロードできません");
@@ -1506,7 +1506,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                 <div>
                   <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"6px 12px",background:"#FDF6EC",borderRadius:8,marginBottom:8,border:"1px solid #E8D5B0"}}>🌐 外部研修（{fyExternals.length}件）</div>
                   {fyExternals.map(x=>(
-                    <ExternalCard key={x.id} ext={x} status={getXS(emp.id,x.id)} readonly={!isCurrentFY}
+                    <ExternalCard key={x.id} ext={x} empId={emp.id} status={getXS(emp.id,x.id)} readonly={!isCurrentFY}
                       onAttend={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{attended:true});showToast("受講済にしました");} }}
                       onReport={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{reportSubmitted:true});showToast("復命書を提出しました");} }}
                       onCancelReport={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{reportSubmitted:false});showToast("提出を取り消しました");} }}
@@ -2102,9 +2102,11 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineRe
   );
 }
 
-function ExternalCard({ext,status,onAttend,onReport,onCancelReport,onViewPdf,readonly}){
+function ExternalCard({ext,empId,status,onAttend,onReport,onCancelReport,onViewPdf,readonly}){
   const [open,setOpen]=useState(false);
   const {attended,reportSubmitted,reportConfirmed}=status;
+  // 復命書が必須か：管理者が任意で指定した人 OR 受講済みの人
+  const reportRequired=(ext.requiredEmpIds||[]).includes(empId)||attended;
   const dateLine=<div style={S.cardDate}>📅 {formatDate(ext.date)} ｜ 🏢 {ext.organizer} ｜ 📍 {ext.location}</div>;
   return(
     <>
@@ -2112,6 +2114,7 @@ function ExternalCard({ext,status,onAttend,onReport,onCancelReport,onViewPdf,rea
       <div style={S.cardHead} onClick={()=>setOpen(true)}>
         <div style={{flex:1}}>
           <span style={S.extBadge}>外部</span>
+          {reportRequired&&<span style={S.reqBadge}>復命書必須</span>}
           {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
           <div style={S.cardTitle}>{ext.title}</div>
           {dateLine}
@@ -2126,6 +2129,7 @@ function ExternalCard({ext,status,onAttend,onReport,onCancelReport,onViewPdf,rea
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
               <div style={{flex:1,minWidth:0}}>
                 <span style={S.extBadge}>外部</span>
+                {reportRequired&&<span style={S.reqBadge}>復命書必須</span>}
                 {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
                 <div style={{fontSize:17,fontWeight:800,color:"#4A3020",margin:"4px 0 2px"}}>{ext.title}</div>
                 {dateLine}
@@ -3516,13 +3520,15 @@ function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear}){
       {fyExternals.length===0&&<div style={S.empty}>{fiscalYear}年度の外部研修はありません</div>}
       {fyExternals.map(x=>{const targets=employees.filter(e=>x.targetEmpIds.includes(e.id));return(
         <div key={x.id} style={{marginBottom:24}}>
-          <div style={{fontWeight:700,color:"#4A3020",fontSize:14,marginBottom:4}}><span style={S.extBadge}>外部</span> {x.title}</div>
+          <div style={{fontWeight:700,color:"#4A3020",fontSize:14,marginBottom:4}}><span style={S.extBadge}>外部</span> {x.title}
+            {(x.requiredEmpIds||[]).length>0&&<span style={{marginLeft:8,fontSize:11,color:"#dc2626",fontWeight:600}}>復命書必須 {(x.requiredEmpIds||[]).length}名</span>}
+          </div>
           <div style={{fontSize:12,color:"#6b7280",marginBottom:10}}>📅 {formatDate(x.date)} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}</div>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead><tr style={{background:"#C89A55",color:"#fff"}}><th style={S.th}>従業員</th><th style={S.th}>部署</th><th style={S.th}>進捗</th><th style={S.th}>受講</th><th style={S.th}>復命書</th><th style={S.th}>管理者確認</th></tr></thead>
-            <tbody>{targets.map((emp,i)=>{const s=getXS(emp.id,x.id);return(
+            <tbody>{targets.map((emp,i)=>{const s=getXS(emp.id,x.id);const req=(x.requiredEmpIds||[]).includes(emp.id);return(
               <tr key={emp.id} style={{background:i%2===0?"#fff":"#FDF6EC"}}>
-                <td style={S.td}>{emp.name}</td><td style={S.td}>{emp.dept}</td>
+                <td style={S.td}>{emp.name}{req&&<span style={{marginLeft:5,fontSize:10,color:"#dc2626",fontWeight:700}}>必須</span>}</td><td style={S.td}>{emp.dept}</td>
                 <td style={{...S.td,minWidth:140}}><ExternalProgress status={s}/></td>
                 <td style={S.td}>{s.attended?"✅":"○"}</td>
                 <td style={S.td}>{s.reportSubmitted?"📄":"─"}</td>
@@ -3541,13 +3547,22 @@ function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear}){
 
 function ExternalTrainingForm({data,onChange,onSave,onCancel,title,employees}){
   const [selDept,setSelDept]=useState("すべて");
+  const [showReqSel,setShowReqSel]=useState((data.requiredEmpIds||[]).length>0);
+  const [selDeptReq,setSelDeptReq]=useState("すべて");
   const depts=["すべて",...sortDepts(Array.from(new Set((employees||[]).map(e=>e.dept).filter(Boolean))))];
   const filteredEmps=selDept==="すべて"?(employees||[]):(employees||[]).filter(e=>e.dept===selDept);
+  const filteredEmpsReq=selDeptReq==="すべて"?(employees||[]):(employees||[]).filter(e=>e.dept===selDeptReq);
   const toggleEmp=id=>onChange(p=>({...p,targetEmpIds:(p.targetEmpIds||[]).includes(id)?p.targetEmpIds.filter(x=>x!==id):[...(p.targetEmpIds||[]),id]}));
   const toggleDeptAll=()=>{
     const ids=filteredEmps.map(e=>e.id);
     const allSelected=ids.every(id=>(data.targetEmpIds||[]).includes(id));
     onChange(p=>({...p,targetEmpIds:allSelected?(p.targetEmpIds||[]).filter(id=>!ids.includes(id)):[...new Set([...(p.targetEmpIds||[]),...ids])]}));
+  };
+  const toggleReq=id=>onChange(p=>({...p,requiredEmpIds:(p.requiredEmpIds||[]).includes(id)?p.requiredEmpIds.filter(x=>x!==id):[...(p.requiredEmpIds||[]),id]}));
+  const toggleDeptAllReq=()=>{
+    const ids=filteredEmpsReq.map(e=>e.id);
+    const allSelected=ids.every(id=>(data.requiredEmpIds||[]).includes(id));
+    onChange(p=>({...p,requiredEmpIds:allSelected?(p.requiredEmpIds||[]).filter(id=>!ids.includes(id)):[...new Set([...(p.requiredEmpIds||[]),...ids])]}));
   };
   const handlePdf=e=>{const f=e.target.files[0];if(!f)return;if(f.size>20*1024*1024){alert("20MBを超えるファイルはアップロードできません");return;}onChange(p=>({...p,_pendingFile:f,pdfName:f.name}));};
   return(
@@ -3604,6 +3619,33 @@ function ExternalTrainingForm({data,onChange,onSave,onCancel,title,employees}){
         </div>
         {(data.targetEmpIds||[]).length===0&&<div style={{fontSize:11,color:"#dc2626",marginTop:6}}>※ 1名以上選択してください</div>}
       </div>
+      {/* 復命書必須対象者（チェックで選択画面を表示） */}
+      <div style={{marginBottom:12,padding:"10px 12px",background:"#fef2f2",borderRadius:10,border:"1px solid #fca5a5"}}>
+        <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,fontWeight:600,color:"#dc2626"}}>
+          <input type="checkbox" checked={showReqSel} onChange={e=>{setShowReqSel(e.target.checked); if(!e.target.checked)onChange(p=>({...p,requiredEmpIds:[]}));}} style={{width:16,height:16,accentColor:"#dc2626"}}/>
+          📋 復命書必須の対象者を指定{(data.requiredEmpIds||[]).length>0&&`（${(data.requiredEmpIds||[]).length}名選択中）`}
+        </label>
+        {showReqSel&&<div style={{marginTop:10}}>
+        <div style={{fontSize:11,color:"#9ca3af",marginBottom:8}}>※ 受講済みの職員には自動で必須になります</div>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
+          {depts.map(d=>(
+            <button key={d} type="button" onClick={()=>setSelDeptReq(d)} style={{padding:"3px 10px",borderRadius:14,border:"1.5px solid",borderColor:selDeptReq===d?"#dc2626":"#e5e7eb",background:selDeptReq===d?"#fee2e2":"#fff",color:selDeptReq===d?"#dc2626":"#374151",fontSize:11,fontWeight:selDeptReq===d?700:400,cursor:"pointer"}}>{d}</button>
+          ))}
+        </div>
+        <button type="button" onClick={toggleDeptAllReq} style={{fontSize:11,color:"#dc2626",background:"#fee2e2",border:"1px solid #fca5a5",borderRadius:8,padding:"3px 10px",cursor:"pointer",marginBottom:8}}>
+          {filteredEmpsReq.every(e=>(data.requiredEmpIds||[]).includes(e.id))?"✓ "+selDeptReq+"の選択を解除":"＋ "+selDeptReq+"を全員選択"}
+        </button>
+        <div style={{display:"flex",flexWrap:"wrap",gap:6,maxHeight:150,overflowY:"auto",padding:"6px",background:"#fff",borderRadius:8,border:"1px solid #fca5a5"}}>
+          {filteredEmpsReq.map(e=>{
+            const sel=(data.requiredEmpIds||[]).includes(e.id);
+            return(<label key={e.id} style={{display:"flex",alignItems:"center",gap:4,fontSize:12,cursor:"pointer",padding:"3px 8px",borderRadius:16,border:"1.5px solid",borderColor:sel?"#dc2626":"#e5e7eb",background:sel?"#fee2e2":"#fff",color:sel?"#dc2626":"#374151"}}>
+              <input type="checkbox" checked={sel} onChange={()=>toggleReq(e.id)} style={{display:"none"}}/>{e.name}
+            </label>);
+          })}
+          {filteredEmpsReq.length===0&&<div style={{fontSize:11,color:"#9ca3af"}}>この部署の職員はいません</div>}
+        </div>
+        </div>}
+      </div>
       <div style={{display:"flex",gap:8}}>
         <button style={S.btn} onClick={onSave}>{data.id?"更新する":"登録する"}</button>
         <button style={{...S.btn,background:"#f3f4f6",color:"#374151"}} onClick={onCancel}>キャンセル</button>
@@ -3614,7 +3656,7 @@ function ExternalTrainingForm({data,onChange,onSave,onCancel,title,employees}){
 
 function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
   const [showAdd,setShowAdd]=useState(false);
-  const [newX,setNewX]=useState({title:"",date:"",organizer:"",location:"",targetEmpIds:[],pdfUrl:null,pdfPath:null,pdfName:null});
+  const [newX,setNewX]=useState({title:"",date:"",organizer:"",location:"",targetEmpIds:[],requiredEmpIds:[],pdfUrl:null,pdfPath:null,pdfName:null});
   const [editId,setEditId]=useState(null);
   const [editX,setEditX]=useState(null);
   const handleExistPdf=async(xId,e)=>{
@@ -3645,7 +3687,7 @@ function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
         setExternals(p=>p.map(ex=>ex.id===xId?{...ex,...result}:ex));
       }catch(err){alert("PDF アップロードに失敗しました: "+err.message);}
     }
-    setNewX({title:"",date:"",organizer:"",location:"",targetEmpIds:[],pdfUrl:null,pdfPath:null,pdfName:null});setShowAdd(false);
+    setNewX({title:"",date:"",organizer:"",location:"",targetEmpIds:[],requiredEmpIds:[],pdfUrl:null,pdfPath:null,pdfName:null});setShowAdd(false);
   };
   const startEdit=x=>{ setEditId(x.id); setEditX({...x,targetEmpIds:x.targetEmpIds||[]}); };
   const saveEdit=async()=>{
@@ -3675,7 +3717,9 @@ function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
             <div style={{flex:1}}>
               <span style={S.extBadge}>外部</span><div style={{...S.cardTitle,color:xPast?"#8a7660":S.cardTitle.color}}>{x.title}</div>
-              <div style={{...S.cardDate,color:xPast?"#9ca3af":S.cardDate.color}}>📅 {formatDate(x.date)} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}</div>
+              <div style={{...S.cardDate,color:xPast?"#9ca3af":S.cardDate.color}}>📅 {formatDate(x.date)} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}
+                {(x.requiredEmpIds||[]).length>0&&<span style={{marginLeft:8,fontSize:11,color:"#dc2626",fontWeight:600}}>復命書必須 {(x.requiredEmpIds||[]).length}名</span>}
+              </div>
               <div style={{marginTop:6,fontSize:12,color:"#6b7280"}}>対象: {targets.map(e=>e.name).join("、")}</div>
               <div style={{marginTop:8}}>
                 <div style={{display:"flex",flexDirection:"column",gap:4}}>
