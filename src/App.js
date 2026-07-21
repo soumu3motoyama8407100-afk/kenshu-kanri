@@ -1561,8 +1561,9 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                 </div>
               )}
               {fyInternals.length===0&&fyExternals.length===0&&<div style={S.empty}>{viewFY}年度の研修はありません</div>}
-              {/* 自己学習の記録（管理者は関与しない・参考記録） */}
-              <SelfTrainingSection items={selfTrainings} onAdd={addSelfTraining} onToggleReport={toggleSelfReport} onDelete={deleteSelfTraining}/>
+              {/* 自己学習の記録（管理者は関与しない・参考記録）：試験運用のためID158のみ表示 */}
+              {["158"].includes(String(emp.id).replace(/\D/g,""))&&
+                <SelfTrainingSection items={selfTrainings} onAdd={addSelfTraining} onToggleReport={toggleSelfReport} onDelete={deleteSelfTraining}/>}
             </div>
           )}
           {tab==="seminar"&&(
