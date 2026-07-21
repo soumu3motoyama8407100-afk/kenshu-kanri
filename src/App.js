@@ -187,6 +187,15 @@ const db = {
     if(filePath) await supabase.storage.from("training-files").remove([filePath]);
     await supabase.from("externals").delete().eq("id",id);
   },
+  // 職員の自己学習記録（管理者は関与しない。参考記録・人事考課ポイント対象外）
+  async getSelfTrainings(empId) {
+    const {data} = await supabase.from("self_trainings").select("*").eq("emp_id",empId).order("date",{ascending:false});
+    return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,time:r.time||"",location:r.location||"",reportSubmitted:r.report_submitted===true}));
+  },
+  async upsertSelfTraining(empId,t) {
+    await supabase.from("self_trainings").upsert({id:t.id,emp_id:empId,title:t.title,date:t.date,time:t.time||"",location:t.location||"",report_submitted:t.reportSubmitted===true},{onConflict:"id"});
+  },
+  async deleteSelfTraining(id) { await supabase.from("self_trainings").delete().eq("id",id); },
   async getManuals() {
     const {data} = await supabase.from("manuals").select("*").order("created_at",{ascending:false});
     return data||[];
@@ -1344,6 +1353,24 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
   const [viewFY,setViewFY]=useState(fiscalYear);
   // お知らせ既読管理（localStorage）
   const [readIds,setReadIds]=useState(()=>{ try{return JSON.parse(localStorage.getItem(`nread_${emp.id}`)||"[]");}catch{return[];} });
+  // 自己学習記録（管理者は関与しない。参考記録・人事考課ポイント対象外）
+  const [selfTrainings,setSelfTrainings]=useState([]);
+  useEffect(()=>{ db.getSelfTrainings(emp.id).then(setSelfTrainings); },[emp.id]);
+  const addSelfTraining=async t=>{
+    const st={...t,id:"ST"+Date.now(),reportSubmitted:false};
+    setSelfTrainings(p=>[st,...p]);
+    await db.upsertSelfTraining(emp.id,st);
+  };
+  const toggleSelfReport=async id=>{
+    const t=selfTrainings.find(x=>x.id===id); if(!t)return;
+    const updated={...t,reportSubmitted:!t.reportSubmitted};
+    setSelfTrainings(p=>p.map(x=>x.id===id?updated:x));
+    await db.upsertSelfTraining(emp.id,updated);
+  };
+  const deleteSelfTraining=async id=>{
+    setSelfTrainings(p=>p.filter(x=>x.id!==id));
+    await db.deleteSelfTraining(id);
+  };
   const isCurrentFY=viewFY===fiscalYear;
   // 今年度は開催日の1ヶ月前になるまで研修タブに表示しない（先の予定が多すぎて分かりにくくなるため）。過去の研修は引き続き表示
   const trainingVisibleFrom=(()=>{ const d=new Date(); d.setMonth(d.getMonth()+1); return d; })();
@@ -1534,6 +1561,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                 </div>
               )}
               {fyInternals.length===0&&fyExternals.length===0&&<div style={S.empty}>{viewFY}年度の研修はありません</div>}
+              {/* 自己学習の記録（管理者は関与しない・参考記録） */}
+              <SelfTrainingSection items={selfTrainings} onAdd={addSelfTraining} onToggleReport={toggleSelfReport} onDelete={deleteSelfTraining}/>
             </div>
           )}
           {tab==="seminar"&&(
@@ -2171,6 +2200,56 @@ function ExternalCard({ext,empId,status,onAttend,onReport,onCancelReport,onViewP
   );
 }
 
+// 職員の自己学習記録（管理者は関与しない。参考記録・人事考課ポイント対象外）
+function SelfTrainingSection({items,onAdd,onToggleReport,onDelete}){
+  const [showForm,setShowForm]=useState(false);
+  const [form,setForm]=useState({title:"",date:"",time:"",location:""});
+  const submit=()=>{
+    if(!form.title||!form.date){alert("研修名と実施日は必須です。");return;}
+    onAdd(form);
+    setForm({title:"",date:"",time:"",location:""});
+    setShowForm(false);
+  };
+  return(
+    <div>
+      <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"6px 12px",background:"#FDF6EC",borderRadius:8,marginBottom:6,border:"1px solid #E8D5B0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span>📝 自己学習の記録（{items.length}件）</span>
+        <button onClick={()=>setShowForm(true)} style={{fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:14,border:"1px solid #C89A55",background:"#fff",color:"#A07840",cursor:"pointer"}}>＋ 追加</button>
+      </div>
+      <div style={{fontSize:11,color:"#dc2626",fontWeight:700,marginBottom:8}}>※ 自己申告の記録です。人事考課ポイントの対象外です。</div>
+      {showForm&&(
+        <div style={{...S.overlay,zIndex:1500}} onClick={()=>setShowForm(false)}>
+          <div style={{...S.modal,maxWidth:420}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>自己学習を記録</div>
+            <div style={{marginBottom:10}}><label style={S.label}>研修名</label><input style={S.input} placeholder="例：介護技術に関する自主学習" value={form.title} onChange={e=>setForm(p=>({...p,title:e.target.value}))}/></div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+              <div><label style={S.label}>実施日</label><input type="date" style={S.input} value={form.date} onChange={e=>setForm(p=>({...p,date:e.target.value}))}/></div>
+              <div><label style={S.label}>時間（任意）</label><input type="time" style={S.input} value={form.time} onChange={e=>setForm(p=>({...p,time:e.target.value}))}/></div>
+            </div>
+            <div style={{marginBottom:14}}><label style={S.label}>場所（任意）</label><input style={S.input} placeholder="例：自宅／オンライン" value={form.location} onChange={e=>setForm(p=>({...p,location:e.target.value}))}/></div>
+            <div style={{display:"flex",gap:8}}>
+              <button style={S.btn} onClick={submit}>登録する</button>
+              <button style={{...S.btn,background:"#f3f4f6",color:"#374151"}} onClick={()=>setShowForm(false)}>キャンセル</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {items.length===0&&!showForm&&<div style={{fontSize:12,color:"#9ca3af",padding:"12px",textAlign:"center"}}>まだ記録がありません</div>}
+      {items.map(t=>(
+        <div key={t.id} style={{...S.card,padding:"12px 14px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={S.cardTitle}>{t.title}</div>
+            <div style={S.cardDate}>📅 {formatDate(t.date)}{t.time&&` 🕐 ${t.time}`}{t.location&&` 📍 ${t.location}`}</div>
+          </div>
+          <div style={{display:"flex",gap:6,flexShrink:0,alignItems:"center"}}>
+            <button onClick={()=>onToggleReport(t.id)} style={{fontSize:11,fontWeight:700,padding:"6px 10px",borderRadius:20,border:`1.5px solid ${t.reportSubmitted?"#16a34a":"#e5e7eb"}`,background:t.reportSubmitted?"#dcfce7":"#fff",color:t.reportSubmitted?"#16a34a":"#9ca3af",cursor:"pointer",whiteSpace:"nowrap"}}>{t.reportSubmitted?"✓ 復命書提出済":"復命書未提出"}</button>
+            <button onClick={()=>{if(window.confirm("削除しますか？"))onDelete(t.id);}} style={{fontSize:11,color:"#dc2626",background:"none",border:"1px solid #fca5a5",borderRadius:8,padding:"5px 8px",cursor:"pointer"}}>削除</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 // 動画プレーヤー（YouTube/Vimeo）：9割ほど再生したら自動で onWatched を呼ぶ
 function AutoVideoPlayer({videoUrl,title,watched,readonly,onWatched}){
   const iframeRef=useRef(null);
