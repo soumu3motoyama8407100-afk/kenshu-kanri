@@ -1766,7 +1766,6 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
 
   const reqCount=curT?curTargets.filter(e=>isReportRequired(e,curT)).length:0;
   const unreported=curT?curTargets.filter(e=>isReportRequired(e,curT)&&!getIS(e.id,curT.id).reportConfirmed).length:0;
-  const waitConfirm=curT?curTargets.filter(e=>{const s=getIS(e.id,curT.id);return s.report==="提出済"&&!s.reportConfirmed;}).length:0;
 
   const initials=name=>name?name.charAt(0):"?";
   const avatarColor=i=>[["#E6F1FB","#185FA5"],["#EAF3DE","#3B6D11"],["#FAEEDA","#854F0B"],["#FCEBEB","#A32D2D"],["#F1EFE8","#5F5E5A"]][i%5];
@@ -1815,14 +1814,10 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
 
             {curT&&<>
               {/* サマリーカード */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+              <div style={{marginBottom:12}}>
                 <div style={{padding:"10px 12px",background:"#fef2f2",borderRadius:12,textAlign:"center",border:"1px solid #fca5a5"}}>
-                  <div style={{fontSize:11,color:"#9ca3af",marginBottom:2}}>復命書 未完了</div>
+                  <div style={{fontSize:11,color:"#9ca3af",marginBottom:2}}>復命書 未完了（必須研修・当日参加者のみ）</div>
                   <div style={{fontSize:22,fontWeight:700,color:"#dc2626"}}>{unreported}<span style={{fontSize:12,fontWeight:400,color:"#9ca3af"}}>/{reqCount}名</span></div>
-                </div>
-                <div style={{padding:"10px 12px",background:"#fffbeb",borderRadius:12,textAlign:"center",border:"1px solid #fcd34d"}}>
-                  <div style={{fontSize:11,color:"#9ca3af",marginBottom:2}}>確認待ち</div>
-                  <div style={{fontSize:22,fontWeight:700,color:"#d97706"}}>{waitConfirm}<span style={{fontSize:12,fontWeight:400,color:"#9ca3af"}}>名</span></div>
                 </div>
               </div>
 
@@ -1847,24 +1842,26 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
                   const attended=s.attendance==="参加済";
                   const watched=s.video==="視聴済";
                   const repState=s.reportConfirmed?"確認":s.report==="提出済"?"提出":s.report==="提出しない"?"なし":"未提出";
-                  const chip=(active,col,bgc)=>({fontSize:11,fontWeight:700,padding:"6px 10px",borderRadius:20,border:`1.5px solid ${active?col:"#e5e7eb"}`,background:active?bgc:"#fff",color:active?col:"#9ca3af",cursor:readonly?"default":"pointer",whiteSpace:"nowrap"});
+                  const chip=(active,col,bgc)=>({fontSize:11,fontWeight:700,padding:"6px 10px",borderRadius:20,border:`1.5px solid ${active?col:"#e5e7eb"}`,background:active?bgc:"#fff",color:active?col:"#9ca3af",whiteSpace:"nowrap"});
                   const cycleReport=()=>{
-                    if(s.reportConfirmed) setIS(emp.id,curT.id,{report:"未提出",reportConfirmed:false});
-                    else setIS(emp.id,curT.id,{report:"提出済",reportConfirmed:true});
+                    if(readonly)return;
+                    if(s.reportConfirmed){ if(window.confirm(`${emp.name}さんの復命書を「未提出」に戻しますか？`)) setIS(emp.id,curT.id,{report:"未提出",reportConfirmed:false}); }
+                    else{ if(window.confirm(`${emp.name}さんの復命書を「提出済み」として確定しますか？\nこの操作は元に戻せます。`)) setIS(emp.id,curT.id,{report:"提出済",reportConfirmed:true}); }
                   };
                   return(
                     <div key={emp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:isDone?"#f9fafb":"#fff",borderRadius:12,border:`1px solid ${isDone?"#e5e7eb":"#E8D5B0"}`,opacity:isDone?0.7:1}}>
                       <div style={{width:32,height:32,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:600,flexShrink:0,background:bg,color:fg}}>{initials(emp.name)}</div>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:14,fontWeight:600,color:"#4A3020",marginBottom:6}}>{emp.name}{!req&&<span style={{fontSize:10,color:"#9ca3af",marginLeft:6,fontWeight:400}}>必須外</span>}</div>
-                        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                          <button disabled={readonly} onClick={()=>!readonly&&setIS(emp.id,curT.id,{attendance:attended?"未参加":"参加済"})} style={chip(attended,"#16a34a","#dcfce7")}>
+                        <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
+                          {/* 参加・動画は表示のみ（操作は管理者タブから） */}
+                          <span style={{...chip(attended,"#16a34a","#dcfce7"),cursor:"default"}}>
                             {attended?`✓ 参加${s.attendedSession==="1"?"①":s.attendedSession==="2"?"②":""}`:"未参加"}
-                          </button>
-                          <button disabled={readonly} onClick={()=>!readonly&&setIS(emp.id,curT.id,{video:watched?"未視聴":"視聴済"})} style={chip(watched,"#7c3aed","#ede9fe")}>
+                          </span>
+                          <span style={{...chip(watched,"#7c3aed","#ede9fe"),cursor:"default"}}>
                             {watched?"✓ 動画視聴":"動画未視聴"}
-                          </button>
-                          <button disabled={readonly} onClick={()=>!readonly&&cycleReport()} style={chip(repState==="確認"||repState==="提出",repState==="確認"?"#16a34a":"#d97706",repState==="確認"?"#dcfce7":"#fef3c7")}>
+                          </span>
+                          <button disabled={readonly} onClick={cycleReport} style={{...chip(repState==="確認"||repState==="提出",repState==="確認"?"#16a34a":"#d97706",repState==="確認"?"#dcfce7":"#fef3c7"),cursor:readonly?"default":"pointer"}}>
                             {repState==="確認"?"✓ 復命書確認":repState==="提出"?"復命書提出":repState==="なし"?"― 提出しない":"復命書未提出"}
                           </button>
                         </div>
@@ -1883,22 +1880,28 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
           {fyExternals.length===0?<div style={S.empty}>{fiscalYear}年度の外部研修はありません</div>
           :fyExternals.map(x=>{
             const targets=employees.filter(e=>x.targetEmpIds.includes(e.id));
-            const waitX=targets.filter(e=>getXS(e.id,x.id).reportSubmitted&&!getXS(e.id,x.id).reportConfirmed).length;
+            const unreportedX=targets.filter(e=>getXS(e.id,x.id).attended&&!getXS(e.id,x.id).reportConfirmed).length;
             return(
               <div key={x.id} style={{marginBottom:16,background:"#fff",borderRadius:12,border:"1px solid #E8D5B0",overflow:"hidden"}}>
                 <div style={{padding:"10px 14px",background:"#FDF6EC",borderBottom:"1px solid #E8D5B0"}}>
                   <div style={{fontWeight:700,fontSize:13,color:"#4A3020"}}>{x.title}</div>
-                  <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>📅 {formatDate(x.date)}　{waitX>0&&<span style={{color:"#d97706",fontWeight:600}}>確認待ち {waitX}名</span>}</div>
+                  <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>📅 {formatDate(x.date)}　{unreportedX>0&&<span style={{color:"#dc2626",fontWeight:600}}>未完了 {unreportedX}名</span>}</div>
                 </div>
-                {targets.map((emp,i)=>{const s=getXS(emp.id,x.id);const [bg,fg]=avatarColor(i);return(
+                {targets.map((emp,i)=>{const s=getXS(emp.id,x.id);const [bg,fg]=avatarColor(i);
+                  const toggle=()=>{
+                    if(readonly)return;
+                    if(s.reportConfirmed){ if(window.confirm(`${emp.name}さんの復命書を「未提出」に戻しますか？`)) setXS(emp.id,x.id,{reportSubmitted:false,reportConfirmed:false}); }
+                    else{ if(window.confirm(`${emp.name}さんの復命書を「提出済み」として確定しますか？\nこの操作は元に戻せます。`)) setXS(emp.id,x.id,{reportSubmitted:true,reportConfirmed:true}); }
+                  };
+                  return(
                   <div key={emp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderBottom:"0.5px solid #f3f4f6"}}>
                     <div style={{width:28,height:28,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:600,flexShrink:0,background:bg,color:fg}}>{initials(emp.name)}</div>
                     <div style={{flex:1,fontSize:13,fontWeight:600,color:"#4A3020"}}>{emp.name}</div>
                     <div style={{display:"flex",gap:4,alignItems:"center"}}>
                       {s.reportConfirmed
-                        ?(readonly?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>確認済</span>:<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600,cursor:"pointer"}} onClick={()=>setXS(emp.id,x.id,{reportSubmitted:false,reportConfirmed:false})}>確認済</span>)
+                        ?(readonly?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>確認済</span>:<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600,cursor:"pointer"}} onClick={toggle}>確認済</span>)
                         :readonly?<span style={{fontSize:11,color:"#9ca3af"}}>未提出</span>
-                        :<button style={{fontSize:11,padding:"4px 10px",borderRadius:20,border:"1px solid #d97706",background:"#fef3c7",color:"#92400e",cursor:"pointer",fontWeight:600}} onClick={()=>setXS(emp.id,x.id,{reportSubmitted:true,reportConfirmed:true})}>未提出</button>}
+                        :<button style={{fontSize:11,padding:"4px 10px",borderRadius:20,border:"1px solid #d97706",background:"#fef3c7",color:"#92400e",cursor:"pointer",fontWeight:600}} onClick={toggle}>未提出</button>}
                     </div>
                   </div>
                 );})}
@@ -3294,7 +3297,7 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
               <button disabled={bulkBusy} onClick={()=>applyBulk({attendance:"参加済"})} style={{fontSize:12,padding:"7px 12px",borderRadius:20,border:"none",background:"#16a34a",color:"#fff",fontWeight:700,cursor:"pointer"}}>✅ 参加済にする</button>
               {!curT.noVideo&&<button disabled={bulkBusy} onClick={()=>applyBulk({video:"視聴済"})} style={{fontSize:12,padding:"7px 12px",borderRadius:20,border:"none",background:"#7c3aed",color:"#fff",fontWeight:700,cursor:"pointer"}}>▶ 視聴済にする</button>}
-              {!curT.noReport&&<button disabled={bulkBusy} onClick={()=>applyBulk({report:"提出済",reportConfirmed:true})} style={{fontSize:12,padding:"7px 12px",borderRadius:20,border:"none",background:"#C89A55",color:"#fff",fontWeight:700,cursor:"pointer"}}>📋 復命書確認済にする</button>}
+              {!curT.noReport&&<button disabled={bulkBusy} onClick={()=>{ if(window.confirm(`選択中の${bulkIds.length}名の復命書を「確認済み」にしますか？`)) applyBulk({report:"提出済",reportConfirmed:true}); }} style={{fontSize:12,padding:"7px 12px",borderRadius:20,border:"none",background:"#C89A55",color:"#fff",fontWeight:700,cursor:"pointer"}}>📋 復命書確認済にする</button>}
               {bulkBusy&&<span style={{fontSize:12,color:"#7c3aed",fontWeight:600,alignSelf:"center"}}>登録中…</span>}
             </div>
           </div>
@@ -3315,8 +3318,8 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
             const repState=s.reportConfirmed?"確認":s.report==="提出済"?"提出":s.report==="提出しない"?"なし":"未提出";
             const chip=(active,col,bgc)=>({fontSize:11,fontWeight:700,padding:"6px 10px",borderRadius:20,border:`1.5px solid ${active?col:"#e5e7eb"}`,background:active?bgc:"#fff",color:active?col:"#9ca3af",cursor:"pointer",whiteSpace:"nowrap"});
             const cycleReport=()=>{
-              if(s.reportConfirmed) setIS(emp.id,curT.id,{report:"未提出",reportConfirmed:false});
-              else setIS(emp.id,curT.id,{report:"提出済",reportConfirmed:true});
+              if(s.reportConfirmed){ if(window.confirm(`${emp.name}さんの復命書を「未提出」に戻しますか？`)) setIS(emp.id,curT.id,{report:"未提出",reportConfirmed:false}); }
+              else{ if(window.confirm(`${emp.name}さんの復命書を「提出済み」として確定しますか？\nこの操作は元に戻せます。`)) setIS(emp.id,curT.id,{report:"提出済",reportConfirmed:true}); }
             };
             return(
               <React.Fragment key={emp.id}>
@@ -3599,7 +3602,11 @@ function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear}){
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead><tr style={{background:"#C89A55",color:"#fff"}}><th style={S.th}>従業員</th><th style={S.th}>部署</th><th style={S.th}>進捗</th><th style={S.th}>受講</th><th style={S.th}>復命書</th></tr></thead>
             <tbody>{targets.map((emp,i)=>{const s=getXS(emp.id,x.id);const req=(x.requiredEmpIds||[]).includes(emp.id);
-              const toggleReport=()=>{ if(!s.attended)return; if(s.reportConfirmed) setXS(emp.id,x.id,{reportSubmitted:false,reportConfirmed:false}); else setXS(emp.id,x.id,{reportSubmitted:true,reportConfirmed:true}); };
+              const toggleReport=()=>{
+                if(!s.attended)return;
+                if(s.reportConfirmed){ if(window.confirm(`${emp.name}さんの復命書を「未提出」に戻しますか？`)) setXS(emp.id,x.id,{reportSubmitted:false,reportConfirmed:false}); }
+                else{ if(window.confirm(`${emp.name}さんの復命書を「提出済み」として確定しますか？\nこの操作は元に戻せます。`)) setXS(emp.id,x.id,{reportSubmitted:true,reportConfirmed:true}); }
+              };
               return(
               <tr key={emp.id} style={{background:i%2===0?"#fff":"#FDF6EC"}}>
                 <td style={S.td}>{emp.name}{req&&<span style={{marginLeft:5,fontSize:10,color:"#dc2626",fontWeight:700}}>必須</span>}</td><td style={S.td}>{emp.dept}</td>
