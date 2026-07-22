@@ -829,6 +829,74 @@ function TutorialModal({onClose}){
     </div>
   );
 }
+// 🆕 更新情報（新しい順に上から追加していく。日付は "YYYY-MM-DD"）
+const RELEASE_NOTES=[
+  {date:"2026-07-22",title:"操作ミスを防ぐ改善をしました",sections:[
+    {h:"復命書について（大切）",items:[
+      "アプリの「復命書を提出する」ボタンは廃止しました。",
+      "復命書はこれまでどおり所属長に提出してください。",
+      "所属長が確認すると、アプリ上で「提出済」に変わります。",
+    ]},
+    {h:"押し間違えても直せるようになりました",items:[
+      "外部研修の「受講済にする」…押す前に確認が出ます。押したあとも「取り消す」で戻せます。",
+      "2日程ある研修の参加日…当日QRを読み取ったあとに①②を選ぶ形になりました。選び間違えても「参加日を変更する」で直せます。",
+      "研修動画の「視聴済」…取り消すときに確認が出ます。右下の「▶動画」ボタンからも取り消せます。",
+      "セミナーの「視聴済み」「復命書 提出済」…取り消すときに確認が出ます。",
+    ]},
+    {h:"そのほか",items:[
+      "「❓使い方」の案内を最新の内容に更新しました。",
+      "この「🆕 更新情報」を追加しました。アプリが変わったときはここでご確認いただけます。",
+    ]},
+    {h:"部署長の方へ",items:[
+      "部署管理タブは、研修を選んでから職員一覧が開く形になりました。",
+      "操作できるのは復命書の確認のみです（参加・動画視聴の記録は管理者が行います）。",
+      "「要対応のみ」には、研修に参加した方・動画を視聴した方だけが表示されるようになりました。",
+    ]},
+  ]},
+];
+// 🆕 更新情報モーダル：日付＋見出しの一覧を出し、押すと変更内容を開く
+function ReleaseNotesModal({onClose}){
+  const [openDate,setOpenDate]=useState(RELEASE_NOTES[0]?.date||null);
+  return(
+    <div style={{position:"fixed",inset:0,zIndex:9000,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px 16px"}} onClick={onClose}>
+      <div style={{width:"100%",maxWidth:460,maxHeight:"85vh",overflowY:"auto",background:"#fff",borderRadius:20,padding:"20px 18px",boxShadow:"0 20px 60px rgba(0,0,0,.3)",border:"1px solid #E8D5B0"}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+          <div style={{fontSize:17,fontWeight:800,color:"#4A3020"}}>🆕 更新情報</div>
+          <button style={S.logoutBtn} onClick={onClose}>✕ 閉じる</button>
+        </div>
+        <div style={{fontSize:12,color:"#A07840",marginBottom:14}}>アプリの変更内容を新しい順に見られます。見出しを押すと詳しい内容が開きます。</div>
+        {RELEASE_NOTES.map(r=>{
+          const open=openDate===r.date;
+          return(
+            <div key={r.date} style={{border:"1px solid #E8D5B0",borderRadius:12,marginBottom:8,overflow:"hidden",background:open?"#FDF6EC":"#fff"}}>
+              <button className="tsel-chip" onClick={()=>setOpenDate(open?null:r.date)}
+                style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"12px 14px",background:"none",border:"none",cursor:"pointer",textAlign:"left"}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:11,color:"#A07840",fontWeight:700}}>📅 {formatDate(r.date)}</div>
+                  <div style={{fontSize:14,fontWeight:800,color:"#4A3020",marginTop:2}}>{r.title}</div>
+                </div>
+                <span style={{color:"#C89A55",fontSize:12,fontWeight:700,flexShrink:0}}>{open?"▲ 閉じる":"▼ 詳しく"}</span>
+              </button>
+              {open&&(
+                <div style={{padding:"0 14px 14px"}}>
+                  {r.sections.map(s=>(
+                    <div key={s.h} style={{marginTop:10}}>
+                      <div style={{fontSize:12.5,fontWeight:800,color:"#A07840",marginBottom:4}}>■ {s.h}</div>
+                      <ul style={{margin:0,paddingLeft:18}}>
+                        {s.items.map((it,i)=><li key={i} style={{fontSize:13,color:"#4A3020",lineHeight:1.8}}>{it}</li>)}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <button onClick={onClose} style={{width:"100%",marginTop:8,padding:"12px",background:"#C89A55",color:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:800,cursor:"pointer"}}>閉じる</button>
+      </div>
+    </div>
+  );
+}
 function LoginCard({title,icon,accentColor,pendingAttend,internals,employees,onLogin,isManual,onLineLogin,lineLoggingIn,lineMsg}){
   const [id,setId]=useState(""); const [pw,setPw]=useState(""); const [err,setErr]=useState("");
   const [showFallbackMobile,setShowFallbackMobile]=useState(false);
@@ -1353,6 +1421,12 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
   const [showDismissed,setShowDismissed]=useState(false);
   const [showTutorial,setShowTutorial]=useState(()=>{ try{ return localStorage.getItem("tutorial_seen")!=="1"; }catch(_){ return false; } });
   const closeTutorial=()=>{ try{ localStorage.setItem("tutorial_seen","1"); }catch(_){}; setShowTutorial(false); };
+  // 🆕 更新情報：最新の更新をまだ見ていない人には赤い印を出す
+  const [showRelease,setShowRelease]=useState(false);
+  const [relSeen,setRelSeen]=useState(()=>{ try{ return localStorage.getItem("relnotes_seen")||""; }catch(_){ return ""; } });
+  const latestRelease=RELEASE_NOTES[0]?.date||"";
+  const hasNewRelease=!!latestRelease&&relSeen!==latestRelease;
+  const openRelease=()=>{ setShowRelease(true); try{ localStorage.setItem("relnotes_seen",latestRelease); }catch(_){}; setRelSeen(latestRelease); };
   const [viewFY,setViewFY]=useState(fiscalYear);
   // お知らせ既読管理（localStorage）
   const [readIds,setReadIds]=useState(()=>{ try{return JSON.parse(localStorage.getItem(`nread_${emp.id}`)||"[]");}catch{return[];} });
@@ -1407,6 +1481,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
     <div className="rsp-page" style={S.page}>
       {toast&&<div style={S.toast}>{toast}</div>}
       {showTutorial&&<TutorialModal onClose={closeTutorial}/>}
+      {showRelease&&<ReleaseNotesModal onClose={()=>setShowRelease(false)}/>}
       {pdfExt&&<PdfModal ext={pdfExt} onClose={()=>setPdfExt(null)}/>}
       {showProfile&&<ProfileModal emp={emp} onClose={()=>setShowProfile(false)} onLogout={onLogout}/>}
       {/* 動画モーダル（浮動ボタンから開く） */}
@@ -1508,6 +1583,10 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
           </select>
           {!isCurrentFY&&<span style={{fontSize:11,color:"#d97706",fontWeight:600,background:"#fef3c7",padding:"2px 8px",borderRadius:20}}>過去年度閲覧中</span>}
           <button onClick={()=>setShowTutorial(true)} style={{fontSize:12,fontWeight:600,padding:"4px 12px",borderRadius:8,border:"1px solid #E8D5B0",background:"#fff",color:"#A07840",cursor:"pointer"}}>❓ 使い方</button>
+          <button onClick={openRelease} style={{position:"relative",fontSize:12,fontWeight:600,padding:"4px 12px",borderRadius:8,border:"1px solid #E8D5B0",background:"#fff",color:"#A07840",cursor:"pointer"}}>
+            🆕 更新情報
+            {hasNewRelease&&<span style={{position:"absolute",top:-4,right:-4,width:9,height:9,borderRadius:"50%",background:"#E24B4A",border:"1.5px solid #fff"}}/>}
+          </button>
         </div>
         {/* タブバー */}
         <div style={S.tabBar}>
