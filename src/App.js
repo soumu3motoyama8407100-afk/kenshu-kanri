@@ -317,6 +317,12 @@ export default function App() {
     style.textContent=`
       *{box-sizing:border-box;}
       body{margin:0;padding:0;overflow-x:hidden;}
+      /* 2列フォーム：1frは中身の最小幅より縮まないため、日付/時刻入力が枠を突き抜ける。
+         minmax(0,1fr)で縮めるようにし、狭い画面では縦並びにする */
+      .form-2col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;}
+      .form-2col>div{min-width:0;}
+      .form-2col input{max-width:100%;min-width:0;}
+      @media(max-width:480px){ .form-2col{grid-template-columns:1fr;} }
       /* 部署管理タブの研修セレクター：押した感触を出す */
       .tsel-chip{transition:transform .08s ease,box-shadow .12s ease;-webkit-tap-highlight-color:transparent;}
       .tsel-chip:active{transform:scale(.93);}
@@ -2354,7 +2360,7 @@ function SelfTrainingSection({items,onAdd,onToggleReport,onDelete}){
           <div style={{...S.modal,maxWidth:420}} onClick={e=>e.stopPropagation()}>
             <div style={{fontWeight:700,color:"#A07840",marginBottom:12}}>自己学習を記録</div>
             <div style={{marginBottom:10}}><label style={S.label}>研修名</label><input style={S.input} placeholder="例：介護技術に関する自主学習" value={form.title} onChange={e=>setForm(p=>({...p,title:e.target.value}))}/></div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+            <div className="form-2col" style={{marginBottom:10}}>
               <div><label style={S.label}>実施日</label><input type="date" style={S.input} value={form.date} onChange={e=>setForm(p=>({...p,date:e.target.value}))}/></div>
               <div><label style={S.label}>時間（任意）</label><input type="time" style={S.input} value={form.time} onChange={e=>setForm(p=>({...p,time:e.target.value}))}/></div>
             </div>
