@@ -1535,8 +1535,6 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                   {fyExternals.map(x=>(
                     <ExternalCard key={x.id} ext={x} empId={emp.id} status={getXS(emp.id,x.id)} readonly={!isCurrentFY}
                       onAttend={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{attended:true});showToast("受講済にしました");} }}
-                      onReport={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{reportSubmitted:true});showToast("復命書を提出しました");} }}
-                      onCancelReport={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{reportSubmitted:false});showToast("提出を取り消しました");} }}
                       onViewPdf={type=>setPdfExt({...x,_pdfType:type})}/>
                   ))}
                 </div>
@@ -1550,8 +1548,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                       <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)} empId={emp.id} readonly={!isCurrentFY}
                         focusId={focusTrainingId} onFocused={()=>setFocusTrainingId(null)}
                         onDetailClosed={()=>{ if(returnTab){ switchTab(returnTab); setReturnTab(null); } }}
-                        onReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","提出済");showToast("復命書を提出しました");} }}
-                        onCancelReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","未提出");showToast("提出を取り消しました");} }}
+                        onCancelReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","未提出");showToast("「提出しない」を取り消しました");} }}
                         onDeclineReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","提出しない");showToast("「提出しない」にしました");} }}
                         onVideo={v=>{ if(isCurrentFY){setIS(emp.id,t.id,"video",v);} }}
                         onWatchVideo={()=>{setVideoT(t);setShowVideoModal(true);}}
@@ -1853,8 +1850,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
                   const chip=(active,col,bgc)=>({fontSize:11,fontWeight:700,padding:"6px 10px",borderRadius:20,border:`1.5px solid ${active?col:"#e5e7eb"}`,background:active?bgc:"#fff",color:active?col:"#9ca3af",cursor:readonly?"default":"pointer",whiteSpace:"nowrap"});
                   const cycleReport=()=>{
                     if(s.reportConfirmed) setIS(emp.id,curT.id,{report:"未提出",reportConfirmed:false});
-                    else if(s.report==="提出済") setIS(emp.id,curT.id,{reportConfirmed:true});
-                    else setIS(emp.id,curT.id,{report:"提出済"});
+                    else setIS(emp.id,curT.id,{report:"提出済",reportConfirmed:true});
                   };
                   return(
                     <div key={emp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:isDone?"#f9fafb":"#fff",borderRadius:12,border:`1px solid ${isDone?"#e5e7eb":"#E8D5B0"}`,opacity:isDone?0.7:1}}>
@@ -1899,9 +1895,10 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
                     <div style={{width:28,height:28,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:600,flexShrink:0,background:bg,color:fg}}>{initials(emp.name)}</div>
                     <div style={{flex:1,fontSize:13,fontWeight:600,color:"#4A3020"}}>{emp.name}</div>
                     <div style={{display:"flex",gap:4,alignItems:"center"}}>
-                      {s.reportConfirmed?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>確認済</span>
-                        :s.reportSubmitted?(readonly?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#fef3c7",color:"#92400e",fontWeight:600}}>提出済</span>:<button style={{fontSize:11,padding:"4px 10px",borderRadius:20,border:"1px solid #d97706",background:"#fef3c7",color:"#92400e",cursor:"pointer",fontWeight:600}} onClick={()=>setXS(emp.id,x.id,{reportConfirmed:true})}>確認✓</button>)
-                        :<span style={{fontSize:11,color:"#9ca3af"}}>未提出</span>}
+                      {s.reportConfirmed
+                        ?(readonly?<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600}}>確認済</span>:<span style={{fontSize:11,padding:"1px 7px",borderRadius:10,background:"#dcfce7",color:"#15803d",fontWeight:600,cursor:"pointer"}} onClick={()=>setXS(emp.id,x.id,{reportSubmitted:false,reportConfirmed:false})}>確認済</span>)
+                        :readonly?<span style={{fontSize:11,color:"#9ca3af"}}>未提出</span>
+                        :<button style={{fontSize:11,padding:"4px 10px",borderRadius:20,border:"1px solid #d97706",background:"#fef3c7",color:"#92400e",cursor:"pointer",fontWeight:600}} onClick={()=>setXS(emp.id,x.id,{reportSubmitted:true,reportConfirmed:true})}>未提出</button>}
                     </div>
                   </div>
                 );})}
@@ -1935,14 +1932,13 @@ function ManagerScreen({dept,employees,internals,getIS,setIS,externals,getXS,set
 
 function internalStepsDone(status){
   const s1=status.attendance==="参加済"||status.video==="視聴済";
-  const s2=s1&&status.report==="提出済";
-  const s3=s2&&status.reportConfirmed===true;
-  return[s1,s2,s3];
+  const s2=s1&&status.reportConfirmed===true;
+  return[s1,s2];
 }
 
 function InternalProgress({status,noReport}){
-  const [s1,s2,s3]=internalStepsDone(status);
-  // 復命書「提出しない」を選択 → グレーで締め（提出済みの緑100%とは別扱い）
+  const [s1,s2]=internalStepsDone(status);
+  // 復命書「提出しない」を選択 → グレーで締め（管理者確認済みの緑100%とは別扱い）
   const declined=!noReport&&s1&&status.report==="提出しない"&&status.reportConfirmed!==true;
   if(declined){
     return(
@@ -1960,7 +1956,7 @@ function InternalProgress({status,noReport}){
   }
   const steps=noReport
     ?[{label:"参加/動画",done:s1,active:!s1,color:"#16a34a",bg:"#dcfce7"}]
-    :[{label:"参加/動画",done:s1,active:!s1,color:"#16a34a",bg:"#dcfce7"},{label:"復命書",done:s2,active:s1&&!s2,color:"#2563eb",bg:"#dbeafe"},{label:"確認",done:s3,active:s2&&!s3,color:"#7c3aed",bg:"#ede9fe"}];
+    :[{label:"参加/動画",done:s1,active:!s1,color:"#16a34a",bg:"#dcfce7"},{label:"復命書確認",done:s2,active:s1&&!s2,color:"#7c3aed",bg:"#ede9fe"}];
   const dc=steps.filter(s=>s.done).length; const pct=Math.round(dc/steps.length*100);
   const bc=dc===steps.length?"#16a34a":dc===0?"#e5e7eb":"#C89A55";
   return(
@@ -1979,10 +1975,10 @@ function InternalProgress({status,noReport}){
 }
 
 function ExternalProgress({status}){
-  const {attended,reportSubmitted,reportConfirmed}=status;
-  const steps=[{label:"受講",done:attended,active:!attended,color:"#d97706",bg:"#fef3c7"},{label:"復命書",done:reportSubmitted,active:attended&&!reportSubmitted,color:"#2563eb",bg:"#dbeafe"},{label:"確認",done:reportConfirmed,active:reportSubmitted&&!reportConfirmed,color:"#16a34a",bg:"#dcfce7"}];
-  const dc=steps.filter(s=>s.done).length; const pct=Math.round(dc/3*100);
-  const bc=dc===3?"#16a34a":dc===0?"#e5e7eb":"#d97706";
+  const {attended,reportConfirmed}=status;
+  const steps=[{label:"受講",done:attended,active:!attended,color:"#d97706",bg:"#fef3c7"},{label:"復命書確認",done:reportConfirmed,active:attended&&!reportConfirmed,color:"#16a34a",bg:"#dcfce7"}];
+  const dc=steps.filter(s=>s.done).length; const pct=Math.round(dc/steps.length*100);
+  const bc=dc===steps.length?"#16a34a":dc===0?"#e5e7eb":"#d97706";
   return(
     <div style={{minWidth:130}}>
       <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}>
@@ -1998,7 +1994,7 @@ function ExternalProgress({status}){
   );
 }
 
-function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineReport,onVideo,onWatchVideo,onAttendSession,readonly,focusId,onFocused,onDetailClosed}){
+function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVideo,onWatchVideo,onAttendSession,readonly,focusId,onFocused,onDetailClosed}){
   const [open,setOpen]=useState(false);
   const [playVideo,setPlayVideo]=useState(false);
   const autoOpenedRef=useRef(false);
@@ -2108,27 +2104,20 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineRe
             )}
           </div>
           {!training.noReport&&<div style={S.sBlock}>
-            <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書提出</div>
+            <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書</div>
             {!canAccessReport
               ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">🔒 {training.noVideo?"参加後に提出できます":"参加または動画視聴後に提出できます"}</SPill>
               : status.reportConfirmed
                 ? <SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 提出済（管理者確認済）</SPill>
-                : status.report==="提出済"
+                : status.report==="提出しない"
                   ? <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                      <SPill color="#92400e" bg="#fffbeb" border="#fcd34d">⏳ 提出済 ─ 管理者確認待ち</SPill>
-                      {!readonly&&<button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"3px 10px",cursor:"pointer"}} onClick={onCancelReport}>取り消す</button>}
+                      <SPill color="#6b7280" bg="#f3f4f6" border="#d1d5db">― 提出しない（復命書なし）</SPill>
+                      {!readonly&&<button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"3px 10px",cursor:"pointer"}} onClick={()=>onCancelReport&&onCancelReport()}>やっぱり出す</button>}
                     </div>
-                  : status.report==="提出しない"
-                    ? <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                        <SPill color="#6b7280" bg="#f3f4f6" border="#d1d5db">― 提出しない（復命書なし）</SPill>
-                        {!readonly&&<button style={{...S.actionBtn,background:"#2563eb",width:"auto",padding:"7px 14px",fontSize:13}} onClick={onReport}>やっぱり提出する</button>}
-                      </div>
-                    : readonly
-                      ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">未提出</SPill>
-                      : <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                          <button style={{...S.actionBtn,background:"#2563eb"}} onClick={onReport}>復命書を提出する</button>
-                          {!reportRequired&&<button style={{fontSize:12,color:"#9ca3af",background:"none",border:"1px solid #e5e7eb",borderRadius:10,padding:"8px 12px",cursor:"pointer"}} onClick={()=>{ if(window.confirm("この研修の復命書は提出しない、でよろしいですか？（任意研修のため提出は必須ではありません）")) onDeclineReport(); }}>復命書は提出しません</button>}
-                        </div>
+                  : <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">未提出（所属長に提出してください）</SPill>
+                      {!readonly&&!reportRequired&&<button style={{fontSize:12,color:"#9ca3af",background:"none",border:"1px solid #e5e7eb",borderRadius:10,padding:"8px 12px",cursor:"pointer"}} onClick={()=>{ if(window.confirm("この研修の復命書は提出しない、でよろしいですか？（任意研修のため提出は必須ではありません）")) onDeclineReport(); }}>この研修は提出しない</button>}
+                    </div>
             }
           </div>}
           {training.noReport&&<div style={{fontSize:12,color:"#15803d",background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"8px 12px"}}>📋 この研修は復命書の提出は不要です（参加記録のみ）</div>}
@@ -2140,7 +2129,7 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineRe
   );
 }
 
-function ExternalCard({ext,empId,status,onAttend,onReport,onCancelReport,onViewPdf,readonly}){
+function ExternalCard({ext,empId,status,onAttend,onViewPdf,readonly}){
   const [open,setOpen]=useState(false);
   const {attended,reportSubmitted,reportConfirmed}=status;
   // 復命書が必須か：管理者が任意で指定した人 OR 受講済みの人
@@ -2193,13 +2182,9 @@ function ExternalCard({ext,empId,status,onAttend,onReport,onCancelReport,onViewP
           </div>
           {attended&&<div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書</div>
-            {reportConfirmed?<SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 提出済（管理者確認済）</SPill>
-              :reportSubmitted?<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                <SPill color="#92400e" bg="#fffbeb" border="#fcd34d">⏳ 提出済 ─ 管理者確認待ち</SPill>
-                {!readonly&&<button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"3px 10px",cursor:"pointer"}} onClick={onCancelReport}>取り消す</button>}
-              </div>
-              :readonly?<SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">未提出</SPill>
-              :<button style={{...S.actionBtn,background:"#2563eb"}} onClick={onReport}>復命書を提出する</button>}
+            {reportConfirmed
+              ?<SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 提出済（管理者確認済）</SPill>
+              :<SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">未提出（所属長に提出してください）</SPill>}
           </div>}
           </div>
         </div>
@@ -3331,8 +3316,7 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
             const chip=(active,col,bgc)=>({fontSize:11,fontWeight:700,padding:"6px 10px",borderRadius:20,border:`1.5px solid ${active?col:"#e5e7eb"}`,background:active?bgc:"#fff",color:active?col:"#9ca3af",cursor:"pointer",whiteSpace:"nowrap"});
             const cycleReport=()=>{
               if(s.reportConfirmed) setIS(emp.id,curT.id,{report:"未提出",reportConfirmed:false});
-              else if(s.report==="提出済") setIS(emp.id,curT.id,{reportConfirmed:true});
-              else setIS(emp.id,curT.id,{report:"提出済"});
+              else setIS(emp.id,curT.id,{report:"提出済",reportConfirmed:true});
             };
             return(
               <React.Fragment key={emp.id}>
@@ -3613,16 +3597,17 @@ function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear}){
           </div>
           <div style={{fontSize:12,color:"#6b7280",marginBottom:10}}>📅 {formatDate(x.date)} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}</div>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-            <thead><tr style={{background:"#C89A55",color:"#fff"}}><th style={S.th}>従業員</th><th style={S.th}>部署</th><th style={S.th}>進捗</th><th style={S.th}>受講</th><th style={S.th}>復命書</th><th style={S.th}>管理者確認</th></tr></thead>
-            <tbody>{targets.map((emp,i)=>{const s=getXS(emp.id,x.id);const req=(x.requiredEmpIds||[]).includes(emp.id);return(
+            <thead><tr style={{background:"#C89A55",color:"#fff"}}><th style={S.th}>従業員</th><th style={S.th}>部署</th><th style={S.th}>進捗</th><th style={S.th}>受講</th><th style={S.th}>復命書</th></tr></thead>
+            <tbody>{targets.map((emp,i)=>{const s=getXS(emp.id,x.id);const req=(x.requiredEmpIds||[]).includes(emp.id);
+              const toggleReport=()=>{ if(!s.attended)return; if(s.reportConfirmed) setXS(emp.id,x.id,{reportSubmitted:false,reportConfirmed:false}); else setXS(emp.id,x.id,{reportSubmitted:true,reportConfirmed:true}); };
+              return(
               <tr key={emp.id} style={{background:i%2===0?"#fff":"#FDF6EC"}}>
                 <td style={S.td}>{emp.name}{req&&<span style={{marginLeft:5,fontSize:10,color:"#dc2626",fontWeight:700}}>必須</span>}</td><td style={S.td}>{emp.dept}</td>
                 <td style={{...S.td,minWidth:140}}><ExternalProgress status={s}/></td>
                 <td style={S.td}>{s.attended?"✅":"○"}</td>
-                <td style={S.td}>{s.reportSubmitted?"📄":"─"}</td>
-                <td style={S.td}>{s.reportConfirmed?<span style={{color:"#15803d",fontWeight:600}}>✅確認済</span>
-                  :s.reportSubmitted?<button style={{...S.qrBtn,fontSize:11,borderColor:"#C89A55",color:"#A07840",background:"#FDF6EC"}} onClick={()=>setXS(emp.id,x.id,{reportConfirmed:true})}>確認済にする</button>
-                  :<span style={{color:"#9ca3af"}}>─</span>}</td>
+                <td style={S.td}>{s.reportConfirmed?<span style={{color:"#15803d",fontWeight:600,cursor:"pointer"}} onClick={toggleReport}>✅確認済</span>
+                  :!s.attended?<span style={{color:"#9ca3af"}}>─</span>
+                  :<button style={{...S.qrBtn,fontSize:11,borderColor:"#C89A55",color:"#A07840",background:"#FDF6EC"}} onClick={toggleReport}>復命書未提出</button>}</td>
               </tr>
             );})}
             </tbody>
