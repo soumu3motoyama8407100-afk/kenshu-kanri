@@ -1733,8 +1733,9 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
   const [mode,setMode]=useState("i"); // "i"=内部 "x"=外部
   const [filterPending,setFilterPending]=useState(true);
 
-  // 選択中の研修（初期値は最初の内部研修）
-  const curT=selTraining||fyInternals[0]||null;
+  // 選択中の研修。未選択なら研修一覧を表示し、選ぶと職員リストの画面に切り替わる
+  // （研修が増えても職員名が押し出されないよう、一覧と詳細を分けている）
+  const curT=selTraining;
 
   // 復命書必須の職員かどうか判定
   const isReportRequired=(emp,t)=>{
@@ -1790,7 +1791,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
           <div style={{fontSize:13,fontWeight:700,color:"#1e3a5f"}}>🏢 {dept}</div>
           {readonly&&<span style={{fontSize:11,fontWeight:700,background:"#e0f2fe",color:"#0369a1",borderRadius:20,padding:"2px 10px",border:"1px solid #7dd3fc"}}>👁 閲覧のみ</span>}
         </div>
-        {setFiscalYear&&<select value={fiscalYear} onChange={e=>setFiscalYear(Number(e.target.value))} style={{padding:"3px 8px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:12,cursor:"pointer",background:"#fff"}}>
+        {setFiscalYear&&<select value={fiscalYear} onChange={e=>{setSelTraining(null);setFiscalYear(Number(e.target.value));}} style={{padding:"3px 8px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:12,cursor:"pointer",background:"#fff"}}>
           {[currentFY()-1,currentFY(),currentFY()+1].map(y=><option key={y} value={y}>{y}年度</option>)}
         </select>}
       </div>
@@ -1807,28 +1808,34 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
       {mode==="i"&&(
         <>
           {fyInternals.length===0?<div style={S.empty}>{fiscalYear}年度の内部研修はありません</div>:<>
-            {/* 研修セレクター */}
-            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-              {fyInternals.map(t=>{
-                const cnt=unreportedCount(t);
-                const isActive=(curT&&curT.id===t.id)||(!selTraining&&fyInternals[0]?.id===t.id);
-                return(
-                  <div key={t.id} style={{position:"relative",display:"inline-block"}}>
-                    <button className="tsel-chip" onClick={()=>setSelTraining(t)} style={{padding:"8px 14px",borderRadius:20,cursor:"pointer",fontWeight:600,fontSize:12,whiteSpace:"nowrap",lineHeight:1.3,textAlign:"left",
-                      border:isActive?"2px solid #C89A55":"2px solid #E8D5B0",
-                      background:isActive?"#C89A55":"#fff",color:isActive?"#fff":"#A07840",
-                      boxShadow:isActive?"0 3px 10px rgba(200,154,85,.35)":"none",
-                      transform:isActive?"translateY(-1px)":"none"}}>
-                      <div style={{fontWeight:isActive?800:600}}>{isActive?"✓ ":""}{t.title}</div>
-                      <div style={{fontSize:10,fontWeight:400,opacity:0.8}}>{formatDate(t.date)}</div>
+            {/* ① 研修一覧（未選択時）：研修が増えても縦1列なので探しやすい */}
+            {!curT&&<>
+              <div style={{fontSize:12,color:"#A07840",fontWeight:600,marginBottom:8}}>研修を選ぶと、その研修の職員リストが開きます</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {fyInternals.map(t=>{
+                  const cnt=unreportedCount(t);
+                  return(
+                    <button key={t.id} className="tsel-chip" onClick={()=>setSelTraining(t)}
+                      style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"12px 14px",textAlign:"left",cursor:"pointer",
+                        background:"#fff",border:"1px solid #E8D5B0",borderLeft:`4px solid ${cnt>0?"#C89A55":"#E8D5B0"}`,borderRadius:10}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:14,fontWeight:700,color:"#4A3020",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.title}</div>
+                        <div style={{fontSize:11,color:"#A07840",marginTop:2}}>📅 {formatDate(t.date)}{t.date2?` ／ ${formatDate(t.date2)}`:""}</div>
+                      </div>
+                      {cnt>0
+                        ?<span style={{flexShrink:0,fontSize:12,fontWeight:800,color:"#fff",background:"#E24B4A",borderRadius:20,padding:"4px 11px",whiteSpace:"nowrap"}}>未完了 {cnt}名</span>
+                        :<span style={{flexShrink:0,fontSize:12,fontWeight:700,color:"#15803d",background:"#dcfce7",border:"1px solid #86efac",borderRadius:20,padding:"3px 10px",whiteSpace:"nowrap"}}>✓ 完了</span>}
+                      <span style={{color:"#C89A55",fontSize:14,fontWeight:700,flexShrink:0}}>›</span>
                     </button>
-                    {cnt>0&&<span style={{position:"absolute",top:-5,right:-5,minWidth:16,height:16,borderRadius:8,background:"#E24B4A",color:"#fff",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px",border:"1.5px solid #fff"}}>{cnt}</span>}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </>}
 
+            {/* ② 選んだ研修の職員リスト */}
             {curT&&<>
+              <button className="tsel-chip" onClick={()=>setSelTraining(null)}
+                style={{display:"block",marginBottom:10,padding:"8px 16px",borderRadius:20,border:"1.5px solid #E8D5B0",background:"#fff",color:"#A07840",fontSize:12.5,fontWeight:700,cursor:"pointer"}}>‹ 研修一覧に戻る</button>
               {/* いまどの研修を操作しているのかを明示する（研修タブと同じクリーム＋ゴールドの配色） */}
               <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#FDF6EC",border:"1px solid #E8D5B0",borderLeft:"4px solid #C89A55",borderRadius:10,marginBottom:10}}>
                 <span style={{fontSize:10,fontWeight:700,color:"#fff",background:"#C89A55",borderRadius:6,padding:"3px 8px",flexShrink:0,whiteSpace:"nowrap"}}>操作中</span>
