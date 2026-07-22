@@ -2098,6 +2098,14 @@ function InternalCard({training,status,empId,onReport,onCancelReport,onDeclineRe
                 )}
               </div>
             )}
+            {/* 参加済でも動画を振り返れるように */}
+            {attended&&!training.noVideo&&training.videoUrl&&(
+              <div style={{marginTop:10}}>
+                {!playVideo
+                  ?<button style={{...S.watchBtn}} onClick={()=>setPlayVideo(true)}>▶ 動画で振り返る</button>
+                  :<AutoVideoPlayer videoUrl={training.videoUrl} title={training.title} watched={true} readonly={true} onWatched={()=>{}}/>}
+              </div>
+            )}
           </div>
           {!training.noReport&&<div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書提出</div>
