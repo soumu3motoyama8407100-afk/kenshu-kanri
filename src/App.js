@@ -2130,16 +2130,19 @@ function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVi
   const hasTwoDates=!!training.date2;
   const sessionMark=status.attendedSession==="1"?"①":status.attendedSession==="2"?"②":"";
   const absentFix=status.attendance==="未参加（確定）";
-  const showVideo=!attended&&!training.noVideo;
+  // 開催日が今日より前かどうか（終了済み／これから、を色だけで示す）
+  const lastDate=training.date2||training.date;
+  const isPast=new Date(lastDate+"T23:59:59")<new Date();
+  // 【試験運用：ID158のみ】動画の視聴済/未視聴ボタンは「未参加のまま研修が終わった翌日」から出す。
+  // 開催前・当日は出さないことで詳細画面を短くし、下にある復命書の操作までスクロールせずに届くようにする
+  const trialCompactVideo=["158"].includes(String(empId).replace(/\D/g,""));
+  const showVideo=!attended&&!training.noVideo&&(!trialCompactVideo||isPast);
   // 復命書にアクセスできる条件：参加済み OR 動画視聴済み（動画なし研修は参加のみ）
   const canAccessReport=attended||(!training.noVideo&&status.video==="視聴済");
   // 復命書が必須か：管理者が任意で指定した人 OR 当日QR参加した人（時間外が発生するため）。動画視聴のみは必須にしない
   const reportRequired=!training.noReport&&(training.required===true||(training.requiredEmpIds||[]).includes(empId)||attended);
   // 復命書必須バッジの表示（必須の人にだけ出す。動画視聴のみの人には出さない）
   const showReqBadge=reportRequired;
-  // 開催日が今日より前かどうか（終了済み／これから、を色だけで示す）
-  const lastDate=training.date2||training.date;
-  const isPast=new Date(lastDate+"T23:59:59")<new Date();
   const dateLine=(
     <div style={{...S.cardDate,color:isPast?"#9ca3af":S.cardDate.color}}>
       📅 {hasTwoDates?<>① {formatDate(training.date)}　② {formatDate(training.date2)}</>:formatDate(training.date)}
