@@ -784,7 +784,7 @@ const TUTORIAL_STEPS=[
   {icon:"📢",title:"お知らせタブ",body:<>ログインすると最初に開くタブです。<br/><b>今月ある研修</b>と、<b>締切のあるお知らせ</b>がここに表示されます。まずはここをチェック！</>},
   {icon:"📚",title:"研修タブ",ribbon:"近日公開",body:<>内部研修は、研修会場にある <b>QRコードを読み取る</b> と、自動で「参加済」になります。<br/>当日の研修時は<b>スマホを持参</b>してくださいね。<br/><span style={{color:"#c2410c",fontWeight:700}}>※ QRでの参加登録は現在準備中です。ご利用いただけるようになりましたら、あらためてご連絡します。</span></>},
   {icon:"▶",title:"動画で振り返る",body:<>当日参加できなかった研修は、画面右下の <b>「▶動画」ボタン</b> や各研修の「動画を視聴」から見てフォローできます。<br/>動画を <b>9割ほど視聴すると自動で「視聴済」</b> になります。</>},
-  {icon:"📄",title:"復命書を提出する",body:<>参加または動画視聴のあと <b>「復命書を提出する」</b> が押せるようになります。<br/>提出が必須のものは <b>「復命書必須」マーク</b> でひと目でわかります。<br/>提出数は人事考課の参考になります（⭐5件→+1点 / 🏆10件→+2点）。<br/>提出数は<b>所属長の確認をもってカウント</b>されます。</>},
+  {icon:"📄",title:"復命書について",body:<>アプリ内の <b>「復命書を提出する」ボタンは廃止</b> しました。<br/>復命書は<b>これまでどおり所属長に提出</b>してください。<b>所属長が確認すると「提出済」になります。</b><br/>提出が必須のものは <b>「復命書必須」マーク</b> でひと目でわかります。<br/>提出数は人事考課の参考になります（⭐5件→+1点 / 🏆10件→+2点）。</>},
   {icon:"📺",title:"セミナータブ",body:<><b>「📺 セミナー」タブ</b> で、毎月のリブドゥ オンラインセミナー動画を視聴・記録できます。<br/>視聴チェックや復命書の管理もこちらから。</>},
   {icon:"🏅",title:"自分の実績を見る",body:<>右上の <b>「🌱 ○件」</b> を押すと、今年度のポイントや月別の提出状況を確認できます。</>},
   {icon:"🎉",title:"準備OK！",body:<>それでは始めましょう。<br/>困ったときは <b>「❓使い方」</b> からこの案内をもう一度見られます。</>},
@@ -1648,7 +1648,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                       </div>
                       <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6,flexShrink:0}}>
                         {badgePill(b)}
-                        <button onClick={()=>switchTab("training")} style={{fontSize:11,fontWeight:700,padding:"5px 12px",borderRadius:16,border:"none",background:"#2563eb",color:"#fff",cursor:"pointer"}}>提出する →</button>
+                        <button onClick={()=>switchTab("training")} style={{fontSize:11,fontWeight:700,padding:"5px 12px",borderRadius:16,border:"none",background:"#2563eb",color:"#fff",cursor:"pointer"}}>研修を見る →</button>
                       </div>
                     </div>
                   );})}
