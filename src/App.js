@@ -317,6 +317,9 @@ export default function App() {
     style.textContent=`
       *{box-sizing:border-box;}
       body{margin:0;padding:0;overflow-x:hidden;}
+      /* 部署管理タブの研修セレクター：押した感触を出す */
+      .tsel-chip{transition:transform .08s ease,box-shadow .12s ease;-webkit-tap-highlight-color:transparent;}
+      .tsel-chip:active{transform:scale(.93);}
       /* スマホ（768px以下） */
       @media(max-width:768px){
         .rsp-page{padding:0 !important;}
@@ -1757,12 +1760,21 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
     return "noReq";
   };
 
+  // 研修に実際に関わった人（当日参加 or 動画視聴）。何もしていない人は要対応に出さない
+  const hasEngaged=(emp,t)=>{
+    const s=getIS(emp.id,t.id);
+    return s.attendance==="参加済"||s.video==="視聴済";
+  };
+
   // 名前順で固定ソート（操作してもリストが入れ替わらないように）
   const curTargets=curT?employees.filter(e=>isTargetedFor(curT,e)):[];
   const empList=curT?[...curTargets].sort((a,b)=>a.name.localeCompare(b.name,"ja")):[];
   // 「全員」選択時は、研修の対象者だけでなく部署の在籍者全員を表示する
   const deptAll=[...employees].filter(e=>e.isActive!==false&&(!e.retireDate||new Date(e.retireDate)>new Date())).sort((a,b)=>a.name.localeCompare(b.name,"ja"));
-  const displayList=!curT?[]:(filterPending?empList.filter(e=>getEmpStatus(e,curT)!=="done"):deptAll);
+  // 要対応＝復命書がまだ確認済みでなく、かつ「参加/動画視聴した人」または「管理者が復命書必須に指定した人」
+  const displayList=!curT?[]:(filterPending
+    ?empList.filter(e=>getEmpStatus(e,curT)!=="done"&&(hasEngaged(e,curT)||(curT.requiredEmpIds||[]).includes(e.id)))
+    :deptAll);
 
   const reqCount=curT?curTargets.filter(e=>isReportRequired(e,curT)).length:0;
   const unreported=curT?curTargets.filter(e=>isReportRequired(e,curT)&&!getIS(e.id,curT.id).reportConfirmed).length:0;
@@ -1802,8 +1814,12 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
                 const isActive=(curT&&curT.id===t.id)||(!selTraining&&fyInternals[0]?.id===t.id);
                 return(
                   <div key={t.id} style={{position:"relative",display:"inline-block"}}>
-                    <button onClick={()=>setSelTraining(t)} style={{padding:"6px 12px",borderRadius:20,border:"none",cursor:"pointer",fontWeight:600,fontSize:12,background:isActive?"#1e3a5f":"#f3f4f6",color:isActive?"#fff":"#374151",whiteSpace:"nowrap",lineHeight:1.3}}>
-                      <div>{t.title}</div>
+                    <button className="tsel-chip" onClick={()=>setSelTraining(t)} style={{padding:"8px 14px",borderRadius:20,cursor:"pointer",fontWeight:600,fontSize:12,whiteSpace:"nowrap",lineHeight:1.3,textAlign:"left",
+                      border:isActive?"2.5px solid #1e3a5f":"2.5px solid transparent",
+                      background:isActive?"#1e3a5f":"#f3f4f6",color:isActive?"#fff":"#6b7280",
+                      boxShadow:isActive?"0 4px 12px rgba(30,58,95,.35)":"none",
+                      transform:isActive?"translateY(-1px)":"none"}}>
+                      <div style={{fontWeight:isActive?800:600}}>{isActive?"✓ ":""}{t.title}</div>
                       <div style={{fontSize:10,fontWeight:400,opacity:0.8}}>{formatDate(t.date)}</div>
                     </button>
                     {cnt>0&&<span style={{position:"absolute",top:-5,right:-5,minWidth:16,height:16,borderRadius:8,background:"#E24B4A",color:"#fff",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px",border:"1.5px solid #fff"}}>{cnt}</span>}
@@ -1813,6 +1829,14 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
             </div>
 
             {curT&&<>
+              {/* いまどの研修を操作しているのかを明示する */}
+              <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#1e3a5f",borderRadius:12,marginBottom:10}}>
+                <span style={{fontSize:10,fontWeight:700,color:"#1e3a5f",background:"#fff",borderRadius:6,padding:"3px 8px",flexShrink:0,whiteSpace:"nowrap"}}>操作中</span>
+                <div style={{minWidth:0,flex:1}}>
+                  <div style={{fontSize:14,fontWeight:800,color:"#fff",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{curT.title}</div>
+                  <div style={{fontSize:11,color:"rgba(255,255,255,.75)"}}>📅 {formatDate(curT.date)}{curT.date2?` ／ ${formatDate(curT.date2)}`:""}</div>
+                </div>
+              </div>
               {/* サマリーカード */}
               <div style={{marginBottom:12}}>
                 <div style={{padding:"10px 12px",background:"#fef2f2",borderRadius:12,textAlign:"center",border:"1px solid #fca5a5"}}>
@@ -1822,12 +1846,15 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
               </div>
 
               {/* フィルター */}
-              <div style={{display:"flex",gap:6,marginBottom:10}}>
+              <div style={{display:"flex",gap:6,marginBottom:6}}>
                 {[["要対応のみ",true],["全員",false]].map(([l,v])=>(
-                  <button key={l} onClick={()=>setFilterPending(v)} style={{padding:"4px 14px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:filterPending===v?"#374151":"#f3f4f6",color:filterPending===v?"#fff":"#6b7280"}}>
+                  <button key={l} className="tsel-chip" onClick={()=>setFilterPending(v)} style={{padding:"6px 16px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:filterPending===v?"#374151":"#f3f4f6",color:filterPending===v?"#fff":"#6b7280"}}>
                     {l}
                   </button>
                 ))}
+              </div>
+              <div style={{fontSize:11,color:"#9ca3af",marginBottom:10}}>
+                {filterPending?"参加した人・動画を視聴した人・復命書必須の人のうち、未確認の人だけを表示しています":"部署の在籍者全員を表示しています"}
               </div>
 
               {/* 職員リスト */}
