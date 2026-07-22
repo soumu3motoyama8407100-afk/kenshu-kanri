@@ -1815,9 +1815,9 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
                 return(
                   <div key={t.id} style={{position:"relative",display:"inline-block"}}>
                     <button className="tsel-chip" onClick={()=>setSelTraining(t)} style={{padding:"8px 14px",borderRadius:20,cursor:"pointer",fontWeight:600,fontSize:12,whiteSpace:"nowrap",lineHeight:1.3,textAlign:"left",
-                      border:isActive?"2.5px solid #1e3a5f":"2.5px solid transparent",
-                      background:isActive?"#1e3a5f":"#f3f4f6",color:isActive?"#fff":"#6b7280",
-                      boxShadow:isActive?"0 4px 12px rgba(30,58,95,.35)":"none",
+                      border:isActive?"2px solid #C89A55":"2px solid #E8D5B0",
+                      background:isActive?"#C89A55":"#fff",color:isActive?"#fff":"#A07840",
+                      boxShadow:isActive?"0 3px 10px rgba(200,154,85,.35)":"none",
                       transform:isActive?"translateY(-1px)":"none"}}>
                       <div style={{fontWeight:isActive?800:600}}>{isActive?"✓ ":""}{t.title}</div>
                       <div style={{fontSize:10,fontWeight:400,opacity:0.8}}>{formatDate(t.date)}</div>
@@ -1829,12 +1829,12 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
             </div>
 
             {curT&&<>
-              {/* いまどの研修を操作しているのかを明示する */}
-              <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#1e3a5f",borderRadius:12,marginBottom:10}}>
-                <span style={{fontSize:10,fontWeight:700,color:"#1e3a5f",background:"#fff",borderRadius:6,padding:"3px 8px",flexShrink:0,whiteSpace:"nowrap"}}>操作中</span>
+              {/* いまどの研修を操作しているのかを明示する（研修タブと同じクリーム＋ゴールドの配色） */}
+              <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#FDF6EC",border:"1px solid #E8D5B0",borderLeft:"4px solid #C89A55",borderRadius:10,marginBottom:10}}>
+                <span style={{fontSize:10,fontWeight:700,color:"#fff",background:"#C89A55",borderRadius:6,padding:"3px 8px",flexShrink:0,whiteSpace:"nowrap"}}>操作中</span>
                 <div style={{minWidth:0,flex:1}}>
-                  <div style={{fontSize:14,fontWeight:800,color:"#fff",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{curT.title}</div>
-                  <div style={{fontSize:11,color:"rgba(255,255,255,.75)"}}>📅 {formatDate(curT.date)}{curT.date2?` ／ ${formatDate(curT.date2)}`:""}</div>
+                  <div style={{fontSize:14,fontWeight:800,color:"#4A3020",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{curT.title}</div>
+                  <div style={{fontSize:11,color:"#A07840"}}>📅 {formatDate(curT.date)}{curT.date2?` ／ ${formatDate(curT.date2)}`:""}</div>
                 </div>
               </div>
               {/* サマリーカード */}
@@ -1848,7 +1848,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
               {/* フィルター */}
               <div style={{display:"flex",gap:6,marginBottom:6}}>
                 {[["要対応のみ",true],["全員",false]].map(([l,v])=>(
-                  <button key={l} className="tsel-chip" onClick={()=>setFilterPending(v)} style={{padding:"6px 16px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:filterPending===v?"#374151":"#f3f4f6",color:filterPending===v?"#fff":"#6b7280"}}>
+                  <button key={l} className="tsel-chip" onClick={()=>setFilterPending(v)} style={{padding:"6px 16px",borderRadius:20,cursor:"pointer",fontSize:12,fontWeight:600,border:`1.5px solid ${filterPending===v?"#A07840":"#E8D5B0"}`,background:filterPending===v?"#A07840":"#fff",color:filterPending===v?"#fff":"#A07840"}}>
                     {l}
                   </button>
                 ))}
