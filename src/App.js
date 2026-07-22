@@ -3298,34 +3298,22 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
           <div style={{fontSize:12,color:"#A07840",fontWeight:600,marginBottom:8}}>研修を選ぶと、その研修の職員リストが開きます</div>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {fyInternals.map(t=>{
-              const tgt=targetEmps(t);
-              const n=tgt.length;
-              const attended=tgt.filter(e=>getIS(e.id,t.id).attendance==="参加済").length;
-              const watched=tgt.filter(e=>getIS(e.id,t.id).video==="視聴済").length;
-              const confirmed=tgt.filter(e=>getIS(e.id,t.id).reportConfirmed===true).length;
               const cnt=unreportedCount(t);
               return(
                 <div key={t.id} className="tsel-chip" onClick={()=>setSelT(t)}
-                  style={{display:"flex",alignItems:"center",gap:12,background:"#FDF6EC",border:"1px solid #E8D5B0",borderLeft:`4px solid ${cnt>0?"#C89A55":"#E8D5B0"}`,borderRadius:12,padding:"12px 14px",cursor:"pointer"}}>
+                  style={{display:"flex",alignItems:"center",gap:10,background:"#fff",border:"1px solid #E8D5B0",borderLeft:`4px solid ${cnt>0?"#C89A55":"#E8D5B0"}`,borderRadius:10,padding:"12px 14px",cursor:"pointer"}}>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:2}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
                       {t.required&&<span style={S.reqBadge}>必須</span>}
-                      <span style={{fontSize:14,fontWeight:700,color:"#4A3020"}}>{t.title}</span>
-                      {cnt>0
-                        ?<span style={{fontSize:11,fontWeight:800,color:"#fff",background:"#E24B4A",borderRadius:20,padding:"3px 10px",whiteSpace:"nowrap"}}>未完了 {cnt}名</span>
-                        :<span style={{fontSize:11,fontWeight:700,color:"#15803d",background:"#dcfce7",border:"1px solid #86efac",borderRadius:20,padding:"2px 9px",whiteSpace:"nowrap"}}>✓ 完了</span>}
+                      <span style={{fontSize:14,fontWeight:700,color:"#4A3020",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.title}</span>
                     </div>
-                    <div style={{fontSize:11,color:"#A07840",marginBottom:8}}>📅 {formatDate(t.date)}{t.date2?` ／ ${formatDate(t.date2)}`:""}</div>
-                    <div style={{maxWidth:340}}>
-                      <MiniBar label="👥 当日参加" v={attended} n={n} color="#16a34a"/>
-                      {!t.noVideo&&<MiniBar label="▶ 動画視聴" v={watched} n={n} color="#7c3aed"/>}
-                      <MiniBar label="✅ 確認済" v={confirmed} n={n} color="#C89A55"/>
-                    </div>
+                    <div style={{fontSize:11,color:"#A07840",marginTop:2}}>📅 {formatDate(t.date)}{t.date2?` ／ ${formatDate(t.date2)}`:""}</div>
                   </div>
-                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8,flexShrink:0}}>
-                    <button style={S.qrBtn} onClick={e=>{e.stopPropagation();onQR(t);}}>QR生成</button>
-                    <span style={{color:"#C89A55",fontSize:14,fontWeight:700}}>›</span>
-                  </div>
+                  {cnt>0
+                    ?<span style={{flexShrink:0,fontSize:12,fontWeight:800,color:"#fff",background:"#E24B4A",borderRadius:20,padding:"4px 11px",whiteSpace:"nowrap"}}>未完了 {cnt}名</span>
+                    :<span style={{flexShrink:0,fontSize:12,fontWeight:700,color:"#15803d",background:"#dcfce7",border:"1px solid #86efac",borderRadius:20,padding:"3px 10px",whiteSpace:"nowrap"}}>✓ 完了</span>}
+                  <button style={{...S.qrBtn,flexShrink:0}} onClick={e=>{e.stopPropagation();onQR(t);}}>QR生成</button>
+                  <span style={{color:"#C89A55",fontSize:14,fontWeight:700,flexShrink:0}}>›</span>
                 </div>
               );
             })}
@@ -4004,11 +3992,6 @@ function SeminarManageTab({seminars,upsertSeminar,deleteSeminar,employees,getSMV
       )}
     </div>
   );
-}
-
-function MiniBar({label,v,n,color}){
-  const pct=n>0?(v/n)*100:0;
-  return(<div style={{marginBottom:5}}><div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#6b7280",marginBottom:2}}><span>{label}</span><span>{v}/{n}</span></div><div style={{height:4,background:"#e5e7eb",borderRadius:3,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:color,borderRadius:3}}/></div></div>);
 }
 
 function QRModal({training,onClose}){
