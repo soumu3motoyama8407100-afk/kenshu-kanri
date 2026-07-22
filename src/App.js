@@ -831,7 +831,12 @@ function TutorialModal({onClose}){
 }
 // 🆕 更新情報（新しい順に上から追加していく。日付は "YYYY-MM-DD"）
 const RELEASE_NOTES=[
-  {date:"2026-07-22",title:"操作ミスを防ぐ改善をしました",sections:[
+  {id:"r20260722",date:"2026-07-22",title:"「🆕 更新情報」ができました／復命書と操作ミス防止の改善",sections:[
+    {h:"「🆕 更新情報」ボタンができました",items:[
+      "アプリが新しくなったとき、この画面で変更内容をお知らせします。",
+      "まだ読んでいない更新があるときだけ、ボタンの右上に小さな赤い丸が付きます。",
+      "一度開くと赤い丸は消えます。過去の更新もいつでもここから見返せます。",
+    ]},
     {h:"復命書について（大切）",items:[
       "アプリの「復命書を提出する」ボタンは廃止しました。",
       "復命書はこれまでどおり所属長に提出してください。",
@@ -845,7 +850,6 @@ const RELEASE_NOTES=[
     ]},
     {h:"そのほか",items:[
       "「❓使い方」の案内を最新の内容に更新しました。",
-      "この「🆕 更新情報」を追加しました。アプリが変わったときはここでご確認いただけます。",
     ]},
     {h:"部署長の方へ",items:[
       "部署管理タブは、研修を選んでから職員一覧が開く形になりました。",
@@ -856,7 +860,8 @@ const RELEASE_NOTES=[
 ];
 // 🆕 更新情報モーダル：日付＋見出しの一覧を出し、押すと変更内容を開く
 function ReleaseNotesModal({onClose}){
-  const [openDate,setOpenDate]=useState(RELEASE_NOTES[0]?.date||null);
+  // 同じ日に複数投稿しても取り違えないよう id で開閉を管理する
+  const [openId,setOpenId]=useState(RELEASE_NOTES[0]?.id||null);
   return(
     <div style={{position:"fixed",inset:0,zIndex:9000,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px 16px"}} onClick={onClose}>
       <div style={{width:"100%",maxWidth:460,maxHeight:"85vh",overflowY:"auto",background:"#fff",borderRadius:20,padding:"20px 18px",boxShadow:"0 20px 60px rgba(0,0,0,.3)",border:"1px solid #E8D5B0"}} onClick={e=>e.stopPropagation()}>
@@ -866,10 +871,10 @@ function ReleaseNotesModal({onClose}){
         </div>
         <div style={{fontSize:12,color:"#A07840",marginBottom:14}}>アプリの変更内容を新しい順に見られます。見出しを押すと詳しい内容が開きます。</div>
         {RELEASE_NOTES.map(r=>{
-          const open=openDate===r.date;
+          const open=openId===r.id;
           return(
-            <div key={r.date} style={{border:"1px solid #E8D5B0",borderRadius:12,marginBottom:8,overflow:"hidden",background:open?"#FDF6EC":"#fff"}}>
-              <button className="tsel-chip" onClick={()=>setOpenDate(open?null:r.date)}
+            <div key={r.id} style={{border:"1px solid #E8D5B0",borderRadius:12,marginBottom:8,overflow:"hidden",background:open?"#FDF6EC":"#fff"}}>
+              <button className="tsel-chip" onClick={()=>setOpenId(open?null:r.id)}
                 style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"12px 14px",background:"none",border:"none",cursor:"pointer",textAlign:"left"}}>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:11,color:"#A07840",fontWeight:700}}>📅 {formatDate(r.date)}</div>
@@ -1424,7 +1429,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
   // 🆕 更新情報：最新の更新をまだ見ていない人には赤い印を出す
   const [showRelease,setShowRelease]=useState(false);
   const [relSeen,setRelSeen]=useState(()=>{ try{ return localStorage.getItem("relnotes_seen")||""; }catch(_){ return ""; } });
-  const latestRelease=RELEASE_NOTES[0]?.date||"";
+  const latestRelease=RELEASE_NOTES[0]?.id||"";
   const hasNewRelease=!!latestRelease&&relSeen!==latestRelease;
   const openRelease=()=>{ setShowRelease(true); try{ localStorage.setItem("relnotes_seen",latestRelease); }catch(_){}; setRelSeen(latestRelease); };
   const [viewFY,setViewFY]=useState(fiscalYear);
