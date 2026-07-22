@@ -2754,7 +2754,7 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
           </div>
         </div>
         <div style={{...S.tabBar,overflowX:"auto"}}>
-          {[["ranking","🏅 ランキング"],["adminNotices","📢 お知らせ"],["iProgress","📊 内部研修"],["iManage","📚 内部研修管理"],["xProgress","🌐 外部研修"],["xManage","✏️ 外部研修管理"],["semManage","📺 セミナー"],["empManage","👥 職員管理"],["committeeManage","🏛 委員会管理"]].map(([k,l])=>(
+          {[["ranking","🏅 ランキング"],["adminNotices","📢 お知らせ"],["iProgress","📊 内部研修"],["iManage","📚 内部研修登録"],["xProgress","🌐 外部研修"],["xManage","✏️ 外部研修登録"],["semManage","📺 セミナー"],["empManage","👥 職員管理"],["committeeManage","🏛 委員会管理"]].map(([k,l])=>(
             <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{}),fontSize:11,padding:"10px 6px",whiteSpace:"nowrap"}} onClick={()=>setTab(k)}>{l}</button>
           ))}
         </div>
@@ -3208,7 +3208,8 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
   const [bulkMode,setBulkMode]=useState(false);
   const [bulkIds,setBulkIds]=useState([]);
   const [bulkBusy,setBulkBusy]=useState(false);
-  const curT=selT||fyInternals[0]||null;
+  // 未選択なら研修一覧、選ぶと職員リストの画面に切り替わる（研修が増えても職員名が押し出されないように）
+  const curT=selT;
   const toggleBulk=id=>setBulkIds(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
   const applyBulk=async patch=>{
     if(bulkIds.length===0){alert("職員を選択してください");return;}
@@ -3289,46 +3290,63 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
           📊 研修履歴出力
         </button>
       </div>
-      {/* 上部サマリーカード（既存のまま） */}
-      <div style={{display:"flex",gap:10,overflowX:"auto",padding:"12px 0 16px"}}>
-        {fyInternals.map(t=>{
-          const tgt=targetEmps(t);
-          const n=tgt.length;
-          const attended=tgt.filter(e=>getIS(e.id,t.id).attendance==="参加済").length;
-          const watched=tgt.filter(e=>getIS(e.id,t.id).video==="視聴済").length;
-          const confirmed=tgt.filter(e=>getIS(e.id,t.id).reportConfirmed===true).length;
-          return(
-            <div key={t.id} style={S.sCard}>
-              {t.required&&<span style={S.reqBadge}>必須</span>}
-              <div style={{fontSize:11,fontWeight:700,color:"#4A3020",margin:"4px 0 2px",lineHeight:1.3}}>{t.title}</div>
-              <div style={{fontSize:10,color:"#9ca3af",marginBottom:8}}>📅 {formatDate(t.date)}</div>
-              <MiniBar label="👥 当日参加" v={attended} n={n} color="#16a34a"/>
-              {!t.noVideo&&<MiniBar label="▶ 動画視聴" v={watched} n={n} color="#7c3aed"/>}
-              <MiniBar label="✅ 確認済" v={confirmed} n={n} color="#C89A55"/>
-              <button style={{...S.qrBtn,marginTop:8,width:"100%"}} onClick={()=>onQR(t)}>QR生成</button>
-            </div>
-          );
-        })}
-      </div>
       {fyInternals.length===0&&<div style={S.empty}>{fiscalYear}年度の内部研修はありません</div>}
 
-      {/* 下部：カード形式の職員一覧 */}
+      {/* ① 研修一覧（未選択時）：横に折り返さず縦1列なので、研修が増えても探しやすい */}
+      {fyInternals.length>0&&!curT&&(
+        <div style={{padding:"12px 0 0"}}>
+          <div style={{fontSize:12,color:"#A07840",fontWeight:600,marginBottom:8}}>研修を選ぶと、その研修の職員リストが開きます</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {fyInternals.map(t=>{
+              const tgt=targetEmps(t);
+              const n=tgt.length;
+              const attended=tgt.filter(e=>getIS(e.id,t.id).attendance==="参加済").length;
+              const watched=tgt.filter(e=>getIS(e.id,t.id).video==="視聴済").length;
+              const confirmed=tgt.filter(e=>getIS(e.id,t.id).reportConfirmed===true).length;
+              const cnt=unreportedCount(t);
+              return(
+                <div key={t.id} className="tsel-chip" onClick={()=>setSelT(t)}
+                  style={{display:"flex",alignItems:"center",gap:12,background:"#FDF6EC",border:"1px solid #E8D5B0",borderLeft:`4px solid ${cnt>0?"#C89A55":"#E8D5B0"}`,borderRadius:12,padding:"12px 14px",cursor:"pointer"}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:2}}>
+                      {t.required&&<span style={S.reqBadge}>必須</span>}
+                      <span style={{fontSize:14,fontWeight:700,color:"#4A3020"}}>{t.title}</span>
+                      {cnt>0
+                        ?<span style={{fontSize:11,fontWeight:800,color:"#fff",background:"#E24B4A",borderRadius:20,padding:"3px 10px",whiteSpace:"nowrap"}}>未完了 {cnt}名</span>
+                        :<span style={{fontSize:11,fontWeight:700,color:"#15803d",background:"#dcfce7",border:"1px solid #86efac",borderRadius:20,padding:"2px 9px",whiteSpace:"nowrap"}}>✓ 完了</span>}
+                    </div>
+                    <div style={{fontSize:11,color:"#A07840",marginBottom:8}}>📅 {formatDate(t.date)}{t.date2?` ／ ${formatDate(t.date2)}`:""}</div>
+                    <div style={{maxWidth:340}}>
+                      <MiniBar label="👥 当日参加" v={attended} n={n} color="#16a34a"/>
+                      {!t.noVideo&&<MiniBar label="▶ 動画視聴" v={watched} n={n} color="#7c3aed"/>}
+                      <MiniBar label="✅ 確認済" v={confirmed} n={n} color="#C89A55"/>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8,flexShrink:0}}>
+                    <button style={S.qrBtn} onClick={e=>{e.stopPropagation();onQR(t);}}>QR生成</button>
+                    <span style={{color:"#C89A55",fontSize:14,fontWeight:700}}>›</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ② 選んだ研修の職員リスト */}
       {fyInternals.length>0&&curT&&<>
-        {/* 研修セレクター */}
-        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-          {fyInternals.map(t=>{
-            const cnt=unreportedCount(t);
-            const isActive=curT.id===t.id;
-            return(
-              <div key={t.id} style={{position:"relative",display:"inline-block"}}>
-                <button onClick={()=>setSelT(t)} style={{padding:"6px 12px",borderRadius:20,border:"none",cursor:"pointer",fontWeight:600,fontSize:12,background:isActive?"#4A3020":"#f3f4f6",color:isActive?"#fff":"#374151",whiteSpace:"nowrap",lineHeight:1.3}}>
-                  <div>{t.title}</div>
-                  <div style={{fontSize:10,fontWeight:400,opacity:0.8}}>{formatDate(t.date)}</div>
-                </button>
-                {cnt>0&&<span style={{position:"absolute",top:-5,right:-5,minWidth:16,height:16,borderRadius:8,background:"#E24B4A",color:"#fff",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px",border:"1.5px solid #fff"}}>{cnt}</span>}
-              </div>
-            );
-          })}
+        <div style={{display:"flex",alignItems:"center",gap:8,margin:"12px 0 10px",flexWrap:"wrap"}}>
+          <button className="tsel-chip" onClick={()=>{setSelT(null);setBulkMode(false);setBulkIds([]);}}
+            style={{padding:"8px 16px",borderRadius:20,border:"1.5px solid #E8D5B0",background:"#fff",color:"#A07840",fontSize:12.5,fontWeight:700,cursor:"pointer"}}>‹ 研修一覧に戻る</button>
+          <button style={S.qrBtn} onClick={()=>onQR(curT)}>QR生成</button>
+        </div>
+        {/* いまどの研修を操作しているのかを明示する */}
+        <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#FDF6EC",border:"1px solid #E8D5B0",borderLeft:"4px solid #C89A55",borderRadius:10,marginBottom:10}}>
+          <span style={{fontSize:10,fontWeight:700,color:"#fff",background:"#C89A55",borderRadius:6,padding:"3px 8px",flexShrink:0,whiteSpace:"nowrap"}}>操作中</span>
+          <div style={{minWidth:0,flex:1}}>
+            <div style={{fontSize:14,fontWeight:800,color:"#4A3020",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{curT.title}</div>
+            <div style={{fontSize:11,color:"#A07840"}}>📅 {formatDate(curT.date)}{curT.date2?` ／ ${formatDate(curT.date2)}`:""}</div>
+          </div>
         </div>
 
         {/* サマリー */}
