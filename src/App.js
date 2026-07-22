@@ -1534,7 +1534,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                   <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"6px 12px",background:"#FDF6EC",borderRadius:8,marginBottom:8,border:"1px solid #E8D5B0"}}>🌐 外部研修（{fyExternals.length}件）</div>
                   {fyExternals.map(x=>(
                     <ExternalCard key={x.id} ext={x} empId={emp.id} status={getXS(emp.id,x.id)} readonly={!isCurrentFY}
-                      onAttend={()=>{ if(isCurrentFY){setXS(emp.id,x.id,{attended:true});showToast("受講済にしました");} }}
+                      onAttend={v=>{ if(isCurrentFY){setXS(emp.id,x.id,{attended:v});showToast(v?"受講済にしました":"「受講済」を取り消しました");} }}
                       onViewPdf={type=>setPdfExt({...x,_pdfType:type})}/>
                   ))}
                 </div>
@@ -1842,7 +1842,11 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
                   const attended=s.attendance==="参加済";
                   const watched=s.video==="視聴済";
                   const repState=s.reportConfirmed?"確認":s.report==="提出済"?"提出":s.report==="提出しない"?"なし":"未提出";
-                  const chip=(active,col,bgc)=>({fontSize:11,fontWeight:700,padding:"6px 10px",borderRadius:20,border:`1.5px solid ${active?col:"#e5e7eb"}`,background:active?bgc:"#fff",color:active?col:"#9ca3af",whiteSpace:"nowrap"});
+                  // 未提出＝要対応なので、押せることが分かる配色にする
+                  const repStyle=repState==="確認"?{bd:"#16a34a",bg:"#dcfce7",fg:"#15803d"}
+                    :repState==="提出"?{bd:"#d97706",bg:"#fef3c7",fg:"#92400e"}
+                    :repState==="なし"?{bd:"#e5e7eb",bg:"#f9fafb",fg:"#9ca3af"}
+                    :{bd:"#d97706",bg:"#fff7ed",fg:"#b45309"};
                   const cycleReport=()=>{
                     if(readonly)return;
                     if(s.reportConfirmed){ if(window.confirm(`${emp.name}さんの復命書を「未提出」に戻しますか？`)) setIS(emp.id,curT.id,{report:"未提出",reportConfirmed:false}); }
@@ -1852,20 +1856,18 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
                     <div key={emp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:isDone?"#f9fafb":"#fff",borderRadius:12,border:`1px solid ${isDone?"#e5e7eb":"#E8D5B0"}`,opacity:isDone?0.7:1}}>
                       <div style={{width:32,height:32,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:600,flexShrink:0,background:bg,color:fg}}>{initials(emp.name)}</div>
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:14,fontWeight:600,color:"#4A3020",marginBottom:6}}>{emp.name}{!req&&<span style={{fontSize:10,color:"#9ca3af",marginLeft:6,fontWeight:400}}>必須外</span>}</div>
-                        <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
-                          {/* 参加・動画は表示のみ（操作は管理者タブから） */}
-                          <span style={{...chip(attended,"#16a34a","#dcfce7"),cursor:"default"}}>
-                            {attended?`✓ 参加${s.attendedSession==="1"?"①":s.attendedSession==="2"?"②":""}`:"未参加"}
-                          </span>
-                          <span style={{...chip(watched,"#7c3aed","#ede9fe"),cursor:"default"}}>
-                            {watched?"✓ 動画視聴":"動画未視聴"}
-                          </span>
-                          <button disabled={readonly} onClick={cycleReport} style={{...chip(repState==="確認"||repState==="提出",repState==="確認"?"#16a34a":"#d97706",repState==="確認"?"#dcfce7":"#fef3c7"),cursor:readonly?"default":"pointer"}}>
-                            {repState==="確認"?"✓ 復命書確認":repState==="提出"?"復命書提出":repState==="なし"?"― 提出しない":"復命書未提出"}
-                          </button>
+                        <div style={{fontSize:14,fontWeight:600,color:"#4A3020",marginBottom:3}}>{emp.name}{!req&&<span style={{fontSize:10,color:"#9ca3af",marginLeft:6,fontWeight:400}}>必須外</span>}</div>
+                        {/* 参加・動画は表示のみ（操作は管理者タブから）。押せると誤解されないようボタン風にせず文字で表示 */}
+                        <div style={{fontSize:11.5,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                          <span style={{color:attended?"#16a34a":"#9ca3af",fontWeight:attended?700:400}}>{attended?`✓ 参加${s.attendedSession==="1"?"①":s.attendedSession==="2"?"②":""}`:"未参加"}</span>
+                          <span style={{margin:"0 6px",color:"#d1d5db"}}>／</span>
+                          <span style={{color:watched?"#7c3aed":"#9ca3af",fontWeight:watched?700:400}}>{watched?"✓ 動画視聴":"動画未視聴"}</span>
                         </div>
                       </div>
+                      {/* 部署管理タブで操作できるのは復命書のみ。誤タップ防止のため大きめのボタンにする */}
+                      <button disabled={readonly} onClick={cycleReport} style={{flexShrink:0,minWidth:108,minHeight:48,padding:"10px 14px",borderRadius:14,fontSize:13,fontWeight:700,lineHeight:1.35,whiteSpace:"nowrap",cursor:readonly?"default":"pointer",border:`2px solid ${repStyle.bd}`,background:repStyle.bg,color:repStyle.fg}}>
+                        {repState==="確認"?<>✓ 復命書<br/>確認済</>:repState==="提出"?<>復命書<br/>提出</>:repState==="なし"?<>― 提出<br/>しない</>:<>復命書<br/>未提出</>}
+                      </button>
                     </div>
                   );
                 })}
@@ -2000,6 +2002,7 @@ function ExternalProgress({status}){
 function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVideo,onWatchVideo,onAttendSession,readonly,focusId,onFocused,onDetailClosed}){
   const [open,setOpen]=useState(false);
   const [playVideo,setPlayVideo]=useState(false);
+  const [editSession,setEditSession]=useState(false); // 選んだ参加日を選び直す
   const autoOpenedRef=useRef(false);
   // お知らせから指定された研修は詳細モーダルを自動で開く
   useEffect(()=>{ if(focusId&&focusId===training.id){ autoOpenedRef.current=true; setOpen(true); onFocused&&onFocused(); } },[focusId]);// eslint-disable-line
@@ -2071,22 +2074,35 @@ function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVi
               :!training.noVideo&&absentFix?<SPill color="#7c6a00" bg="#fefce8" border="#fde68a">📹 当日欠席 ─ 動画でフォローできます</SPill>
               :absentFix?<SPill color="#7c6a00" bg="#fefce8" border="#fde68a">📹 当日欠席</SPill>
               :<SPill color="#6b7280" bg="#f9fafb" border="#e5e7eb">🔲 未参加 ─ 当日QRをスキャン</SPill>}
-            {/* 2回開催：どちらに参加したかの記録 */}
-            {hasTwoDates&&!readonly&&onAttendSession&&(!attended||!sessionMark)&&!absentFix&&(
+            {/* 2回開催：どちらに参加したかの記録。当日QRを読んだ人にだけ聞く（自己申告での参加済は不可） */}
+            {hasTwoDates&&!readonly&&onAttendSession&&attended&&(!sessionMark||editSession)&&(
               <div style={{marginTop:12,padding:"12px 14px",background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:12}}>
                 <div style={{fontSize:14,fontWeight:800,color:"#15803d",marginBottom:4}}>📅 参加した日を選んでください</div>
                 <div style={{fontSize:12,color:"#6b7280",marginBottom:10}}>この研修は2日程あります。参加した方をタップしてください。</div>
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  <button style={{fontSize:15,padding:"14px",borderRadius:12,border:"2px solid #16a34a",background:"#fff",color:"#15803d",cursor:"pointer",fontWeight:700,textAlign:"left"}} onClick={()=>onAttendSession("1")}>① {formatDate(training.date)}<span style={{float:"right"}}>→</span></button>
-                  <button style={{fontSize:15,padding:"14px",borderRadius:12,border:"2px solid #16a34a",background:"#fff",color:"#15803d",cursor:"pointer",fontWeight:700,textAlign:"left"}} onClick={()=>onAttendSession("2")}>② {formatDate(training.date2)}<span style={{float:"right"}}>→</span></button>
+                  {[["1",training.date,"①"],["2",training.date2,"②"]].map(([sv,sd,sl])=>(
+                    <button key={sv} style={{fontSize:15,padding:"14px",borderRadius:12,border:`2px solid ${sessionMark===sl?"#15803d":"#16a34a"}`,background:sessionMark===sl?"#dcfce7":"#fff",color:"#15803d",cursor:"pointer",fontWeight:700,textAlign:"left"}}
+                      onClick={()=>{ if(window.confirm(`${sl} ${formatDate(sd)} に参加した、として記録します。よろしいですか？`)){ onAttendSession(sv); setEditSession(false); } }}>
+                      {sl} {formatDate(sd)}<span style={{float:"right"}}>{sessionMark===sl?"✓":"→"}</span>
+                    </button>
+                  ))}
                 </div>
+                {editSession&&<button style={{marginTop:8,width:"100%",fontSize:13,padding:"9px",borderRadius:10,border:"1px solid #e5e7eb",background:"#fff",color:"#6b7280",cursor:"pointer"}} onClick={()=>setEditSession(false)}>キャンセル</button>}
+              </div>
+            )}
+            {/* 選び間違えても直せるように */}
+            {hasTwoDates&&!readonly&&onAttendSession&&attended&&sessionMark&&!editSession&&(
+              <div style={{marginTop:8}}>
+                <button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"5px 12px",cursor:"pointer"}} onClick={()=>setEditSession(true)}>参加日を変更する</button>
               </div>
             )}
             {showVideo&&!readonly&&(
               <div style={{marginTop:10}}>
                 <div style={{fontSize:11,color:"#6b7280",marginBottom:6}}>{absentFix?"研修動画を視聴して内容をフォローしましょう：":"または研修動画を視聴:"}</div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                  {["視聴済","未視聴"].map(v=><ToggleChip key={v} label={v} active={status.video===v} color={v==="視聴済"?"#16a34a":"#6b7280"} onClick={()=>onVideo(v)}/>)}
+                  {/* 「未視聴」を誤って押すと視聴記録が消え復命書が再ロックされるため、戻すときだけ確認する */}
+                  {["視聴済","未視聴"].map(v=><ToggleChip key={v} label={v} active={status.video===v} color={v==="視聴済"?"#16a34a":"#6b7280"}
+                    onClick={()=>{ if(v==="未視聴"&&status.video==="視聴済"&&!window.confirm("「視聴済」を取り消して、未視聴に戻しますか？")) return; onVideo(v); }}/>)}
                 </div>
                 {training.videoUrl&&!playVideo&&<button style={{...S.watchBtn,marginTop:8}} onClick={()=>setPlayVideo(true)}>▶ 動画を視聴する</button>}
                 {training.videoUrl&&playVideo&&(
@@ -2179,9 +2195,16 @@ function ExternalCard({ext,empId,status,onAttend,onViewPdf,readonly}){
           </div>
           <div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>1</span> 受講状況</div>
-            {attended?<SPill color="#16a34a" bg="#f0fdf4" border="#86efac">✅ 受講済</SPill>
+            {attended
+              ?<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                 <SPill color="#16a34a" bg="#f0fdf4" border="#86efac">✅ 受講済</SPill>
+                 {/* 押し間違えても自分で戻せるように（管理者が復命書を確認済にした後は不可） */}
+                 {!readonly&&!reportConfirmed&&<button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"5px 12px",cursor:"pointer"}}
+                   onClick={()=>{ if(window.confirm("「受講済」を取り消して、未受講に戻しますか？")) onAttend(false); }}>取り消す</button>}
+               </div>
               :readonly?<SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">未受講</SPill>
-              :<button style={S.actionBtn} onClick={onAttend}>受講済にする</button>}
+              :<button style={S.actionBtn}
+                 onClick={()=>{ if(window.confirm(`「${ext.title}」を受講済にします。よろしいですか？\n\n※受講済にすると復命書の提出が必要になります。`)) onAttend(true); }}>受講済にする</button>}
           </div>
           {attended&&<div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書</div>
@@ -2312,6 +2335,11 @@ function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus,readonly}
         {alreadyWatched?(
           <div style={{marginTop:12,padding:"10px 14px",background:"#f0fdf4",borderRadius:10,color:"#15803d",fontSize:13,fontWeight:600,textAlign:"center"}}>
             ✅ 視聴済み
+            {/* 研修カード側と操作を揃える（こちらにも取り消しを用意） */}
+            {!readonly&&<div style={{marginTop:8}}>
+              <button style={{fontSize:12,color:"#6b7280",background:"#fff",border:"1px solid #e5e7eb",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontWeight:600}}
+                onClick={()=>{ if(window.confirm("「視聴済」を取り消して、未視聴に戻しますか？")) onMarkWatched(cur,"未視聴"); }}>未視聴に戻す</button>
+            </div>}
           </div>
         ):!readonly&&(
           <div style={{marginTop:12}}>
@@ -2557,10 +2585,11 @@ function SeminarTab({seminars,empId,getSMV,setSMV,readonly,fiscalYear,showToast}
               {!readonly&&(
                 <>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                  {/* 二度押しで取り消しになるため、OFFに戻すときだけ確認する */}
                   <ToggleChip label={st.watched?"📺 視聴済み ✓":"📺 視聴済みにする"} active={st.watched} color="#0e7490"
-                    onClick={()=>{setSMV(empId,v.id,nowYM,{watched:!st.watched});showToast(!st.watched?"📺 視聴済にしました！":"未視聴に戻しました");}}/>
+                    onClick={()=>{ if(st.watched&&!window.confirm("「視聴済み」を取り消して、未視聴に戻しますか？")) return; setSMV(empId,v.id,nowYM,{watched:!st.watched});showToast(!st.watched?"📺 視聴済にしました！":"未視聴に戻しました");}}/>
                   <ToggleChip label={st.reportSubmitted?"📄 復命書 提出済 ✓":"📄 復命書を提出した"} active={st.reportSubmitted} color="#2563eb"
-                    onClick={()=>{setSMV(empId,v.id,nowYM,{reportSubmitted:!st.reportSubmitted});showToast(!st.reportSubmitted?"📄 復命書を提出しました！ありがとうございます👏":"提出を取り消しました");}}/>
+                    onClick={()=>{ if(st.reportSubmitted&&!window.confirm("「復命書 提出済」を取り消しますか？")) return; setSMV(empId,v.id,nowYM,{reportSubmitted:!st.reportSubmitted});showToast(!st.reportSubmitted?"📄 復命書を提出しました！ありがとうございます👏":"提出を取り消しました");}}/>
                 </div>
                 {st.watched&&!st.reportSubmitted&&(
                   <div style={{marginTop:8,background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:10,padding:"8px 12px",fontSize:12,color:"#1d4ed8",lineHeight:1.6}}>
