@@ -837,6 +837,20 @@ function TutorialModal({onClose}){
 }
 // 🆕 更新情報（新しい順に上から追加していく。日付は "YYYY-MM-DD"）
 const RELEASE_NOTES=[
+  {id:"r20260724",date:"2026-07-24",title:"研修画面の見え方の変更／自己学習を記録できるようになりました",sections:[
+    {h:"自己学習を記録できるようになりました",items:[
+      "研修タブの一番下に「📝 自己学習の記録」を追加しました。",
+      "ご自身で学ばれたこと（研修名・実施日・時間・場所）を登録できます。",
+      "登録した記録は、ご自身で復命書の提出済みを切り替えたり、削除したりできます。",
+      "こちらは自己申告の参考記録です。管理者は関与せず、人事考課ポイントの対象外です。",
+    ]},
+    {h:"研修画面の見え方が少し変わりました",items:[
+      "研修の詳細を開いたとき、開催前と当日は動画のボタンを出さないようにしました。画面が短くなり、復命書の欄が見やすくなります。",
+      "動画の「視聴済／未視聴」ボタンは、研修が終わった翌日から出ます。",
+      "動画を「視聴済」にすると、その欄は「✅ 動画視聴済み」の1行にまとまります。押し間違えたときは横の「取り消す」で戻せます。",
+      "当日参加された方は、これまでどおり「▶ 動画で振り返る」から動画を見られます。",
+    ]},
+  ]},
   {id:"r20260722",date:"2026-07-22",title:"「🆕 更新情報」ができました／復命書と操作ミス防止の改善",sections:[
     {h:"「🆕 更新情報」ボタンができました",items:[
       "アプリが新しくなったとき、この画面で変更内容をお知らせします。",
@@ -1645,9 +1659,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                 </div>
               )}
               {fyInternals.length===0&&fyExternals.length===0&&<div style={S.empty}>{viewFY}年度の研修はありません</div>}
-              {/* 自己学習の記録（管理者は関与しない・参考記録）：試験運用のためID158のみ表示 */}
-              {["158"].includes(String(emp.id).replace(/\D/g,""))&&
-                <SelfTrainingSection items={selfTrainings} onAdd={addSelfTraining} onToggleReport={toggleSelfReport} onDelete={deleteSelfTraining}/>}
+              {/* 自己学習の記録（管理者は関与しない・参考記録） */}
+              <SelfTrainingSection items={selfTrainings} onAdd={addSelfTraining} onToggleReport={toggleSelfReport} onDelete={deleteSelfTraining}/>
             </div>
           )}
           {tab==="seminar"&&(
