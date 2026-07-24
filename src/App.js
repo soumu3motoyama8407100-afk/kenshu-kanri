@@ -2133,12 +2133,11 @@ function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVi
   // 開催日が今日より前かどうか（終了済み／これから、を色だけで示す）
   const lastDate=training.date2||training.date;
   const isPast=new Date(lastDate+"T23:59:59")<new Date();
-  // 【試験運用：ID158のみ】動画の視聴済/未視聴ボタンは「未参加のまま研修が終わった翌日」から出す。
+  // 動画の視聴済/未視聴ボタンは「未参加のまま研修が終わった翌日」から出す。
   // 開催前・当日は出さないことで詳細画面を短くし、下にある復命書の操作までスクロールせずに届くようにする
-  const trialCompactVideo=["158"].includes(String(empId).replace(/\D/g,""));
-  const showVideo=!attended&&!training.noVideo&&(!trialCompactVideo||isPast);
+  const showVideo=!attended&&!training.noVideo&&isPast;
   // 視聴済にしたら、状況表示＋取り消しの1行だけにたたむ（視聴済/未視聴チップと動画ボタンは隠す）
-  const collapsedWatched=showVideo&&!readonly&&trialCompactVideo&&status.video==="視聴済"&&!playVideo;
+  const collapsedWatched=showVideo&&!readonly&&status.video==="視聴済"&&!playVideo;
   // 復命書にアクセスできる条件：参加済み OR 動画視聴済み（動画なし研修は参加のみ）
   const canAccessReport=attended||(!training.noVideo&&status.video==="視聴済");
   // 復命書が必須か：管理者が任意で指定した人 OR 当日QR参加した人（時間外が発生するため）。動画視聴のみは必須にしない
@@ -2192,7 +2191,7 @@ function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVi
           {training.description&&<p style={{color:"#6b7280",fontSize:13,marginBottom:14,lineHeight:1.7}}>{training.description}</p>}
           <div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>1</span> {training.noVideo?"研修参加":"研修参加 または 動画視聴"}</div>
-            {/* 【試験運用：ID158のみ】視聴済にしたら、状況表示と取り消しを1行にまとめる（表示が二重にならないように） */}
+            {/* 視聴済にしたら、状況表示と取り消しを1行にまとめる（表示が二重にならないように） */}
             {collapsedWatched
               ?<div style={{display:"flex",alignItems:"center",gap:8}}>
                  <SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 動画視聴済み</SPill>
@@ -2226,8 +2225,7 @@ function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVi
                 <button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"5px 12px",cursor:"pointer"}} onClick={()=>setEditSession(true)}>参加日を変更する</button>
               </div>
             )}
-            {/* 【試験運用：ID158のみ】視聴済にしたら、視聴済/未視聴＋動画ボタンを小さな1行にたたむ。
-               領域が縮んで下の復命書までスクロールせずに届く */}
+            {/* 視聴済にしたら上の1行にたたまれるので、ここは未視聴のときだけ出す */}
             {showVideo&&!readonly&&!collapsedWatched&&(
               <div style={{marginTop:10}}>
                 <div style={{fontSize:11,color:"#6b7280",marginBottom:6}}>{absentFix?"研修動画を視聴して内容をフォローしましょう：":"または研修動画を視聴:"}</div>
