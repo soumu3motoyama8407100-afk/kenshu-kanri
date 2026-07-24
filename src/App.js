@@ -2217,7 +2217,15 @@ function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVi
                 <button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"5px 12px",cursor:"pointer"}} onClick={()=>setEditSession(true)}>参加日を変更する</button>
               </div>
             )}
-            {showVideo&&!readonly&&(
+            {/* 【試験運用：ID158のみ】視聴済にしたら、視聴済/未視聴＋動画ボタンを小さな1行にたたむ。
+               領域が縮んで下の復命書までスクロールせずに届く */}
+            {showVideo&&!readonly&&trialCompactVideo&&status.video==="視聴済"&&!playVideo?(
+              <div style={{marginTop:10,display:"flex",alignItems:"center",gap:8}}>
+                <SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 動画視聴済み</SPill>
+                <button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"5px 12px",cursor:"pointer",flexShrink:0}}
+                  onClick={()=>{ if(window.confirm("「視聴済」を取り消して、未視聴に戻しますか？")) onVideo("未視聴"); }}>取り消す</button>
+              </div>
+            ):showVideo&&!readonly&&(
               <div style={{marginTop:10}}>
                 <div style={{fontSize:11,color:"#6b7280",marginBottom:6}}>{absentFix?"研修動画を視聴して内容をフォローしましょう：":"または研修動画を視聴:"}</div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
