@@ -4516,7 +4516,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   const [selectedId,setSelectedId]=useState(committees[0]?.id||null); // 委員会用
   const [showForm,setShowForm]=useState(false);
   const [form,setForm]=useState({id:"",title:"",body:"",isPublic:false});
-  const [gForm,setGForm]=useState({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:"",lineMessage:"",deadline:""});
+  const [gForm,setGForm]=useState({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:"",lineMessage:"",deadline:"",sendLine:true});
   const [pdfFile,setPdfFile]=useState(null);
   const [showTargetSel,setShowTargetSel]=useState(false);
   const [selDept,setSelDept]=useState("すべて");
@@ -4546,7 +4546,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   const selected=committees.find(c=>c.id===selectedId);
   const myCommNotices=(committeeNotices||[]).filter(n=>n.committeeId===selectedId);
 
-  const resetGForm=()=>{setGForm({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:"",lineMessage:"",deadline:""});setPdfFile(null);setShowTargetSel(false);setSelDept("すべて");};
+  const resetGForm=()=>{setGForm({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:"",lineMessage:"",deadline:"",sendLine:true});setPdfFile(null);setShowTargetSel(false);setSelDept("すべて");};
   const buildAutoMsg=(title,body,cat2,deadline)=>`📢【${cat2||cat}】${title}${body?"\n\n"+body:""}${deadline?`\n\n回答期限：${formatReiwa(deadline)}`:""}`;
   // メッセージにPDF添付リンクを差し込む（「回答期限：」行がある場合はその前に入れて期限を最終行に保つ）
   const appendFileLink=(msg,url)=>{
@@ -4603,8 +4603,9 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
 
   const handleSaveGeneral=async()=>{
     if(!gForm.title.trim()){showToast("タイトルを入力してください",true);return;}
-    if(!gForm.lineDate||!gForm.lineTime){
-      showToast("⚠ LINE配信日時が指定されていません。即時配信は行われません。必ず配信したい日時を指定してください（配信は10:00〜17:00）",true);
+    // LINE配信ありのときだけ日時を必須にする
+    if(gForm.sendLine&&(!gForm.lineDate||!gForm.lineTime)){
+      showToast("⚠ LINE配信日時が指定されていません。必ず配信したい日時を指定してください（配信は10:00〜17:00）。LINEを送らない場合は「LINEでも配信する」のチェックを外してください",true);
       return;
     }
     setSaving(true);
@@ -4619,8 +4620,16 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
         if(oldPath&&oldPath!==fileMeta.filePath){ try{ await supabase.storage.from("training-files").remove([oldPath]); }catch(_){} }
       }
       const targetIds=showTargetSel?(gForm.targetEmpIds||[]):[];
-      await upsertGeneralNotice({...gForm,...fileMeta,id,category:cat,targetEmpIds:targetIds,postedBy:"ADMIN"});
+      // LINEを送らない設定のときは配信日時を保存しない（アプリのお知らせにのみ掲載）
+      const saveForm=gForm.sendLine?gForm:{...gForm,lineDate:"",lineTime:""};
+      await upsertGeneralNotice({...saveForm,...fileMeta,id,category:cat,targetEmpIds:targetIds,postedBy:"ADMIN"});
       setPendingUploadPath(null); // 投稿完了＝ファイルは保存済みなので掃除対象から外す
+      // LINEを送らない設定：配信予約はしない。編集で予約が残っていれば消す
+      if(!gForm.sendLine){
+        if(isEditing){ try{ await fetch("https://nncousuugjntzovtmkvt.supabase.co/functions/v1/line-notify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({replaceRefId:id,notifications:[]})}); }catch(_){} }
+        showToast(`✅ ${isEditing?"更新":"投稿"}しました（アプリのお知らせにのみ掲載・LINEは送信していません）`);
+        setShowForm(false); resetGForm(); setSaving(false); return;
+      }
       // LINE配信を予約（対象：指定職員 or 全職員のうちLINE紐づけ済みの人）
       const lineTargets=(targetIds.length>0?activeEmps.filter(e=>targetIds.includes(e.id)):activeEmps).filter(e=>e.lineUserId);
       if(lineTargets.length>0){
@@ -4787,14 +4796,24 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
                   </div>
                 </div>
               </div>
-              {/* LINE配信日時（必須） */}
-              <div style={{marginBottom:12,padding:"10px 12px",background:"#f0fdf4",borderRadius:10,border:"1.5px solid #4ade80"}}>
-                <div style={{fontSize:13,fontWeight:700,color:"#15803d",marginBottom:8}}>📱 LINE配信日時 <span style={{color:"#dc2626"}}>*必須</span></div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                  <input type="date" style={{...S.input,borderColor:"#86efac"}} value={gForm.lineDate||""} onChange={e=>setGForm(p=>({...p,lineDate:e.target.value}))}/>
-                  <input type="time" style={{...S.input,borderColor:"#86efac"}} value={gForm.lineTime||""} onChange={e=>setGForm(p=>({...p,lineTime:e.target.value}))}/>
-                </div>
-                <div style={{fontSize:11,color:"#6b7280",marginTop:6}}>※ 指定日時以降の10:00〜17:00の間に配信されます（約15分間隔で配信チェック）</div>
+              {/* LINE配信の有無 */}
+              <div style={{marginBottom:12,padding:"10px 12px",background:gForm.sendLine?"#f0fdf4":"#f9fafb",borderRadius:10,border:`1.5px solid ${gForm.sendLine?"#4ade80":"#e5e7eb"}`}}>
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,fontWeight:700,color:gForm.sendLine?"#15803d":"#6b7280"}}>
+                  <input type="checkbox" checked={gForm.sendLine} onChange={e=>setGForm(p=>({...p,sendLine:e.target.checked}))} style={{width:16,height:16,accentColor:"#16a34a"}}/>
+                  📱 LINEでも配信する
+                </label>
+                {gForm.sendLine?(
+                  <div style={{marginTop:10}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"#15803d",marginBottom:6}}>配信日時 <span style={{color:"#dc2626"}}>*必須</span></div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                      <input type="date" style={{...S.input,borderColor:"#86efac"}} value={gForm.lineDate||""} onChange={e=>setGForm(p=>({...p,lineDate:e.target.value}))}/>
+                      <input type="time" style={{...S.input,borderColor:"#86efac"}} value={gForm.lineTime||""} onChange={e=>setGForm(p=>({...p,lineTime:e.target.value}))}/>
+                    </div>
+                    <div style={{fontSize:11,color:"#6b7280",marginTop:6}}>※ 指定日時以降の10:00〜17:00の間に配信されます（約15分間隔で配信チェック）</div>
+                  </div>
+                ):(
+                  <div style={{fontSize:11,color:"#6b7280",marginTop:8,lineHeight:1.7}}>チェックを外すと、<b>LINEは送らず</b>アプリの「お知らせ」画面にだけ掲載します。<br/>LINEの配信数を消費したくないときにご利用ください。</div>
+                )}
               </div>
               {/* 職員の指定 */}
               <div style={{marginBottom:12,padding:"10px 12px",background:"#eff6ff",borderRadius:10,border:"1px solid #93c5fd"}}>
@@ -4872,7 +4891,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
                   {n.fileUrl&&<a href={n.fileUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:6,fontSize:12,color:"#2563eb",fontWeight:600,textDecoration:"underline"}}>📄 {n.fileName||"添付PDF"}</a>}
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
-                  <button onClick={()=>{ setCat(n.category); setGForm({id:n.id,title:n.title,body:n.body||"",fileUrl:n.fileUrl||null,filePath:n.filePath||null,fileName:n.fileName||null,targetEmpIds:n.targetEmpIds||[],lineDate:n.lineDate||"",lineTime:n.lineTime||"",lineMessage:"",deadline:n.deadline||""}); setShowTargetSel((n.targetEmpIds||[]).length>0); setPdfFile(null); setShowTest(false); setShowForm(true); }} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #93c5fd",background:"#eff6ff",color:"#2563eb",fontSize:11,fontWeight:600,cursor:"pointer"}}>編集</button>
+                  <button onClick={()=>{ setCat(n.category); setGForm({id:n.id,title:n.title,body:n.body||"",fileUrl:n.fileUrl||null,filePath:n.filePath||null,fileName:n.fileName||null,targetEmpIds:n.targetEmpIds||[],lineDate:n.lineDate||"",lineTime:n.lineTime||"",lineMessage:"",deadline:n.deadline||"",sendLine:!!(n.lineDate&&n.lineTime)}); setShowTargetSel((n.targetEmpIds||[]).length>0); setPdfFile(null); setShowTest(false); setShowForm(true); }} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #93c5fd",background:"#eff6ff",color:"#2563eb",fontSize:11,fontWeight:600,cursor:"pointer"}}>編集</button>
                   <button onClick={async()=>{if(window.confirm("削除しますか？"))await deleteGeneralNotice(n.id);}} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #fca5a5",background:"#fff",color:"#dc2626",fontSize:11,fontWeight:600,cursor:"pointer"}}>削除</button>
                 </div>
               </div>
