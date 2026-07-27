@@ -1706,8 +1706,13 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
             // 締切のあるお知らせのみ表示（締切なしは表示しない）
             const noticeDue=myNotices.filter(n=>n.deadline&&!dismissedNotices.includes(n.id)).map(n=>({n,due:new Date(n.deadline)})).sort((a,b)=>a.due-b.due);
             // ③ 研修開催予定（今日から1ヶ月先までのローリング表示。月初の研修も前月から見える）
+            //    内部研修＋外部研修を時系列で表示。外部研修は参加予定の職員（対象者）のみ表示する
             const in1Month=new Date(today); in1Month.setMonth(in1Month.getMonth()+1);
-            const thisMonth=internals.filter(t=>{ if(!isTargetedFor(t,emp))return false; const d=new Date(t.date+"T00:00:00"); return d>=today&&d<=in1Month; }).sort((a,b)=>new Date(a.date)-new Date(b.date));
+            const inWindow=dstr=>{ const d=new Date(dstr+"T00:00:00"); return d>=today&&d<=in1Month; };
+            const thisMonth=[
+              ...internals.filter(t=>isTargetedFor(t,emp)&&inWindow(t.date)).map(t=>({kind:"i",id:t.id,date:t.date,item:t})),
+              ...externals.filter(x=>(x.targetEmpIds||[]).includes(emp.id)&&inWindow(x.date)).map(x=>({kind:"x",id:x.id,date:x.date,item:x})),
+            ].sort((a,b)=>new Date(a.date)-new Date(b.date));
             const isNew=t=> t.createdAt&&(Date.now()-new Date(t.createdAt).getTime())<10*86400000;
             const nothing=reportDue.length===0&&noticeDue.length===0&&thisMonth.length===0;
             const badgePill=b=><span style={{fontSize:12,fontWeight:800,color:b.color,background:"#fff",border:`1px solid ${b.bd}`,borderRadius:12,padding:"2px 10px",whiteSpace:"nowrap"}}>{b.label}</span>;
@@ -1770,17 +1775,21 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
               {thisMonth.length>0&&(
                 <div style={{marginBottom:18}}>
                   <div style={{fontWeight:800,fontSize:13,color:"#0e7490",marginBottom:8}}>📅 研修開催予定</div>
-                  {thisMonth.map(t=>{ const d=dleft(new Date(t.date)); const s=getIS(emp.id,t.id); const doneMark=s.attendance==="参加済"?"✅":s.video==="視聴済"?"✅":""; return(
-                    <div key={t.id} onClick={()=>{setFocusTrainingId(t.id);setReturnTab("notices");switchTab("training");}} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,background:"#fff",border:"1px solid #E8D5B0",borderRadius:10,padding:"10px 12px",marginBottom:6,cursor:"pointer"}}>
+                  {thisMonth.map(entry=>{ const t=entry.item; const isExt=entry.kind==="x"; const d=dleft(new Date(entry.date));
+                    const doneMark=isExt?(getXS(emp.id,t.id).attended?"✅":""):(()=>{const s=getIS(emp.id,t.id);return s.attendance==="参加済"||s.video==="視聴済"?"✅":"";})();
+                    return(
+                    <div key={entry.kind+entry.id} onClick={()=>{ if(isExt){setReturnTab("notices");switchTab("training");} else {setFocusTrainingId(t.id);setReturnTab("notices");switchTab("training");} }} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,background:"#fff",border:"1px solid #E8D5B0",borderRadius:10,padding:"10px 12px",marginBottom:6,cursor:"pointer"}}>
                       <div style={{minWidth:0}}>
                         <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:5}}>
-                          {isNew(t)&&<span style={{fontSize:10,fontWeight:800,color:"#fff",background:"#ef4444",borderRadius:6,padding:"1px 6px"}}>NEW</span>}
+                          {isExt&&<span style={S.extBadge}>外部</span>}
+                          {!isExt&&isNew(t)&&<span style={{fontSize:10,fontWeight:800,color:"#fff",background:"#ef4444",borderRadius:6,padding:"1px 6px"}}>NEW</span>}
                           <span style={{fontWeight:700,fontSize:14,color:"#4A3020"}}>{t.title}</span>
                           {doneMark&&<span style={{fontSize:12}}>{doneMark}</span>}
                         </div>
                         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                          <span style={{fontSize:14,fontWeight:800,color:"#0e7490"}}>📅 {formatDate(t.date)}{t.startTime?` ${t.startTime}${t.endTime?`〜${t.endTime}`:""}`:""}</span>
-                          {t.date2&&<span style={{fontSize:13,fontWeight:700,color:"#0e7490"}}>／ {formatDate(t.date2)}</span>}
+                          <span style={{fontSize:14,fontWeight:800,color:"#0e7490"}}>📅 {formatDate(entry.date)}{t.startTime?` ${t.startTime}${t.endTime?`〜${t.endTime}`:""}`:""}</span>
+                          {!isExt&&t.date2&&<span style={{fontSize:13,fontWeight:700,color:"#0e7490"}}>／ {formatDate(t.date2)}</span>}
+                          {isExt&&t.organizer&&<span style={{fontSize:12,color:"#6b7280"}}>🏢 {t.organizer}</span>}
                           {d>=0&&<span style={{fontSize:12,fontWeight:800,color:d<=3?"#dc2626":"#0e7490",background:d<=3?"#fef2f2":"#ecfeff",border:`1px solid ${d<=3?"#fca5a5":"#67e8f9"}`,borderRadius:12,padding:"1px 9px"}}>{d===0?"本日":`あと${d}日`}</span>}
                         </div>
                       </div>
@@ -2814,7 +2823,8 @@ function ToggleChip({label,active,color,onClick}){return <button onClick={onClic
 function PdfModal({ext,onClose}){
   const url=ext._pdfType==="notice"?ext.noticePdfUrl:ext.pdfUrl;
   return(
-    <div style={S.overlay} onClick={onClose}>
+    // 外部研修の詳細モーダル(zIndex 1500)より前面に出す
+    <div style={{...S.overlay,zIndex:2000}} onClick={onClose}>
       <div style={{...S.modal,maxWidth:700,width:"100vw",height:"100dvh",borderRadius:0,display:"flex",flexDirection:"column",padding:"12px 12px 0"}} onClick={e=>e.stopPropagation()}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,flexShrink:0}}>
           <div><div style={{fontWeight:800,fontSize:16,color:"#4A3020"}}>📄 研修要綱</div><div style={{fontSize:13,color:"#6b7280"}}>{ext.title}</div></div>
