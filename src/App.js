@@ -96,7 +96,8 @@ const roleRank = e => { const r=e.roleTitle||""; if(!r)return 9; if(r.includes("
 
 const db = {
   async getEmployees() {
-    const {data} = await supabase.from("employees").select("*").order("sort_order").order("id");
+    const {data,error} = await supabase.from("employees").select("*").order("sort_order").order("id");
+    if(error) throw error;
     return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept||"",joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false,isActive:r.is_active!==false,managedDepts:r.managed_depts||[],roleTitle:r.role_title||"",retireDate:r.retire_date||"",jobCategory:r.job_category||"",lineUserId:r.line_user_id||"",onLeave:r.on_leave===true,isAdmin:r.is_admin||false,isViewer:r.is_viewer||false}));
   },
   async upsertEmployee(emp) {
@@ -122,7 +123,8 @@ const db = {
   async deleteEmployee(id) { await supabase.from("employees").delete().eq("id",id); },
   async deleteAllEmployees() { await supabase.from("employees").delete().neq("id","__dummy__"); },
   async getIStatuses() {
-    const {data} = await supabase.from("i_statuses").select("*");
+    const {data,error} = await supabase.from("i_statuses").select("*");
+    if(error) throw error; // エラー時に空を返すと、自動処理が全員を白紙で上書きしてしまうため必ず投げる
     const map = {};
     (data||[]).forEach(r => { if(!map[r.emp_id])map[r.emp_id]={}; map[r.emp_id][r.training_id]={attendance:r.attendance,report:r.report,video:r.video,reportConfirmed:r.report_confirmed,attendedSession:r.attended_session||""}; });
     return map;
@@ -131,7 +133,8 @@ const db = {
     await supabase.from("i_statuses").upsert({emp_id:empId,training_id:tid,attendance:fields.attendance,report:fields.report,video:fields.video,report_confirmed:fields.reportConfirmed,attended_session:fields.attendedSession||"",updated_at:new Date().toISOString()},{onConflict:"emp_id,training_id"});
   },
   async getXStatuses() {
-    const {data} = await supabase.from("x_statuses").select("*");
+    const {data,error} = await supabase.from("x_statuses").select("*");
+    if(error) throw error; // 同上。エラー時は空を返さない
     const map = {};
     (data||[]).forEach(r => { if(!map[r.emp_id])map[r.emp_id]={}; map[r.emp_id][r.training_id]={attended:r.attended,reportSubmitted:r.report_submitted,reportConfirmed:r.report_confirmed}; });
     return map;
@@ -140,7 +143,8 @@ const db = {
     await supabase.from("x_statuses").upsert({emp_id:empId,training_id:xid,attended:fields.attended,report_submitted:fields.reportSubmitted,report_confirmed:fields.reportConfirmed,updated_at:new Date().toISOString()},{onConflict:"emp_id,training_id"});
   },
   async getInternals() {
-    const {data} = await supabase.from("internals").select("*").order("date");
+    const {data,error} = await supabase.from("internals").select("*").order("date");
+    if(error) throw error;
     return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,date2:r.date2||"",required:r.required,requiredEmpIds:r.required_emp_ids||[],targetEmpIds:r.target_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||"",endTime:r.end_time||"",noReport:r.no_report===true,noVideo:r.no_video===true,lecturer:r.lecturer||"",createdAt:r.created_at}));
   },
   async upsertInternal(t) {
@@ -149,7 +153,8 @@ const db = {
   },
   async deleteInternal(id) { await supabase.from("internals").delete().eq("id",id); },
   async getExternals() {
-    const {data} = await supabase.from("externals").select("*").order("date");
+    const {data,error} = await supabase.from("externals").select("*").order("date");
+    if(error) throw error;
     if(!data||data.length===0)return [];
     const oneYearAgo=new Date(Date.now()-365*24*60*60*1000);
     for(const r of data){
@@ -359,6 +364,9 @@ export default function App() {
   const [externals,setExternals] = useState([]);
   const [iStatuses,setIStatuses] = useState({});
   const [xStatuses,setXStatuses] = useState({});
+  // 必須データ（職員・研修・参加状況）を一度でも正しく読み込めたか。
+  // これがtrueになるまで、自動での欠席記録や書き込みを一切行わない（白紙上書きの防止）
+  const [dataReady,setDataReady] = useState(false);
   const [fiscalYear,setFiscalYear] = useState(currentFY());
   const [session,setSession]         = useState(null);
   const [manualSession,setManualSession] = useState(null);
@@ -380,11 +388,13 @@ export default function App() {
   const loadAllData = async(isInitial=false) => {
     if(isInitial)setLoading(true); else setRefreshing(true);
     try {
-      // 職員・研修データは必須 → 先に確実に読み込む
+      // 職員・研修データは必須 → 先に確実に読み込む。
+      // どれか1つでも失敗したらこのブロックは例外で抜け、既存データは一切上書きしない（白紙化の防止）
       const [emps,iS,xS,int,ext] = await Promise.all([
         db.getEmployees(),db.getIStatuses(),db.getXStatuses(),db.getInternals(),db.getExternals()
       ]);
       setEmployees(emps); setIStatuses(iS); setXStatuses(xS); setInternals(int); setExternals(ext);
+      setDataReady(true); // ここまで来て初めて、自動処理・書き込みを許可する
       if(isInitial)setLoading(false);
       // 委員会データは別で読み込む（失敗しても職員データに影響しない）
       try {
@@ -401,6 +411,11 @@ export default function App() {
         const [sems,smv] = await Promise.all([db.getSeminars(),db.getSeminarMonthly()]);
         setSeminars(sems); setSemMonthly(smv);
       } catch(e){ console.warn("セミナーデータ読み込みエラー（テーブル未作成の可能性）:",e); }
+    } catch(e){
+      // 必須データの読み込みに失敗。既存の画面表示（前回読めたデータ）を保持し、
+      // dataReadyをtrueにしないことで自動での欠席記録・書き込みを止める
+      console.error("必須データの読み込みに失敗しました。データは保護され、上書きは行いません:",e);
+      setDataReady(false);
     } finally { if(isInitial)setLoading(false); setRefreshing(false); }
   };
 
@@ -414,7 +429,8 @@ export default function App() {
   },[session,manualSession]);// eslint-disable-line
 
   useEffect(()=>{
-    if(loading||employees.length===0)return;
+    // 必須データを正しく読み込めるまでは自動記録しない（空データで全員を白紙上書きするのを防ぐ）
+    if(loading||!dataReady||employees.length===0)return;
     internals.forEach(t=>{
       // 2回開催の場合は遅い方の日程が過ぎるまで「未参加（確定）」にしない
       if(!isPast(t.date2&&t.date2>t.date?t.date2:t.date))return;
@@ -428,10 +444,12 @@ export default function App() {
         }
       });
     });
-  },[internals,loading,employees]);// eslint-disable-line
+  },[internals,loading,dataReady,employees]);// eslint-disable-line
 
   const getIS = (empId,tid) => iStatuses[empId]?.[tid]||{attendance:"未参加",report:"未提出",video:"未視聴",reportConfirmed:false,attendedSession:""};
   const setIS = async(empId,tid,field,val) => {
+    // データ読み込み前は書き込まない（空データを土台に既存記録を上書きしてしまうため）
+    if(!dataReady){ console.warn("データ読み込み前のため書き込みを中止しました"); return; }
     // field にオブジェクトを渡すと複数フィールドを同時更新できる
     const patch=typeof field==="object"?field:{[field]:val};
     const next={...getIS(empId,tid),...patch};
@@ -440,6 +458,7 @@ export default function App() {
   };
   const getXS = (empId,xid) => xStatuses[empId]?.[xid]||{attended:false,reportSubmitted:false,reportConfirmed:false};
   const setXS = async(empId,xid,patch) => {
+    if(!dataReady){ console.warn("データ読み込み前のため書き込みを中止しました"); return; }
     const next={...getXS(empId,xid),...patch};
     setXStatuses(p=>({...p,[empId]:{...p[empId],[xid]:next}}));
     await db.setXStatus(empId,xid,next);
