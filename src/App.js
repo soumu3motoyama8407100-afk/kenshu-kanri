@@ -1452,6 +1452,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
   const dismissNotice=id=>{ const next=[...new Set([...dismissedNotices,id])]; setDismissedNotices(next); try{localStorage.setItem(`ndismissed_${emp.id}`,JSON.stringify(next));}catch(_){} };
   const restoreNotice=id=>{ const next=dismissedNotices.filter(x=>x!==id); setDismissedNotices(next); try{localStorage.setItem(`ndismissed_${emp.id}`,JSON.stringify(next));}catch(_){} };
   const [showDismissed,setShowDismissed]=useState(false);
+  const [showDoneExt,setShowDoneExt]=useState(false); // 外部研修：受講済みも表示するか（既定は未受講のみ）
   const [showTutorial,setShowTutorial]=useState(()=>{ try{ return localStorage.getItem("tutorial_seen")!=="1"; }catch(_){ return false; } });
   const closeTutorial=()=>{ try{ localStorage.setItem("tutorial_seen","1"); }catch(_){}; setShowTutorial(false); };
   // 🆕 更新情報：最新の更新をまだ見ていない人には赤い印を出す
@@ -1643,17 +1644,32 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
         <div style={S.scroll}>
           {tab==="training"&&(
             <div style={{display:"flex",flexDirection:"column",gap:16}}>
-              {/* 外部研修 */}
-              {fyExternals.length>0&&(
+              {/* 外部研修：未受講のみ既定表示し、受講済みは折りたたむ（多くても内部研修が埋もれないように）。
+                  ※ カードのデータ配線(getXS/setXS)は一切変えていない＝既存の受講・復命書は影響なし */}
+              {fyExternals.length>0&&(()=>{
+                const extCard=x=>(
+                  <ExternalCard key={x.id} ext={x} empId={emp.id} status={getXS(emp.id,x.id)} readonly={!isCurrentFY}
+                    onAttend={v=>{ if(isCurrentFY){setXS(emp.id,x.id,{attended:v});showToast(v?"受講済にしました":"「受講済」を取り消しました");} }}
+                    onViewPdf={type=>setPdfExt({...x,_pdfType:type})}/>
+                );
+                const extPending=fyExternals.filter(x=>!getXS(emp.id,x.id).attended);
+                const extDone=fyExternals.filter(x=>getXS(emp.id,x.id).attended);
+                return(
                 <div>
-                  <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"6px 12px",background:"#FDF6EC",borderRadius:8,marginBottom:8,border:"1px solid #E8D5B0"}}>🌐 外部研修（{fyExternals.length}件）</div>
-                  {fyExternals.map(x=>(
-                    <ExternalCard key={x.id} ext={x} empId={emp.id} status={getXS(emp.id,x.id)} readonly={!isCurrentFY}
-                      onAttend={v=>{ if(isCurrentFY){setXS(emp.id,x.id,{attended:v});showToast(v?"受講済にしました":"「受講済」を取り消しました");} }}
-                      onViewPdf={type=>setPdfExt({...x,_pdfType:type})}/>
-                  ))}
+                  <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"6px 12px",background:"#FDF6EC",borderRadius:8,marginBottom:8,border:"1px solid #E8D5B0"}}>🌐 外部研修（未受講 {extPending.length}件{extDone.length>0?` ／ 受講済 ${extDone.length}件`:""}）</div>
+                  {extPending.map(extCard)}
+                  {extPending.length===0&&extDone.length>0&&<div style={{fontSize:12,color:"#9ca3af",padding:"8px 12px"}}>未受講の外部研修はありません 🎉</div>}
+                  {extDone.length>0&&(
+                    <div style={{marginTop:4}}>
+                      <button onClick={()=>setShowDoneExt(v=>!v)} style={{fontSize:12,fontWeight:700,color:"#A07840",background:"#fff",border:"1px solid #E8D5B0",borderRadius:20,padding:"6px 14px",cursor:"pointer"}}>
+                        {showDoneExt?`▲ 受講済 ${extDone.length}件を隠す`:`▼ 受講済 ${extDone.length}件を表示`}
+                      </button>
+                      {showDoneExt&&<div style={{marginTop:8}}>{extDone.map(extCard)}</div>}
+                    </div>
+                  )}
                 </div>
-              )}
+                );
+              })()}
               {/* 内部研修 */}
               {fyInternals.length>0&&(
                 <div>
