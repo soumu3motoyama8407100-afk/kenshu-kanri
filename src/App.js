@@ -93,10 +93,23 @@ const sortDepts = ds => [...ds].sort((a,b)=>{ const ia=DEPT_ORDER.indexOf(a),ib=
 // 役職の表示優先度（小さいほど上）
 const roleRank = e => { const r=e.roleTitle||""; if(!r)return 9; if(r.includes("施設長"))return 0; if(r.includes("管理者"))return 1; if(r.includes("副主任"))return 3; if(r.includes("主任"))return 2; return 4; };
 
+// Supabaseは1回のselectで最大1000行しか返さない。全行を分割取得する（1000行超で記録が欠落し
+// 「未参加」誤表示になるのを防ぐ）。build() は毎回新しいクエリビルダを返すこと。
+async function selectAll(build){
+  const pageSize=1000; let from=0; const out=[];
+  for(;;){
+    const { data, error } = await build().range(from, from+pageSize-1);
+    if(error) throw error;
+    const rows=data||[];
+    out.push(...rows);
+    if(rows.length<pageSize) break;
+    from+=pageSize;
+  }
+  return out;
+}
 const db = {
   async getEmployees() {
-    const {data,error} = await supabase.from("employees").select("*").order("sort_order").order("id");
-    if(error) throw error;
+    const data = await selectAll(()=>supabase.from("employees").select("*").order("sort_order").order("id"));
     return (data||[]).map(r=>({id:r.id,password:r.password,name:r.name,dept:r.dept||"",joinDate:r.join_date||"",qualifications:r.qualifications||[],certTrainings:r.cert_trainings||[],isManager:r.is_manager||false,isActive:r.is_active!==false,managedDepts:r.managed_depts||[],roleTitle:r.role_title||"",retireDate:r.retire_date||"",jobCategory:r.job_category||"",lineUserId:r.line_user_id||"",onLeave:r.on_leave===true,isAdmin:r.is_admin||false,isViewer:r.is_viewer||false}));
   },
   async upsertEmployee(emp) {
@@ -122,8 +135,7 @@ const db = {
   async deleteEmployee(id) { await supabase.from("employees").delete().eq("id",id); },
   async deleteAllEmployees() { await supabase.from("employees").delete().neq("id","__dummy__"); },
   async getIStatuses() {
-    const {data,error} = await supabase.from("i_statuses").select("*");
-    if(error) throw error; // エラー時に空を返すと、自動処理が全員を白紙で上書きしてしまうため必ず投げる
+    const data = await selectAll(()=>supabase.from("i_statuses").select("*")); // 1000行超で欠落しないよう全取得
     const map = {};
     (data||[]).forEach(r => { if(!map[r.emp_id])map[r.emp_id]={}; map[r.emp_id][r.training_id]={attendance:r.attendance,report:r.report,video:r.video,reportConfirmed:r.report_confirmed,attendedSession:r.attended_session||""}; });
     return map;
@@ -132,8 +144,7 @@ const db = {
     await supabase.from("i_statuses").upsert({emp_id:empId,training_id:tid,attendance:fields.attendance,report:fields.report,video:fields.video,report_confirmed:fields.reportConfirmed,attended_session:fields.attendedSession||"",updated_at:new Date().toISOString()},{onConflict:"emp_id,training_id"});
   },
   async getXStatuses() {
-    const {data,error} = await supabase.from("x_statuses").select("*");
-    if(error) throw error; // 同上。エラー時は空を返さない
+    const data = await selectAll(()=>supabase.from("x_statuses").select("*")); // 1000行超で欠落しないよう全取得
     const map = {};
     (data||[]).forEach(r => { if(!map[r.emp_id])map[r.emp_id]={}; map[r.emp_id][r.training_id]={attended:r.attended,reportSubmitted:r.report_submitted,reportConfirmed:r.report_confirmed}; });
     return map;
@@ -142,8 +153,7 @@ const db = {
     await supabase.from("x_statuses").upsert({emp_id:empId,training_id:xid,attended:fields.attended,report_submitted:fields.reportSubmitted,report_confirmed:fields.reportConfirmed,updated_at:new Date().toISOString()},{onConflict:"emp_id,training_id"});
   },
   async getInternals() {
-    const {data,error} = await supabase.from("internals").select("*").order("date");
-    if(error) throw error;
+    const data = await selectAll(()=>supabase.from("internals").select("*").order("date"));
     return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,date2:r.date2||"",required:r.required,requiredEmpIds:r.required_emp_ids||[],targetEmpIds:r.target_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||"",endTime:r.end_time||"",noReport:r.no_report===true,noVideo:r.no_video===true,lecturer:r.lecturer||"",createdAt:r.created_at}));
   },
   async upsertInternal(t) {
@@ -152,8 +162,7 @@ const db = {
   },
   async deleteInternal(id) { await supabase.from("internals").delete().eq("id",id); },
   async getExternals() {
-    const {data,error} = await supabase.from("externals").select("*").order("date");
-    if(error) throw error;
+    const data = await selectAll(()=>supabase.from("externals").select("*").order("date"));
     if(!data||data.length===0)return [];
     const oneYearAgo=new Date(Date.now()-365*24*60*60*1000);
     for(const r of data){
@@ -246,7 +255,7 @@ const db = {
     await supabase.from("committee_notices").delete().eq("id",id);
   },
   async getCommitteeMembers() {
-    const {data} = await supabase.from("committee_members").select("*");
+    const data = await selectAll(()=>supabase.from("committee_members").select("*"));
     const map = {};
     (data||[]).forEach(r=>{ if(!map[r.committee_id])map[r.committee_id]=[]; map[r.committee_id].push(r.emp_id); });
     return map;
@@ -267,7 +276,7 @@ const db = {
     await supabase.from("committee_meetings").delete().eq("id",id);
   },
   async getMeetingReads() {
-    const {data} = await supabase.from("committee_meeting_reads").select("*");
+    const data = await selectAll(()=>supabase.from("committee_meeting_reads").select("*"));
     const map = {};
     (data||[]).forEach(r=>{ if(!map[r.meeting_id])map[r.meeting_id]=[]; map[r.meeting_id].push(r.emp_id); });
     return map;
@@ -305,7 +314,7 @@ const db = {
     await supabase.from("seminars").delete().eq("id",id);
   },
   async getSeminarMonthly() {
-    const {data} = await supabase.from("seminar_monthly_views").select("*");
+    const data = await selectAll(()=>supabase.from("seminar_monthly_views").select("*")); // 1000行超で欠落しないよう全取得
     const map = {};
     (data||[]).forEach(r => { map[`${r.emp_id}|${r.seminar_id}|${r.ym}`]={watched:r.watched===true,reportSubmitted:r.report_submitted===true}; });
     return map;
