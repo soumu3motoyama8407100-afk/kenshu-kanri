@@ -60,7 +60,6 @@ const BADGES = [
 ];
 const getBadge = c => c===0?null:BADGES.find(b=>c>=b.min&&c<=b.max)||BADGES[BADGES.length-1];
 const rankStyle = r => r===1?{icon:"🥇",color:"#d97706"}:r===2?{icon:"🥈",color:"#6b7280"}:r===3?{icon:"🥉",color:"#b45309"}:{icon:`${r}`,color:"#374151"};
-const isPast = ds => { if(!ds)return false; const t=new Date();t.setHours(0,0,0,0);const d=new Date(ds);d.setHours(0,0,0,0);return t>d; };
 const formatDate = ds => { if(!ds)return ""; const d=new Date(ds+"T00:00:00"); const w=["日","月","火","水","木","金","土"][d.getDay()]; return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}（${w}）`; };
 // 令和表記（例：令和8年7月20日(月)）
 const formatReiwa = ds => { if(!ds)return ""; const d=new Date(ds+"T00:00:00"); const w=["日","月","火","水","木","金","土"][d.getDay()]; const ry=d.getFullYear()-2018; return `令和${ry===1?"元":ry}年${d.getMonth()+1}月${d.getDate()}日(${w})`; };
@@ -428,23 +427,10 @@ export default function App() {
     return ()=>clearInterval(id);
   },[session,manualSession]);// eslint-disable-line
 
-  useEffect(()=>{
-    // 必須データを正しく読み込めるまでは自動記録しない（空データで全員を白紙上書きするのを防ぐ）
-    if(loading||!dataReady||employees.length===0)return;
-    internals.forEach(t=>{
-      // 2回開催の場合は遅い方の日程が過ぎるまで「未参加（確定）」にしない
-      if(!isPast(t.date2&&t.date2>t.date?t.date2:t.date))return;
-      employees.forEach(emp=>{
-        if(!isTargetedFor(t,emp))return; // 対象外の職員は欠席扱いにしない
-        const cur=iStatuses[emp.id]?.[t.id];
-        if(!cur||(cur.attendance!=="参加済"&&cur.attendance!=="未参加（確定）")){
-          const next={attendance:"未参加（確定）",report:(cur?.report||"未提出"),video:(cur?.video||"未視聴"),reportConfirmed:(cur?.reportConfirmed||false),attendedSession:(cur?.attendedSession||"")};
-          setIStatuses(p=>({...p,[emp.id]:{...p[emp.id],[t.id]:next}}));
-          db.setIStatus(emp.id,t.id,next);
-        }
-      });
-    });
-  },[internals,loading,dataReady,employees]);// eslint-disable-line
+  // ※「過去の研修を自動で未参加（確定）にする」処理は廃止しました。
+  //   30秒ごとに全端末がDBへ書き込むため、管理者が手動でつけた「参加済」を別端末の自動処理が
+  //   古い状態を読んで上書きする競合が発生していました（さらに読み込み失敗時の全白紙化の原因にも）。
+  //   欠席の確定は保存せず、表示時に「開催日が過ぎている かつ 未参加」で判定します（InternalCardのabsentFix）。
 
   const getIS = (empId,tid) => iStatuses[empId]?.[tid]||{attendance:"未参加",report:"未提出",video:"未視聴",reportConfirmed:false,attendedSession:""};
   const setIS = async(empId,tid,field,val) => {
@@ -2170,10 +2156,12 @@ function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVi
   const attended=status.attendance==="参加済";
   const hasTwoDates=!!training.date2;
   const sessionMark=status.attendedSession==="1"?"①":status.attendedSession==="2"?"②":"";
-  const absentFix=status.attendance==="未参加（確定）";
   // 開催日が今日より前かどうか（終了済み／これから、を色だけで示す）
   const lastDate=training.date2||training.date;
   const isPast=new Date(lastDate+"T23:59:59")<new Date();
+  // 「当日欠席（確定）」は保存せず表示時に計算：開催日が過ぎている かつ 未参加。
+  // 過去に自動処理で保存された「未参加（確定）」レコードもこの条件で同じ扱いになる
+  const absentFix=!attended&&isPast;
   // 動画の視聴済/未視聴ボタンは「未参加のまま研修が終わった翌日」から出す。
   // 開催前・当日は出さないことで詳細画面を短くし、下にある復命書の操作までスクロールせずに届くようにする
   const showVideo=!attended&&!training.noVideo&&isPast;
