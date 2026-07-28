@@ -286,10 +286,10 @@ const db = {
   },
   async getGeneralNotices() {
     const {data} = await supabase.from("general_notices").select("*").order("created_at",{ascending:false});
-    return (data||[]).map(r=>({id:r.id,category:r.category||"各種お知らせ",title:r.title,body:r.body||"",fileUrl:r.file_url||null,filePath:r.file_path||null,fileName:r.file_name||null,targetEmpIds:r.target_emp_ids||[],postedBy:r.posted_by||"",createdAt:r.created_at,deadline:r.deadline||null,lineDate:r.line_date||"",lineTime:r.line_time||""}));
+    return (data||[]).map(r=>({id:r.id,category:r.category||"各種お知らせ",title:r.title,body:r.body||"",fileUrl:r.file_url||null,filePath:r.file_path||null,fileName:r.file_name||null,targetEmpIds:r.target_emp_ids||[],postedBy:r.posted_by||"",createdAt:r.created_at,deadline:r.deadline||null,hideAfter:r.hide_after||"",lineDate:r.line_date||"",lineTime:r.line_time||""}));
   },
   async upsertGeneralNotice(n) {
-    await supabase.from("general_notices").upsert({id:n.id,category:n.category||"各種お知らせ",title:n.title,body:n.body||"",file_url:n.fileUrl||null,file_path:n.filePath||null,file_name:n.fileName||null,target_emp_ids:n.targetEmpIds||[],posted_by:n.postedBy||"ADMIN",deadline:n.deadline||null,line_date:n.lineDate||null,line_time:n.lineTime||null,updated_at:new Date().toISOString()},{onConflict:"id"});
+    await supabase.from("general_notices").upsert({id:n.id,category:n.category||"各種お知らせ",title:n.title,body:n.body||"",file_url:n.fileUrl||null,file_path:n.filePath||null,file_name:n.fileName||null,target_emp_ids:n.targetEmpIds||[],posted_by:n.postedBy||"ADMIN",deadline:n.deadline||null,hide_after:n.hideAfter||null,line_date:n.lineDate||null,line_time:n.lineTime||null,updated_at:new Date().toISOString()},{onConflict:"id"});
   },
   async uploadGeneralNoticePdf(id,file) {
     const MAX=20*1024*1024;
@@ -1715,10 +1715,11 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
               const required=(t.requiredEmpIds||[]).includes(emp.id)||t.required===true||s.attendance==="参加済";
               return required&&s.report!=="提出済"&&s.report!=="提出しない"&&!s.reportConfirmed;
             }).map(t=>({t,due:eom(t.date)})).sort((a,b)=>a.due-b.due);
-            // ② お知らせ（締切あり/なし）
+            // ② お知らせ（締切 または 掲載終了日 があるものを表示）
             const myNotices=(committeeProps?.generalNotices||[]).filter(n=>(n.targetEmpIds||[]).length===0||(n.targetEmpIds||[]).includes(emp.id));
-            // 締切のあるお知らせのみ表示（締切なしは表示しない）
-            const noticeDue=myNotices.filter(n=>n.deadline&&!dismissedNotices.includes(n.id)).map(n=>({n,due:new Date(n.deadline)})).sort((a,b)=>a.due-b.due);
+            // 掲載終了日を過ぎたら自動で非表示。締切だけ／掲載終了日だけ でも表示する
+            const expired=n=>n.hideAfter&&dleft(new Date(n.hideAfter))<0;
+            const noticeDue=myNotices.filter(n=>(n.deadline||n.hideAfter)&&!dismissedNotices.includes(n.id)&&!expired(n)).map(n=>({n,due:new Date(n.deadline||n.hideAfter)})).sort((a,b)=>a.due-b.due);
             // ③ 研修開催予定（今日から1ヶ月先までのローリング表示。月初の研修も前月から見える）
             //    内部研修＋外部研修を時系列で表示。外部研修は参加予定の職員（対象者）のみ表示する
             const in1Month=new Date(today); in1Month.setMonth(in1Month.getMonth()+1);
@@ -1735,7 +1736,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
             <div>
               <div style={{fontWeight:700,fontSize:14,color:"#1e3a5f",marginBottom:14}}>🔔 お知らせ・締切</div>
               {/* お知らせ詳細モーダル */}
-              {openNotice&&(()=>{ const {n,due}=openNotice; const b=dueBadge(dleft(due)); return(
+              {openNotice&&(()=>{ const {n,due}=openNotice; const hasDl=!!n.deadline; const b=dueBadge(dleft(due)); return(
                 <div style={{...S.overlay,zIndex:1500}} onClick={()=>setOpenNoticeId(null)}>
                   <div style={{...S.modal,maxWidth:480,width:"92vw",maxHeight:"85vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,marginBottom:12}}>
@@ -1745,7 +1746,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                       </div>
                       <button style={S.logoutBtn} onClick={()=>setOpenNoticeId(null)}>✕</button>
                     </div>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>{badgePill(b)}<span style={{fontSize:12,color:"#6b7280"}}>締切 {formatDate(n.deadline)}</span></div>
+                    {hasDl&&<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>{badgePill(b)}<span style={{fontSize:12,color:"#6b7280"}}>締切 {formatDate(n.deadline)}</span></div>}
                     {n.body&&<div style={{fontSize:14,color:"#374151",whiteSpace:"pre-wrap",lineHeight:1.8,marginBottom:14}}><LinkifiedText text={n.body}/></div>}
                     {n.fileUrl&&<a href={n.fileUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:13,color:"#2563eb",fontWeight:600,textDecoration:"underline",marginBottom:16}}>📄 {n.fileName||"添付PDF"}</a>}
                     <button onClick={()=>{dismissNotice(n.id);setOpenNoticeId(null);}} style={{width:"100%",padding:"11px",background:"#f3f4f6",border:"1px solid #e5e7eb",borderRadius:12,color:"#4A3020",fontSize:13,fontWeight:700,cursor:"pointer",marginTop:n.fileUrl?12:0}}>✓ 対応済みにする</button>
@@ -1768,17 +1769,17 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                       </div>
                     </div>
                   );})}
-                  {noticeDue.map(({n,due})=>{ const b=dueBadge(dleft(due)); return(
-                    <div key={"n"+n.id} onClick={()=>setOpenNoticeId(n.id)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,background:b.bg,border:`1px solid ${b.bd}`,borderRadius:10,padding:"10px 12px",marginBottom:6,cursor:"pointer"}}>
+                  {noticeDue.map(({n,due})=>{ const hasDl=!!n.deadline; const b=dueBadge(dleft(due)); return(
+                    <div key={"n"+n.id} onClick={()=>setOpenNoticeId(n.id)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,background:hasDl?b.bg:"#fff",border:`1px solid ${hasDl?b.bd:"#E8D5B0"}`,borderRadius:10,padding:"10px 12px",marginBottom:6,cursor:"pointer"}}>
                       <div style={{minWidth:0,flex:1}}>
                         <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
                           <span style={{fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:10,background:`${catColor(n.category)}18`,color:catColor(n.category),flexShrink:0}}>{n.category}</span>
                           <span style={{fontWeight:700,fontSize:13,color:"#1e3a5f",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{n.title}</span>
                         </div>
-                        <div style={{fontSize:11,color:"#9ca3af"}}>締切 {formatDate(n.deadline)}</div>
+                        {hasDl&&<div style={{fontSize:11,color:"#9ca3af"}}>締切 {formatDate(n.deadline)}</div>}
                       </div>
                       <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-                        {badgePill(b)}
+                        {hasDl&&badgePill(b)}
                         <span style={{color:"#C89A55",fontSize:11,fontWeight:700}}>詳細 ›</span>
                       </div>
                     </div>
@@ -1820,7 +1821,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                 </div>
               )}
               {/* 対応済みにしたお知らせを元に戻す */}
-              {(()=>{ const dismissedList=myNotices.filter(x=>x.deadline&&dismissedNotices.includes(x.id)); if(dismissedList.length===0)return null; return(
+              {(()=>{ const dismissedList=myNotices.filter(x=>(x.deadline||x.hideAfter)&&dismissedNotices.includes(x.id)); if(dismissedList.length===0)return null; return(
                 <div style={{marginTop:18,textAlign:"center"}}>
                   {!showDismissed
                     ?<span onClick={()=>setShowDismissed(true)} style={{fontSize:11.5,color:"#9ca3af",textDecoration:"underline",cursor:"pointer"}}>対応済みにしたお知らせ（{dismissedList.length}）</span>
@@ -4513,7 +4514,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   const [selectedId,setSelectedId]=useState(committees[0]?.id||null); // 委員会用
   const [showForm,setShowForm]=useState(false);
   const [form,setForm]=useState({id:"",title:"",body:"",isPublic:false});
-  const [gForm,setGForm]=useState({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:"",lineMessage:"",deadline:"",sendLine:true});
+  const [gForm,setGForm]=useState({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:"",lineMessage:"",deadline:"",hideAfter:"",sendLine:true});
   const [pdfFile,setPdfFile]=useState(null);
   const [showTargetSel,setShowTargetSel]=useState(false);
   const [selDept,setSelDept]=useState("すべて");
@@ -4543,7 +4544,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   const selected=committees.find(c=>c.id===selectedId);
   const myCommNotices=(committeeNotices||[]).filter(n=>n.committeeId===selectedId);
 
-  const resetGForm=()=>{setGForm({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:"",lineMessage:"",deadline:"",sendLine:true});setPdfFile(null);setShowTargetSel(false);setSelDept("すべて");};
+  const resetGForm=()=>{setGForm({id:"",title:"",body:"",fileUrl:null,filePath:null,fileName:null,targetEmpIds:[],lineDate:"",lineTime:"",lineMessage:"",deadline:"",hideAfter:"",sendLine:true});setPdfFile(null);setShowTargetSel(false);setSelDept("すべて");};
   const buildAutoMsg=(title,body,cat2,deadline)=>`📢【${cat2||cat}】${title}${body?"\n\n"+body:""}${deadline?`\n\n回答期限：${formatReiwa(deadline)}`:""}`;
   // メッセージにPDF添付リンクを差し込む（「回答期限：」行がある場合はその前に入れて期限を最終行に保つ）
   const appendFileLink=(msg,url)=>{
@@ -4776,6 +4777,15 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
                 </div>
                 <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>※ 設定すると、職員の「締切」タブに残り日数付きで表示されます（提出物・アンケート等の締切に）。</div>
               </div>
+              {/* 掲載終了日（任意）：この日を過ぎたら職員のお知らせから自動で消える */}
+              <div style={{marginBottom:12,padding:"10px 12px",background:"#f0f9ff",borderRadius:10,border:"1px solid #7dd3fc"}}>
+                <label style={{fontSize:13,fontWeight:700,color:"#0369a1",display:"block",marginBottom:6}}>🗓 掲載終了日（任意）</label>
+                <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                  <input type="date" style={{...S.input,borderColor:"#7dd3fc",width:"auto"}} value={gForm.hideAfter||""} onChange={e=>setGForm(p=>({...p,hideAfter:e.target.value}))}/>
+                  {gForm.hideAfter&&<button type="button" onClick={()=>setGForm(p=>({...p,hideAfter:""}))} style={{fontSize:12,color:"#9ca3af",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"4px 10px",cursor:"pointer"}}>クリア</button>}
+                </div>
+                <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>※ この日まで表示し、翌日から職員のお知らせ画面に出なくなります（お詫び・周知など、期限を過ぎたら消したい連絡に）。締切日なしでも、掲載終了日だけで表示できます。</div>
+              </div>
               {/* LINEメッセージプレビュー（タイトル・内容から自動生成、常に一致） */}
               <div style={{marginBottom:12,padding:"12px",background:"#f0f9ff",borderRadius:10,border:"1.5px solid #7dd3fc"}}>
                 <div style={{fontSize:13,fontWeight:700,color:"#0369a1",marginBottom:8}}>📱 LINEメッセージ</div>
@@ -4888,7 +4898,7 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
                   {n.fileUrl&&<a href={n.fileUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",marginTop:6,fontSize:12,color:"#2563eb",fontWeight:600,textDecoration:"underline"}}>📄 {n.fileName||"添付PDF"}</a>}
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
-                  <button onClick={()=>{ setCat(n.category); setGForm({id:n.id,title:n.title,body:n.body||"",fileUrl:n.fileUrl||null,filePath:n.filePath||null,fileName:n.fileName||null,targetEmpIds:n.targetEmpIds||[],lineDate:n.lineDate||"",lineTime:n.lineTime||"",lineMessage:"",deadline:n.deadline||"",sendLine:!!(n.lineDate&&n.lineTime)}); setShowTargetSel((n.targetEmpIds||[]).length>0); setPdfFile(null); setShowTest(false); setShowForm(true); }} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #93c5fd",background:"#eff6ff",color:"#2563eb",fontSize:11,fontWeight:600,cursor:"pointer"}}>編集</button>
+                  <button onClick={()=>{ setCat(n.category); setGForm({id:n.id,title:n.title,body:n.body||"",fileUrl:n.fileUrl||null,filePath:n.filePath||null,fileName:n.fileName||null,targetEmpIds:n.targetEmpIds||[],lineDate:n.lineDate||"",lineTime:n.lineTime||"",lineMessage:"",deadline:n.deadline||"",hideAfter:n.hideAfter||"",sendLine:!!(n.lineDate&&n.lineTime)}); setShowTargetSel((n.targetEmpIds||[]).length>0); setPdfFile(null); setShowTest(false); setShowForm(true); }} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #93c5fd",background:"#eff6ff",color:"#2563eb",fontSize:11,fontWeight:600,cursor:"pointer"}}>編集</button>
                   <button onClick={async()=>{if(window.confirm("削除しますか？"))await deleteGeneralNotice(n.id);}} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #fca5a5",background:"#fff",color:"#dc2626",fontSize:11,fontWeight:600,cursor:"pointer"}}>削除</button>
                 </div>
               </div>
