@@ -1454,6 +1454,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
   const restoreNotice=id=>{ const next=dismissedNotices.filter(x=>x!==id); setDismissedNotices(next); try{localStorage.setItem(`ndismissed_${emp.id}`,JSON.stringify(next));}catch(_){} };
   const [showDismissed,setShowDismissed]=useState(false);
   const [showDoneExt,setShowDoneExt]=useState(false); // 外部研修：受講済みも表示するか（既定は未受講のみ）
+  const [showDoneInt,setShowDoneInt]=useState(false); // 内部研修：完了分も表示するか（既定は未完了のみ）
   const [showTutorial,setShowTutorial]=useState(()=>{ try{ return localStorage.getItem("tutorial_seen")!=="1"; }catch(_){ return false; } });
   const closeTutorial=()=>{ try{ localStorage.setItem("tutorial_seen","1"); }catch(_){}; setShowTutorial(false); };
   // 🆕 更新情報：最新の更新をまだ見ていない人には赤い印を出す
@@ -1678,24 +1679,46 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                 </div>
                 );
               })()}
-              {/* 内部研修 */}
-              {fyInternals.length>0&&(
+              {/* 内部研修：外部研修と同じく未完了のみ既定表示し、完了（参加/視聴済＋復命書済）は折りたたむ。
+                  復命書未提出は赤い印付きで未完了側に残る。※ InternalCardのデータ配線(getIS/setIS)は不変 */}
+              {fyInternals.length>0&&(()=>{
+                const intCard=t=>(
+                  <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)} empId={emp.id} readonly={!isCurrentFY}
+                    focusId={focusTrainingId} onFocused={()=>setFocusTrainingId(null)}
+                    onDetailClosed={()=>{ if(returnTab){ switchTab(returnTab); setReturnTab(null); } }}
+                    onCancelReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","未提出");showToast("「提出しない」を取り消しました");} }}
+                    onDeclineReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","提出しない");showToast("「提出しない」にしました");} }}
+                    onVideo={v=>{ if(isCurrentFY){setIS(emp.id,t.id,"video",v);} }}
+                    onWatchVideo={()=>{setVideoT(t);setShowVideoModal(true);}}
+                    onAttendSession={async s=>{ if(isCurrentFY){ await setIS(emp.id,t.id,{attendance:"参加済",attendedSession:s}); showToast(`✅ ${s==="1"?"①":"②"}に参加で記録しました`); } }}/>
+                );
+                // 完了＝参加or視聴済 かつ 復命書が片付いている（確認済/不要/提出しない）。復命書未提出は未完了側に残す
+                const isComplete=t=>{
+                  const s=getIS(emp.id,t.id);
+                  const engaged=s.attendance==="参加済"||s.video==="視聴済";
+                  if(!engaged)return false;
+                  const reportReq=!t.noReport&&(t.required===true||(t.requiredEmpIds||[]).includes(emp.id)||s.attendance==="参加済");
+                  const reportDone=!reportReq||s.reportConfirmed||s.report==="提出しない"||s.report==="提出済";
+                  return reportDone;
+                };
+                const intPending=fyInternals.filter(t=>!isComplete(t));
+                const intDone=fyInternals.filter(t=>isComplete(t));
+                return(
                 <div>
-                  <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"6px 12px",background:"#FDF6EC",borderRadius:8,marginBottom:8,border:"1px solid #E8D5B0"}}>🏢 内部研修（{fyInternals.length}件）</div>
-                  <div className="app-content-grid">
-                    {fyInternals.map(t=>(
-                      <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)} empId={emp.id} readonly={!isCurrentFY}
-                        focusId={focusTrainingId} onFocused={()=>setFocusTrainingId(null)}
-                        onDetailClosed={()=>{ if(returnTab){ switchTab(returnTab); setReturnTab(null); } }}
-                        onCancelReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","未提出");showToast("「提出しない」を取り消しました");} }}
-                        onDeclineReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","提出しない");showToast("「提出しない」にしました");} }}
-                        onVideo={v=>{ if(isCurrentFY){setIS(emp.id,t.id,"video",v);} }}
-                        onWatchVideo={()=>{setVideoT(t);setShowVideoModal(true);}}
-                        onAttendSession={async s=>{ if(isCurrentFY){ await setIS(emp.id,t.id,{attendance:"参加済",attendedSession:s}); showToast(`✅ ${s==="1"?"①":"②"}に参加で記録しました`); } }}/>
-                    ))}
-                  </div>
+                  <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"6px 12px",background:"#FDF6EC",borderRadius:8,marginBottom:8,border:"1px solid #E8D5B0"}}>🏢 内部研修（未完了 {intPending.length}件{intDone.length>0?` ／ 完了 ${intDone.length}件`:""}）</div>
+                  <div className="app-content-grid">{intPending.map(intCard)}</div>
+                  {intPending.length===0&&intDone.length>0&&<div style={{fontSize:12,color:"#9ca3af",padding:"8px 12px"}}>未完了の内部研修はありません 🎉</div>}
+                  {intDone.length>0&&(
+                    <div style={{marginTop:8}}>
+                      <button onClick={()=>setShowDoneInt(v=>!v)} style={{fontSize:12,fontWeight:700,color:"#A07840",background:"#fff",border:"1px solid #E8D5B0",borderRadius:20,padding:"6px 14px",cursor:"pointer"}}>
+                        {showDoneInt?`▲ 完了 ${intDone.length}件を隠す`:`▼ 完了 ${intDone.length}件を表示`}
+                      </button>
+                      {showDoneInt&&<div className="app-content-grid" style={{marginTop:8}}>{intDone.map(intCard)}</div>}
+                    </div>
+                  )}
                 </div>
-              )}
+                );
+              })()}
               {fyInternals.length===0&&fyExternals.length===0&&<div style={S.empty}>{viewFY}年度の研修はありません</div>}
               {/* 自己学習の記録（管理者は関与しない・参考記録） */}
               <SelfTrainingSection items={selfTrainings} onAdd={addSelfTraining} onToggleReport={toggleSelfReport} onDelete={deleteSelfTraining}/>
@@ -2207,6 +2230,9 @@ function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVi
   const reportRequired=!training.noReport&&(training.required===true||(training.requiredEmpIds||[]).includes(empId)||attended);
   // 復命書必須バッジの表示（必須の人にだけ出す。動画視聴のみの人には出さない）
   const showReqBadge=reportRequired;
+  // 参加/視聴済みだが復命書がまだ確認されていない＝復命書未提出（赤い印を出す）
+  const engaged=attended||status.video==="視聴済";
+  const reportOutstanding=engaged&&reportRequired&&!status.reportConfirmed&&status.report!=="提出しない"&&status.report!=="提出済";
   const dateLine=(
     <div style={{...S.cardDate,color:isPast?"#9ca3af":S.cardDate.color}}>
       📅 {hasTwoDates?<>① {formatDate(training.date)}　② {formatDate(training.date2)}</>:formatDate(training.date)}
@@ -2220,6 +2246,7 @@ function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVi
       <div style={S.cardHead} onClick={()=>setOpen(true)}>
         <div style={{flex:1}}>
           {showReqBadge&&<span style={S.reqBadge}>復命書必須</span>}
+          {reportOutstanding&&<span style={{fontSize:11,fontWeight:800,color:"#dc2626",background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:20,padding:"2px 9px",marginLeft:4,whiteSpace:"nowrap"}}>● 復命書未提出</span>}
           {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
           <div style={{...S.cardTitle,color:isPast?"#8a7660":S.cardTitle.color}}>{training.title}</div>
           {dateLine}
