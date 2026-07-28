@@ -2228,11 +2228,10 @@ function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVi
   const canAccessReport=attended||(!training.noVideo&&status.video==="視聴済");
   // 復命書が必須か：管理者が任意で指定した人 OR 当日QR参加した人（時間外が発生するため）。動画視聴のみは必須にしない
   const reportRequired=!training.noReport&&(training.required===true||(training.requiredEmpIds||[]).includes(empId)||attended);
-  // 復命書必須バッジの表示（必須の人にだけ出す。動画視聴のみの人には出さない）
-  const showReqBadge=reportRequired;
-  // 参加/視聴済みだが復命書がまだ確認されていない＝復命書未提出（赤い印を出す）
-  const engaged=attended||status.video==="視聴済";
-  const reportOutstanding=engaged&&reportRequired&&!status.reportConfirmed&&status.report!=="提出しない"&&status.report!=="提出済";
+  // 復命書が片付いているか（確認済み／提出しない／提出済／そもそも不要）
+  const reportDone=training.noReport||status.reportConfirmed||status.report==="提出しない"||status.report==="提出済";
+  // バッジは1つだけ：復命書が必要で、まだ未提出のときだけ「復命書未提出」を出す。提出/確認されたら消える
+  const showReportBadge=reportRequired&&!reportDone;
   const dateLine=(
     <div style={{...S.cardDate,color:isPast?"#9ca3af":S.cardDate.color}}>
       📅 {hasTwoDates?<>① {formatDate(training.date)}　② {formatDate(training.date2)}</>:formatDate(training.date)}
@@ -2245,8 +2244,7 @@ function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVi
     <div style={{...S.card,background:isPast?"#FAF8F3":"#fff",borderLeft:`4px solid ${isPast?"#E8D5B0":"#C89A55"}`}}>
       <div style={S.cardHead} onClick={()=>setOpen(true)}>
         <div style={{flex:1}}>
-          {showReqBadge&&<span style={S.reqBadge}>復命書必須</span>}
-          {reportOutstanding&&<span style={{fontSize:11,fontWeight:800,color:"#dc2626",background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:20,padding:"2px 9px",marginLeft:4,whiteSpace:"nowrap"}}>● 復命書未提出</span>}
+          {showReportBadge&&<span style={{fontSize:11,fontWeight:800,color:"#dc2626",background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:20,padding:"2px 9px",whiteSpace:"nowrap"}}>復命書未提出</span>}
           {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
           <div style={{...S.cardTitle,color:isPast?"#8a7660":S.cardTitle.color}}>{training.title}</div>
           {dateLine}
@@ -2261,7 +2259,7 @@ function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVi
           <div style={{position:"sticky",top:0,background:"#fff",borderBottom:"1px solid #F0D9B0",padding:"16px 18px",zIndex:2}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
               <div style={{flex:1,minWidth:0}}>
-                {showReqBadge&&<span style={S.reqBadge}>復命書必須</span>}
+                {showReportBadge&&<span style={{fontSize:11,fontWeight:800,color:"#dc2626",background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:20,padding:"2px 9px",whiteSpace:"nowrap"}}>復命書未提出</span>}
                 {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
                 <div style={{fontSize:17,fontWeight:800,color:"#4A3020",margin:"4px 0 0"}}>{training.title}</div>
               </div>
@@ -2373,6 +2371,8 @@ function ExternalCard({ext,empId,status,onAttend,onViewPdf,readonly}){
   const {attended,reportSubmitted,reportConfirmed}=status;
   // 復命書が必須か：管理者が任意で指定した人 OR 受講済みの人
   const reportRequired=(ext.requiredEmpIds||[]).includes(empId)||attended;
+  // バッジは1つだけ：復命書が必要で、まだ確認されていないときだけ「復命書未提出」を出す。確認されたら消える
+  const showReportBadge=reportRequired&&!reportConfirmed;
   const dateLine=<div style={S.cardDate}>📅 {formatDate(ext.date)} ｜ 🏢 {ext.organizer} ｜ 📍 {ext.location}</div>;
   return(
     <>
@@ -2380,9 +2380,8 @@ function ExternalCard({ext,empId,status,onAttend,onViewPdf,readonly}){
       <div style={S.cardHead} onClick={()=>setOpen(true)}>
         <div style={{flex:1}}>
           <span style={S.extBadge}>外部</span>
-          {reportRequired&&<span style={S.reqBadge}>復命書必須</span>}
-          {/* 受講済みだが復命書が未確認：赤い印で気づけるように */}
-          {attended&&!reportConfirmed&&<span style={{fontSize:11,fontWeight:800,color:"#dc2626",background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:20,padding:"2px 9px",marginLeft:4,whiteSpace:"nowrap"}}>● 復命書未提出</span>}
+          {/* 復命書が必要で未確認のときだけ「復命書未提出」を1つ表示（確認されたら消える） */}
+          {showReportBadge&&<span style={{fontSize:11,fontWeight:800,color:"#dc2626",background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:20,padding:"2px 9px",marginLeft:4,whiteSpace:"nowrap"}}>復命書未提出</span>}
           {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
           <div style={S.cardTitle}>{ext.title}</div>
           {dateLine}
@@ -2397,7 +2396,7 @@ function ExternalCard({ext,empId,status,onAttend,onViewPdf,readonly}){
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
               <div style={{flex:1,minWidth:0}}>
                 <span style={S.extBadge}>外部</span>
-                {reportRequired&&<span style={S.reqBadge}>復命書必須</span>}
+                {showReportBadge&&<span style={{fontSize:11,fontWeight:800,color:"#dc2626",background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:20,padding:"2px 9px",whiteSpace:"nowrap"}}>復命書未提出</span>}
                 {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
                 <div style={{fontSize:17,fontWeight:800,color:"#4A3020",margin:"4px 0 2px"}}>{ext.title}</div>
                 {dateLine}
