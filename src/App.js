@@ -206,9 +206,10 @@ const db = {
     return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,time:r.time||"",location:r.location||"",reportSubmitted:r.report_submitted===true}));
   },
   async upsertSelfTraining(empId,t) {
-    await supabase.from("self_trainings").upsert({id:t.id,emp_id:empId,title:t.title,date:t.date,time:t.time||"",location:t.location||"",report_submitted:t.reportSubmitted===true},{onConflict:"id"});
+    const {error} = await supabase.from("self_trainings").upsert({id:t.id,emp_id:empId,title:t.title,date:t.date,time:t.time||"",location:t.location||"",report_submitted:t.reportSubmitted===true},{onConflict:"id"});
+    if(error) throw error; // 保存失敗を黙って握りつぶさない（RLS等でブロックされたら呼び出し側で通知）
   },
-  async deleteSelfTraining(id) { await supabase.from("self_trainings").delete().eq("id",id); },
+  async deleteSelfTraining(id) { const {error} = await supabase.from("self_trainings").delete().eq("id",id); if(error) throw error; },
   async getManuals() {
     const {data} = await supabase.from("manuals").select("*").order("created_at",{ascending:false});
     return data||[];
@@ -1470,17 +1471,21 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
   const addSelfTraining=async t=>{
     const st={...t,id:"ST"+Date.now(),reportSubmitted:false};
     setSelfTrainings(p=>[st,...p]);
-    await db.upsertSelfTraining(emp.id,st);
+    try{ await db.upsertSelfTraining(emp.id,st); }
+    catch(e){ setSelfTrainings(p=>p.filter(x=>x.id!==st.id)); showToast("保存に失敗しました。管理者にご連絡ください（記録は保存されていません）",true); }
   };
   const toggleSelfReport=async id=>{
     const t=selfTrainings.find(x=>x.id===id); if(!t)return;
     const updated={...t,reportSubmitted:!t.reportSubmitted};
     setSelfTrainings(p=>p.map(x=>x.id===id?updated:x));
-    await db.upsertSelfTraining(emp.id,updated);
+    try{ await db.upsertSelfTraining(emp.id,updated); }
+    catch(e){ setSelfTrainings(p=>p.map(x=>x.id===id?t:x)); showToast("更新に失敗しました。もう一度お試しください",true); }
   };
   const deleteSelfTraining=async id=>{
+    const prev=selfTrainings;
     setSelfTrainings(p=>p.filter(x=>x.id!==id));
-    await db.deleteSelfTraining(id);
+    try{ await db.deleteSelfTraining(id); }
+    catch(e){ setSelfTrainings(prev); showToast("削除に失敗しました。もう一度お試しください",true); }
   };
   const isCurrentFY=viewFY===fiscalYear;
   // 今年度は開催日の1ヶ月前になるまで研修タブに表示しない（先の予定が多すぎて分かりにくくなるため）。過去の研修は引き続き表示
@@ -1654,6 +1659,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                 );
                 const extPending=fyExternals.filter(x=>!getXS(emp.id,x.id).attended);
                 const extDone=fyExternals.filter(x=>getXS(emp.id,x.id).attended);
+                // 受講済みのうち復命書が未確認（未提出）の件数
+                const extDoneUnreported=extDone.filter(x=>!getXS(emp.id,x.id).reportConfirmed).length;
                 return(
                 <div>
                   <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"6px 12px",background:"#FDF6EC",borderRadius:8,marginBottom:8,border:"1px solid #E8D5B0"}}>🌐 外部研修（未受講 {extPending.length}件{extDone.length>0?` ／ 受講済 ${extDone.length}件`:""}）</div>
@@ -1661,8 +1668,9 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                   {extPending.length===0&&extDone.length>0&&<div style={{fontSize:12,color:"#9ca3af",padding:"8px 12px"}}>未受講の外部研修はありません 🎉</div>}
                   {extDone.length>0&&(
                     <div style={{marginTop:4}}>
-                      <button onClick={()=>setShowDoneExt(v=>!v)} style={{fontSize:12,fontWeight:700,color:"#A07840",background:"#fff",border:"1px solid #E8D5B0",borderRadius:20,padding:"6px 14px",cursor:"pointer"}}>
+                      <button onClick={()=>setShowDoneExt(v=>!v)} style={{display:"inline-flex",alignItems:"center",gap:8,fontSize:12,fontWeight:700,color:"#A07840",background:"#fff",border:"1px solid #E8D5B0",borderRadius:20,padding:"6px 14px",cursor:"pointer"}}>
                         {showDoneExt?`▲ 受講済 ${extDone.length}件を隠す`:`▼ 受講済 ${extDone.length}件を表示`}
+                        {extDoneUnreported>0&&<span style={{fontSize:11,fontWeight:800,color:"#dc2626",background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:20,padding:"1px 8px"}}>● 復命書未提出 {extDoneUnreported}件</span>}
                       </button>
                       {showDoneExt&&<div style={{marginTop:8}}>{extDone.map(extCard)}</div>}
                     </div>
@@ -2346,6 +2354,8 @@ function ExternalCard({ext,empId,status,onAttend,onViewPdf,readonly}){
         <div style={{flex:1}}>
           <span style={S.extBadge}>外部</span>
           {reportRequired&&<span style={S.reqBadge}>復命書必須</span>}
+          {/* 受講済みだが復命書が未確認：赤い印で気づけるように */}
+          {attended&&!reportConfirmed&&<span style={{fontSize:11,fontWeight:800,color:"#dc2626",background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:20,padding:"2px 9px",marginLeft:4,whiteSpace:"nowrap"}}>● 復命書未提出</span>}
           {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
           <div style={S.cardTitle}>{ext.title}</div>
           {dateLine}
@@ -3811,37 +3821,74 @@ function InternalManageTab({internals,setInternals,deleteInternal,employees}){
 
 function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear}){
   const fyExternals=externals.filter(x=>inFiscalYear(x.date,fiscalYear));
+  // 内部研修タブと同じく一覧→詳細のドリルダウン。研修が増えても見やすくする
+  const [selX,setSelX]=useState(null);
+  const curX=selX;
+  const targetsOf=x=>employees.filter(e=>x.targetEmpIds.includes(e.id));
+  // 未完了＝受講済みだが復命書が未確認
+  const unreportedCount=x=>targetsOf(x).filter(e=>{const s=getXS(e.id,x.id);return s.attended&&!s.reportConfirmed;}).length;
+  // 職員1行分（データ配線は従来と完全に同一：getXS/setXS/確認ダイアログ）
+  const empRow=(emp,i,x)=>{const s=getXS(emp.id,x.id);const req=(x.requiredEmpIds||[]).includes(emp.id);
+    const toggleReport=()=>{
+      if(!s.attended)return;
+      if(s.reportConfirmed){ if(window.confirm(`${emp.name}さんの復命書を「未提出」に戻しますか？`)) setXS(emp.id,x.id,{reportSubmitted:false,reportConfirmed:false}); }
+      else{ if(window.confirm(`${emp.name}さんの復命書を「提出済み」として確定しますか？\nこの操作は元に戻せます。`)) setXS(emp.id,x.id,{reportSubmitted:true,reportConfirmed:true}); }
+    };
+    return(
+    <tr key={emp.id} style={{background:i%2===0?"#fff":"#FDF6EC"}}>
+      <td style={S.td}>{emp.name}{req&&<span style={{marginLeft:5,fontSize:10,color:"#dc2626",fontWeight:700}}>必須</span>}</td><td style={S.td}>{emp.dept}</td>
+      <td style={{...S.td,minWidth:140}}><ExternalProgress status={s}/></td>
+      <td style={S.td}>{s.attended?"✅":"○"}</td>
+      <td style={S.td}>{s.reportConfirmed?<span style={{color:"#15803d",fontWeight:600,cursor:"pointer"}} onClick={toggleReport}>✅確認済</span>
+        :!s.attended?<span style={{color:"#9ca3af"}}>─</span>
+        :<button style={{...S.qrBtn,fontSize:11,borderColor:"#C89A55",color:"#A07840",background:"#FDF6EC"}} onClick={toggleReport}>復命書未提出</button>}</td>
+    </tr>
+  );};
   return(
     <div>
       {fyExternals.length===0&&<div style={S.empty}>{fiscalYear}年度の外部研修はありません</div>}
-      {fyExternals.map(x=>{const targets=employees.filter(e=>x.targetEmpIds.includes(e.id));return(
-        <div key={x.id} style={{marginBottom:24}}>
-          <div style={{fontWeight:700,color:"#4A3020",fontSize:14,marginBottom:4}}><span style={S.extBadge}>外部</span> {x.title}
-            {(x.requiredEmpIds||[]).length>0&&<span style={{marginLeft:8,fontSize:11,color:"#dc2626",fontWeight:600}}>復命書必須 {(x.requiredEmpIds||[]).length}名</span>}
+
+      {/* ① 研修一覧（未選択時） */}
+      {fyExternals.length>0&&!curX&&(
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          <div style={{fontSize:12,color:"#A07840",fontWeight:600,marginBottom:2}}>研修を選ぶと、その研修の職員一覧が開きます</div>
+          {fyExternals.map(x=>{const cnt=unreportedCount(x);return(
+            <div key={x.id} className="tsel-chip" onClick={()=>setSelX(x)}
+              style={{display:"flex",alignItems:"center",gap:10,background:"#fff",border:"1px solid #E8D5B0",borderLeft:`4px solid ${cnt>0?"#C89A55":"#E8D5B0"}`,borderRadius:10,padding:"12px 14px",cursor:"pointer"}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
+                  <span style={S.extBadge}>外部</span>
+                  <span style={{fontSize:14,fontWeight:700,color:"#4A3020",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{x.title}</span>
+                  {(x.requiredEmpIds||[]).length>0&&<span style={{fontSize:10,color:"#dc2626",fontWeight:700,flexShrink:0}}>必須{(x.requiredEmpIds||[]).length}</span>}
+                </div>
+                <div style={{fontSize:11,color:"#A07840",marginTop:2}}>📅 {formatDate(x.date)} ｜ 🏢 {x.organizer}</div>
+              </div>
+              {cnt>0
+                ?<span style={{flexShrink:0,fontSize:12,fontWeight:800,color:"#fff",background:"#E24B4A",borderRadius:20,padding:"4px 11px",whiteSpace:"nowrap"}}>未完了 {cnt}名</span>
+                :<span style={{flexShrink:0,fontSize:12,fontWeight:700,color:"#15803d",background:"#dcfce7",border:"1px solid #86efac",borderRadius:20,padding:"3px 10px",whiteSpace:"nowrap"}}>✓ 完了</span>}
+              <span style={{color:"#C89A55",fontSize:14,fontWeight:700,flexShrink:0}}>›</span>
+            </div>
+          );})}
+        </div>
+      )}
+
+      {/* ② 選んだ研修の職員一覧 */}
+      {fyExternals.length>0&&curX&&(()=>{const x=curX;const targets=targetsOf(x);return(
+        <div>
+          <button className="tsel-chip" onClick={()=>setSelX(null)} style={{display:"block",marginBottom:10,padding:"8px 16px",borderRadius:20,border:"1.5px solid #E8D5B0",background:"#fff",color:"#A07840",fontSize:12.5,fontWeight:700,cursor:"pointer"}}>‹ 研修一覧に戻る</button>
+          <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#FDF6EC",border:"1px solid #E8D5B0",borderLeft:"4px solid #C89A55",borderRadius:10,marginBottom:10}}>
+            <span style={{fontSize:10,fontWeight:700,color:"#fff",background:"#C89A55",borderRadius:6,padding:"3px 8px",flexShrink:0,whiteSpace:"nowrap"}}>操作中</span>
+            <div style={{minWidth:0,flex:1}}>
+              <div style={{fontSize:14,fontWeight:800,color:"#4A3020",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}><span style={S.extBadge}>外部</span> {x.title}</div>
+              <div style={{fontSize:11,color:"#A07840"}}>📅 {formatDate(x.date)} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}{(x.requiredEmpIds||[]).length>0?` ｜ 復命書必須 ${(x.requiredEmpIds||[]).length}名`:""}</div>
+            </div>
           </div>
-          <div style={{fontSize:12,color:"#6b7280",marginBottom:10}}>📅 {formatDate(x.date)} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}</div>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead><tr style={{background:"#C89A55",color:"#fff"}}><th style={S.th}>従業員</th><th style={S.th}>部署</th><th style={S.th}>進捗</th><th style={S.th}>受講</th><th style={S.th}>復命書</th></tr></thead>
-            <tbody>{targets.map((emp,i)=>{const s=getXS(emp.id,x.id);const req=(x.requiredEmpIds||[]).includes(emp.id);
-              const toggleReport=()=>{
-                if(!s.attended)return;
-                if(s.reportConfirmed){ if(window.confirm(`${emp.name}さんの復命書を「未提出」に戻しますか？`)) setXS(emp.id,x.id,{reportSubmitted:false,reportConfirmed:false}); }
-                else{ if(window.confirm(`${emp.name}さんの復命書を「提出済み」として確定しますか？\nこの操作は元に戻せます。`)) setXS(emp.id,x.id,{reportSubmitted:true,reportConfirmed:true}); }
-              };
-              return(
-              <tr key={emp.id} style={{background:i%2===0?"#fff":"#FDF6EC"}}>
-                <td style={S.td}>{emp.name}{req&&<span style={{marginLeft:5,fontSize:10,color:"#dc2626",fontWeight:700}}>必須</span>}</td><td style={S.td}>{emp.dept}</td>
-                <td style={{...S.td,minWidth:140}}><ExternalProgress status={s}/></td>
-                <td style={S.td}>{s.attended?"✅":"○"}</td>
-                <td style={S.td}>{s.reportConfirmed?<span style={{color:"#15803d",fontWeight:600,cursor:"pointer"}} onClick={toggleReport}>✅確認済</span>
-                  :!s.attended?<span style={{color:"#9ca3af"}}>─</span>
-                  :<button style={{...S.qrBtn,fontSize:11,borderColor:"#C89A55",color:"#A07840",background:"#FDF6EC"}} onClick={toggleReport}>復命書未提出</button>}</td>
-              </tr>
-            );})}
-            </tbody>
+            <tbody>{targets.map((emp,i)=>empRow(emp,i,x))}</tbody>
           </table>
         </div>
-      );})}
+      );})()}
     </div>
   );
 }
