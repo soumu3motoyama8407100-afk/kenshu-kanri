@@ -1785,8 +1785,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
             }).map(t=>({t,due:eom(t.date)})).sort((a,b)=>a.due-b.due);
             // ② お知らせ（締切 または 掲載終了日 があるものを表示）
             const myNotices=(committeeProps?.generalNotices||[]).filter(n=>(n.targetEmpIds||[]).length===0||(n.targetEmpIds||[]).includes(emp.id));
-            // 掲載終了日を過ぎたら自動で非表示。締切だけ／掲載終了日だけ でも表示する
-            const expired=n=>n.hideAfter&&dleft(new Date(n.hideAfter))<0;
+            // 掲載終了日（未指定なら締切日と同じ）を過ぎたら自動で非表示。締切だけ／掲載終了日だけ でも表示する
+            const expired=n=>{ const end=n.hideAfter||n.deadline; return end&&dleft(new Date(end))<0; };
             const noticeDue=myNotices.filter(n=>(n.deadline||n.hideAfter)&&!dismissedNotices.includes(n.id)&&!expired(n)).map(n=>({n,due:new Date(n.deadline||n.hideAfter)})).sort((a,b)=>a.due-b.due);
             // ③ 研修開催予定（今日から1ヶ月先までのローリング表示。月初の研修も前月から見える）
             //    内部研修＋外部研修を時系列で表示。外部研修は参加予定の職員（対象者）のみ表示する
@@ -4887,14 +4887,17 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
                 </div>
                 <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>※ 設定すると、職員の「締切」タブに残り日数付きで表示されます（提出物・アンケート等の締切に）。</div>
               </div>
-              {/* 掲載終了日（任意）：この日を過ぎたら職員のお知らせから自動で消える */}
+              {/* 掲載終了日（任意）：未指定なら締切日と同じ。締切より後も出したいときだけ入力する */}
               <div style={{marginBottom:12,padding:"10px 12px",background:"#f0f9ff",borderRadius:10,border:"1px solid #7dd3fc"}}>
                 <label style={{fontSize:13,fontWeight:700,color:"#0369a1",display:"block",marginBottom:6}}>🗓 掲載終了日（任意）</label>
                 <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                   <input type="date" style={{...S.input,borderColor:"#7dd3fc",width:"auto"}} value={gForm.hideAfter||""} onChange={e=>setGForm(p=>({...p,hideAfter:e.target.value}))}/>
                   {gForm.hideAfter&&<button type="button" onClick={()=>setGForm(p=>({...p,hideAfter:""}))} style={{fontSize:12,color:"#9ca3af",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"4px 10px",cursor:"pointer"}}>クリア</button>}
                 </div>
-                <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>※ この日まで表示し、翌日から職員のお知らせ画面に出なくなります（お詫び・周知など、期限を過ぎたら消したい連絡に）。締切日なしでも、掲載終了日だけで表示できます。</div>
+                <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>
+                  ※ 空欄なら<b>締切日と同じ</b>になり、締切を過ぎた翌日に自動で消えます。<b>締切より後も表示したいときだけ</b>日付を入れてください。<br/>
+                  {gForm.hideAfter?`この日（${formatDate(gForm.hideAfter)}）まで表示します。`:gForm.deadline?`現在の設定：締切（${formatDate(gForm.deadline)}）の翌日に自動で消えます。`:"締切日も掲載終了日も未設定だと、お知らせ画面には表示されません。"}
+                </div>
               </div>
               {/* LINEメッセージプレビュー（タイトル・内容から自動生成、常に一致） */}
               <div style={{marginBottom:12,padding:"12px",background:"#f0f9ff",borderRadius:10,border:"1.5px solid #7dd3fc"}}>
