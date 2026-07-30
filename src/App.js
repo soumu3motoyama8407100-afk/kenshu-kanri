@@ -143,6 +143,21 @@ const db = {
   async setIStatus(empId,tid,fields) {
     await supabase.from("i_statuses").upsert({emp_id:empId,training_id:tid,attendance:fields.attendance,report:fields.report,video:fields.video,report_confirmed:fields.reportConfirmed,attended_session:fields.attendedSession||"",updated_at:new Date().toISOString()},{onConflict:"emp_id,training_id"});
   },
+  // QR/LINEログインでの参加登録専用：画面の読み込み状態に依存せず、DBの既存行を直接読んでマージして書き込む。
+  // 復命書・動画の既存記録は保持し、attendance のみ参加済にする。失敗時は throw して呼び出し側で通知する
+  async recordAttendance(empId,tid,session){
+    const { data: cur, error: readErr } = await supabase.from("i_statuses").select("*").eq("emp_id",empId).eq("training_id",tid).maybeSingle();
+    if(readErr) throw readErr;
+    const { error } = await supabase.from("i_statuses").upsert({
+      emp_id:empId, training_id:tid, attendance:"参加済",
+      report:(cur&&cur.report)||"未提出",
+      video:(cur&&cur.video)||"未視聴",
+      report_confirmed:!!(cur&&cur.report_confirmed),
+      attended_session:session||(cur&&cur.attended_session)||"",
+      updated_at:new Date().toISOString()
+    },{onConflict:"emp_id,training_id"});
+    if(error) throw error;
+  },
   async getXStatuses() {
     const data = await selectAll(()=>supabase.from("x_statuses").select("*")); // 1000行超で欠落しないよう全取得
     const map = {};
@@ -476,7 +491,13 @@ export default function App() {
     setSession({empId,isAdmin,isManager,isViewer,dept});
     // 管理者権限を持つ職員は、まず個人画面を表示（ADMINアカウントのみ管理者画面で開く）
     setViewMode(empId==="ADMIN"?"admin":"employee");
-    if(pendingAttend&&!isAdmin){ setIS(empId,pendingAttend,"attendance","参加済"); setPendingAttend(null); }
+    if(pendingAttend&&!isAdmin){
+      const tid=pendingAttend; setPendingAttend(null);
+      // 読み込み状態に依存しない専用の書き込みで確実に保存し、成功後に画面へ反映
+      db.recordAttendance(empId,tid)
+        .then(()=>{ setIStatuses(p=>({...p,[empId]:{...p[empId],[tid]:{...getIS(empId,tid),attendance:"参加済"}}})); })
+        .catch(e=>{ console.warn("参加登録に失敗:",e); alert("参加の登録に失敗しました。通信環境をご確認のうえ、もう一度お試しください。"); });
+    }
   };
   const handleLogout=()=>setSession(null);
 
@@ -529,7 +550,11 @@ export default function App() {
       const attendId=pendingAttend||(()=>{try{const r=localStorage.getItem("qr_attend_pending");if(r){const d=JSON.parse(r);return(Date.now()-d.ts)<10*60*1000?d.id:null;}return null;}catch(_){return null;}})();
       const trainingName=internals.find(t=>t.id===attendId)?.title||"研修";
       const emp=employees.find(x=>x.id===empId);
-      if(attendId) await setIS(empId,attendId,"attendance","参加済");
+      // 参加登録は専用の安全な書き込みで（読み込み状態に依存しない）。成功したときだけ完了画面を出す
+      if(attendId){
+        try{ await db.recordAttendance(empId,attendId); }
+        catch(e){ setLineMsg("参加の登録に失敗しました。通信環境をご確認のうえ、もう一度QRを読み取ってください。"); return; }
+      }
       localStorage.removeItem("qr_attend_pending");
       setQrAttendDone({empName:emp?.name||empId,trainingName});
       setPendingAttend(null);
