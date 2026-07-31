@@ -2266,10 +2266,8 @@ function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVi
   // 過去に自動処理で保存された「未参加（確定）」レコードもこの条件で同じ扱いになる
   const absentFix=!attended&&isPast;
   // 動画が貼り付けられている研修は、視聴済/未視聴ボタンを全員・常時表示する
-  // （別PCなどアプリ外で動画を見る人がいるため。開催前/当日/参加済でも押せる）
+  // （別PCなどアプリ外で動画を見る人がいるため。開催前/当日/参加済/視聴済でも常に押せる）
   const hasVideo=!training.noVideo&&!!training.videoUrl;
-  // 未参加の人が視聴済にしたら、状況表示＋取り消しの1行だけにたたむ（参加済の人は参加済表示を残す）
-  const collapsedWatched=hasVideo&&!readonly&&!attended&&status.video==="視聴済"&&!playVideo;
   // 復命書にアクセスできる条件：参加済み OR 動画視聴済み（動画なし研修は参加のみ）
   const canAccessReport=attended||(!training.noVideo&&status.video==="視聴済");
   // 復命書が必須か：管理者が任意で指定した人 OR 当日QR参加した人（時間外が発生するため）。動画視聴のみは必須にしない
@@ -2325,14 +2323,7 @@ function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVi
           {training.description&&<p style={{color:"#6b7280",fontSize:13,marginBottom:14,lineHeight:1.7}}>{training.description}</p>}
           <div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>1</span> {training.noVideo?"研修参加":"研修参加 または 動画視聴"}</div>
-            {/* 視聴済にしたら、状況表示と取り消しを1行にまとめる（表示が二重にならないように） */}
-            {collapsedWatched
-              ?<div style={{display:"flex",alignItems:"center",gap:8}}>
-                 <SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 動画視聴済み</SPill>
-                 <button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"5px 12px",cursor:"pointer",flexShrink:0}}
-                   onClick={()=>{ if(window.confirm("「視聴済」を取り消して、未視聴に戻しますか？")) onVideo("未視聴"); }}>取り消す</button>
-               </div>
-              :attended?<SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 参加済{hasTwoDates&&sessionMark?`（${sessionMark}に参加）`:"（QR認証済）"}</SPill>
+            {attended?<SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 参加済{hasTwoDates&&sessionMark?`（${sessionMark}に参加）`:"（QR認証済）"}</SPill>
               :!training.noVideo&&absentFix&&status.video==="視聴済"?<SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 動画視聴済み</SPill>
               :!training.noVideo&&absentFix?<SPill color="#7c6a00" bg="#fefce8" border="#fde68a">📹 当日欠席 ─ 動画でフォローできます</SPill>
               :absentFix?<SPill color="#7c6a00" bg="#fefce8" border="#fde68a">📹 当日欠席</SPill>
@@ -2359,9 +2350,8 @@ function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVi
                 <button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"5px 12px",cursor:"pointer"}} onClick={()=>setEditSession(true)}>参加日を変更する</button>
               </div>
             )}
-            {/* 研修動画：貼り付けられていれば全員に視聴済/未視聴ボタンを表示（別PC等アプリ外視聴に対応）。
-                視聴済にたたまれた未参加者にはここは出さない */}
-            {hasVideo&&!readonly&&!collapsedWatched&&(
+            {/* 研修動画：貼り付けられていれば全員に視聴済/未視聴ボタンを常時表示（別PC等アプリ外視聴に対応） */}
+            {hasVideo&&!readonly&&(
               <div style={{marginTop:10}}>
                 <div style={{fontSize:11,color:"#6b7280",marginBottom:6}}>{attended?"🎥 研修動画（見直し・視聴記録）：":absentFix?"研修動画を視聴して内容をフォローしましょう：":"🎥 研修動画（アプリ外で視聴した場合もこちらで記録できます）："}</div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -2701,15 +2691,14 @@ function SeminarStatusBoard({employees,seminars,getSMV,setSMV,fiscalYear,readonl
   const [busy,setBusy]=useState(false);
   if(fySems.length===0) return <div style={S.empty}>{fiscalYear}年度のオンラインセミナーは登録されていません</div>;
   const monthSems=fySems.filter(s=>!s.isPortal&&ymOf(s.date)===selYM);
-  // 管理者（非readonly）は、その職員の当月セミナーをまとめて視聴済/未視聴に切り替えられる
+  // 管理者（非readonly）は、その職員のセミナーを1本ずつ視聴済/未視聴に切り替えられる
   const canEdit=!readonly&&!!setSMV;
-  const toggleWatched=async(emp,allWatched)=>{
-    if(!canEdit||busy||monthSems.length===0)return;
-    const target=!allWatched;
-    const msg=target?`${emp.name}さんの${ymLabel(selYM)}分（${monthSems.length}本）を、すべて「視聴済」にしますか？`:`${emp.name}さんの${ymLabel(selYM)}分の「視聴済」を、すべて取り消しますか？`;
-    if(!window.confirm(msg))return;
+  const toggleOne=async(emp,sem)=>{
+    if(!canEdit||busy)return;
+    const watched=getSMV(emp.id,sem.id,selYM).watched;
+    if(watched&&!window.confirm(`${emp.name}さんの「${sem.title}」の視聴済を取り消しますか？`))return;
     setBusy(true);
-    for(const s of monthSems){ await setSMV(emp.id,s.id,selYM,{watched:target}); }
+    await setSMV(emp.id,sem.id,selYM,{watched:!watched});
     setBusy(false);
   };
   const agg=eid=>{
@@ -2742,7 +2731,7 @@ function SeminarStatusBoard({employees,seminars,getSMV,setSMV,fiscalYear,readonl
           <div style={{fontSize:22,fontWeight:700,color:"#2563eb"}}>{rN}<span style={{fontSize:12,fontWeight:400,color:"#9ca3af"}}>名</span></div>
         </div>
       </div>
-      {canEdit&&monthSems.length>0&&<div style={{fontSize:11,color:"#0e7490",marginBottom:8}}>💡 各職員の視聴ボタンを押すと、{ymLabel(selYM)}分（{monthSems.length}本）の視聴済／未視聴をまとめて切り替えられます。</div>}
+      {canEdit&&monthSems.length>0&&<div style={{fontSize:11,color:"#0e7490",marginBottom:8}}>💡 各職員の動画ボタンを押すと、その動画の視聴済／未視聴を1本ずつ切り替えられます（{ymLabel(selYM)}分 全{monthSems.length}本）。</div>}
       {/* 職員リスト */}
       <div style={{display:"flex",flexDirection:"column",gap:6}}>
         {list.map((emp,i)=>{
@@ -2759,9 +2748,15 @@ function SeminarStatusBoard({employees,seminars,getSMV,setSMV,fiscalYear,readonl
                 {monthSems.length===0
                   ?<span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:"#f3f4f6",color:"#9ca3af"}}>動画なし</span>
                   :canEdit
-                    ?<button disabled={busy} onClick={()=>toggleWatched(emp,st.watched)} style={{fontSize:11,padding:"5px 10px",borderRadius:16,cursor:busy?"default":"pointer",fontWeight:600,border:`1.5px solid ${st.watched?"#0e7490":"#E8D5B0"}`,background:st.watched?"#ecfeff":"#fff",color:st.watched?"#0e7490":st.wCnt>0?"#92400e":"#9ca3af"}}>
-                        {st.watched?`📺 全${monthSems.length}本視聴済`:`${st.wCnt}/${monthSems.length}本視聴 ▸`}
-                      </button>
+                    ?<div style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                        {/* 1本ずつ視聴済/未視聴を切り替え（複数本ある月に対応） */}
+                        {monthSems.map(sem=>{ const w=getSMV(emp.id,sem.id,selYM).watched; return(
+                          <button key={sem.id} disabled={busy} onClick={()=>toggleOne(emp,sem)} title={sem.title}
+                            style={{fontSize:11,padding:"4px 9px",borderRadius:14,cursor:busy?"default":"pointer",fontWeight:600,maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",border:`1.5px solid ${w?"#0e7490":"#E8D5B0"}`,background:w?"#ecfeff":"#fff",color:w?"#0e7490":"#9ca3af"}}>
+                            {w?"📺 ":"○ "}{monthSems.length>1?(sem.title.length>8?sem.title.slice(0,8)+"…":sem.title):(w?"視聴済":"未視聴")}
+                          </button>
+                        );})}
+                      </div>
                     :st.watched
                       ?<span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:"#ecfeff",color:"#0e7490",fontWeight:600}}>📺 全{monthSems.length}本視聴済</span>
                       :<span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:st.wCnt>0?"#fef3c7":"#f3f4f6",color:st.wCnt>0?"#92400e":"#9ca3af",fontWeight:st.wCnt>0?600:400}}>{st.wCnt}/{monthSems.length}本視聴</span>}
