@@ -1780,7 +1780,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
               employees={deptEmployees}
               internals={internals} getIS={getIS} setIS={setIS}
               externals={externals} getXS={getXS} setXS={setXS}
-              seminars={seminars} getSMV={getSMV}
+              seminars={seminars} getSMV={getSMV} setSMV={setSMV}
               fiscalYear={fiscalYear} setFiscalYear={setFiscalYear}
               managedDepts={managedDepts||[emp.dept]}
               readonly={isViewer&&!isManager}/>
@@ -1940,7 +1940,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
 }
 
 // ── 部署長コンテンツ（ダッシュボード型）─────────────────────────
-function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS,setXS,seminars,getSMV,fiscalYear,setFiscalYear,readonly}){
+function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS,setXS,seminars,getSMV,setSMV,fiscalYear,setFiscalYear,readonly}){
   const fyInternals=internals.filter(t=>inFiscalYear(t.date,fiscalYear)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const fyExternals=externals.filter(x=>inFiscalYear(x.date,fiscalYear)&&x.targetEmpIds.some(id=>employees.map(e=>e.id).includes(id)));
   const [selTraining,setSelTraining]=useState(null);
@@ -2162,7 +2162,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
       )}
 
       {mode==="s"&&getSMV&&(
-        <SeminarStatusBoard key={fiscalYear} employees={employees} seminars={seminars} getSMV={getSMV} fiscalYear={fiscalYear}/>
+        <SeminarStatusBoard key={fiscalYear} employees={employees} seminars={seminars} getSMV={getSMV} setSMV={setSMV} fiscalYear={fiscalYear} readonly={readonly}/>
       )}
     </div>
   );
@@ -2265,11 +2265,11 @@ function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVi
   // 「当日欠席（確定）」は保存せず表示時に計算：開催日が過ぎている かつ 未参加。
   // 過去に自動処理で保存された「未参加（確定）」レコードもこの条件で同じ扱いになる
   const absentFix=!attended&&isPast;
-  // 動画の視聴済/未視聴ボタンは「未参加のまま研修が終わった翌日」から出す。
-  // 開催前・当日は出さないことで詳細画面を短くし、下にある復命書の操作までスクロールせずに届くようにする
-  const showVideo=!attended&&!training.noVideo&&isPast;
-  // 視聴済にしたら、状況表示＋取り消しの1行だけにたたむ（視聴済/未視聴チップと動画ボタンは隠す）
-  const collapsedWatched=showVideo&&!readonly&&status.video==="視聴済"&&!playVideo;
+  // 動画が貼り付けられている研修は、視聴済/未視聴ボタンを全員・常時表示する
+  // （別PCなどアプリ外で動画を見る人がいるため。開催前/当日/参加済でも押せる）
+  const hasVideo=!training.noVideo&&!!training.videoUrl;
+  // 未参加の人が視聴済にしたら、状況表示＋取り消しの1行だけにたたむ（参加済の人は参加済表示を残す）
+  const collapsedWatched=hasVideo&&!readonly&&!attended&&status.video==="視聴済"&&!playVideo;
   // 復命書にアクセスできる条件：参加済み OR 動画視聴済み（動画なし研修は参加のみ）
   const canAccessReport=attended||(!training.noVideo&&status.video==="視聴済");
   // 復命書が必須か：管理者が任意で指定した人 OR 当日QR参加した人（時間外が発生するため）。動画視聴のみは必須にしない
@@ -2359,30 +2359,23 @@ function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVi
                 <button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"5px 12px",cursor:"pointer"}} onClick={()=>setEditSession(true)}>参加日を変更する</button>
               </div>
             )}
-            {/* 視聴済にしたら上の1行にたたまれるので、ここは未視聴のときだけ出す */}
-            {showVideo&&!readonly&&!collapsedWatched&&(
+            {/* 研修動画：貼り付けられていれば全員に視聴済/未視聴ボタンを表示（別PC等アプリ外視聴に対応）。
+                視聴済にたたまれた未参加者にはここは出さない */}
+            {hasVideo&&!readonly&&!collapsedWatched&&(
               <div style={{marginTop:10}}>
-                <div style={{fontSize:11,color:"#6b7280",marginBottom:6}}>{absentFix?"研修動画を視聴して内容をフォローしましょう：":"または研修動画を視聴:"}</div>
+                <div style={{fontSize:11,color:"#6b7280",marginBottom:6}}>{attended?"🎥 研修動画（見直し・視聴記録）：":absentFix?"研修動画を視聴して内容をフォローしましょう：":"🎥 研修動画（アプリ外で視聴した場合もこちらで記録できます）："}</div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                  {/* 「未視聴」を誤って押すと視聴記録が消え復命書が再ロックされるため、戻すときだけ確認する */}
+                  {/* 「未視聴」を誤って押すと視聴記録が消えるため、戻すときだけ確認する */}
                   {["視聴済","未視聴"].map(v=><ToggleChip key={v} label={v} active={status.video===v} color={v==="視聴済"?"#16a34a":"#6b7280"}
                     onClick={()=>{ if(v==="未視聴"&&status.video==="視聴済"&&!window.confirm("「視聴済」を取り消して、未視聴に戻しますか？")) return; onVideo(v); }}/>)}
                 </div>
-                {training.videoUrl&&!playVideo&&<button style={{...S.watchBtn,marginTop:8}} onClick={()=>setPlayVideo(true)}>▶ 動画を視聴する</button>}
-                {training.videoUrl&&playVideo&&(
+                {!playVideo&&<button style={{...S.watchBtn,marginTop:8}} onClick={()=>setPlayVideo(true)}>▶ 動画を視聴する</button>}
+                {playVideo&&(
                   <div style={{marginTop:10}}>
                     <AutoVideoPlayer videoUrl={training.videoUrl} title={training.title} watched={status.video==="視聴済"} readonly={readonly} onWatched={()=>onVideo("視聴済")}/>
                     <div style={{fontSize:11,color:"#6b7280",textAlign:"center",marginTop:6}}>▶ 9割ほど再生すると自動で「視聴済」になります</div>
                   </div>
                 )}
-              </div>
-            )}
-            {/* 参加済でも動画を振り返れるように */}
-            {attended&&!training.noVideo&&training.videoUrl&&(
-              <div style={{marginTop:10}}>
-                {!playVideo
-                  ?<button style={{...S.watchBtn}} onClick={()=>setPlayVideo(true)}>▶ 動画で振り返る</button>
-                  :<AutoVideoPlayer videoUrl={training.videoUrl} title={training.title} watched={true} readonly={true} onWatched={()=>{}}/>}
               </div>
             )}
           </div>
@@ -2699,14 +2692,26 @@ function SeminarStampRow({fy,empId,seminars,getSMV}){
 }
 
 // 📊 所属長・管理者向け：月ごとの視聴・復命書提出状況
-function SeminarStatusBoard({employees,seminars,getSMV,fiscalYear}){
+function SeminarStatusBoard({employees,seminars,getSMV,setSMV,fiscalYear,readonly}){
   const fySems=(seminars||[]).filter(s=>inFiscalYear(s.date,fiscalYear));
   const nowYM=currentYM();
   const allMonths=fyMonths(fiscalYear);
   const months=allMonths.filter(m=>m.ym<=nowYM);
   const [selYM,setSelYM]=useState(months.length?months[months.length-1].ym:allMonths[0].ym);
+  const [busy,setBusy]=useState(false);
   if(fySems.length===0) return <div style={S.empty}>{fiscalYear}年度のオンラインセミナーは登録されていません</div>;
   const monthSems=fySems.filter(s=>!s.isPortal&&ymOf(s.date)===selYM);
+  // 管理者（非readonly）は、その職員の当月セミナーをまとめて視聴済/未視聴に切り替えられる
+  const canEdit=!readonly&&!!setSMV;
+  const toggleWatched=async(emp,allWatched)=>{
+    if(!canEdit||busy||monthSems.length===0)return;
+    const target=!allWatched;
+    const msg=target?`${emp.name}さんの${ymLabel(selYM)}分（${monthSems.length}本）を、すべて「視聴済」にしますか？`:`${emp.name}さんの${ymLabel(selYM)}分の「視聴済」を、すべて取り消しますか？`;
+    if(!window.confirm(msg))return;
+    setBusy(true);
+    for(const s of monthSems){ await setSMV(emp.id,s.id,selYM,{watched:target}); }
+    setBusy(false);
+  };
   const agg=eid=>{
     const wCnt=monthSems.filter(s=>getSMV(eid,s.id,selYM).watched).length;
     const rCnt=monthSems.filter(s=>getSMV(eid,s.id,selYM).reportSubmitted).length;
@@ -2737,6 +2742,7 @@ function SeminarStatusBoard({employees,seminars,getSMV,fiscalYear}){
           <div style={{fontSize:22,fontWeight:700,color:"#2563eb"}}>{rN}<span style={{fontSize:12,fontWeight:400,color:"#9ca3af"}}>名</span></div>
         </div>
       </div>
+      {canEdit&&monthSems.length>0&&<div style={{fontSize:11,color:"#0e7490",marginBottom:8}}>💡 各職員の視聴ボタンを押すと、{ymLabel(selYM)}分（{monthSems.length}本）の視聴済／未視聴をまとめて切り替えられます。</div>}
       {/* 職員リスト */}
       <div style={{display:"flex",flexDirection:"column",gap:6}}>
         {list.map((emp,i)=>{
@@ -2749,12 +2755,16 @@ function SeminarStatusBoard({employees,seminars,getSMV,fiscalYear}){
                 <span style={{fontSize:13,fontWeight:600,color:"#4A3020"}}>{emp.name}</span>
                 <span style={{fontSize:11,color:"#9ca3af",marginLeft:6}}>{emp.dept}</span>
               </div>
-              <div style={{display:"flex",gap:4,flexShrink:0}}>
+              <div style={{display:"flex",gap:4,flexShrink:0,alignItems:"center"}}>
                 {monthSems.length===0
                   ?<span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:"#f3f4f6",color:"#9ca3af"}}>動画なし</span>
-                  :st.watched
-                    ?<span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:"#ecfeff",color:"#0e7490",fontWeight:600}}>📺 全{monthSems.length}本視聴済</span>
-                    :<span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:st.wCnt>0?"#fef3c7":"#f3f4f6",color:st.wCnt>0?"#92400e":"#9ca3af",fontWeight:st.wCnt>0?600:400}}>{st.wCnt}/{monthSems.length}本視聴</span>}
+                  :canEdit
+                    ?<button disabled={busy} onClick={()=>toggleWatched(emp,st.watched)} style={{fontSize:11,padding:"5px 10px",borderRadius:16,cursor:busy?"default":"pointer",fontWeight:600,border:`1.5px solid ${st.watched?"#0e7490":"#E8D5B0"}`,background:st.watched?"#ecfeff":"#fff",color:st.watched?"#0e7490":st.wCnt>0?"#92400e":"#9ca3af"}}>
+                        {st.watched?`📺 全${monthSems.length}本視聴済`:`${st.wCnt}/${monthSems.length}本視聴 ▸`}
+                      </button>
+                    :st.watched
+                      ?<span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:"#ecfeff",color:"#0e7490",fontWeight:600}}>📺 全{monthSems.length}本視聴済</span>
+                      :<span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:st.wCnt>0?"#fef3c7":"#f3f4f6",color:st.wCnt>0?"#92400e":"#9ca3af",fontWeight:st.wCnt>0?600:400}}>{st.wCnt}/{monthSems.length}本視聴</span>}
                 {st.report&&<span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:"#dbeafe",color:"#2563eb",fontWeight:600}}>📄 復命書{st.rCnt}</span>}
               </div>
             </div>
