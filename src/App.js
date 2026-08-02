@@ -1853,8 +1853,11 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                   {reportDue.map(({t,due})=>{ const b=dueBadge(dleft(due)); return(
                     <div key={"r"+t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,background:b.bg,border:`1px solid ${b.bd}`,borderRadius:10,padding:"9px 12px",marginBottom:6}}>
                       <div style={{minWidth:0}}>
-                        <div style={{fontWeight:700,fontSize:13,color:"#4A3020",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{t.title}</div>
-                        <div style={{fontSize:11,color:"#9ca3af"}}>締切 {formatDate(due.toISOString().slice(0,10))}</div>
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                          <span style={{fontSize:10,fontWeight:800,color:"#dc2626",background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:10,padding:"1px 7px",flexShrink:0,whiteSpace:"nowrap"}}>📄 復命書未提出</span>
+                          <span style={{fontWeight:700,fontSize:13,color:"#4A3020",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{t.title}</span>
+                        </div>
+                        <div style={{fontSize:11,color:"#9ca3af"}}>締切 {formatDate(due.toISOString().slice(0,10))}（所属長に提出してください）</div>
                       </div>
                       <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6,flexShrink:0}}>
                         {badgePill(b)}
