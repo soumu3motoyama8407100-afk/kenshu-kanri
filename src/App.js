@@ -505,11 +505,8 @@ export default function App() {
   const [lineLoggingIn,setLineLoggingIn] = useState(false);
   const [lineMsg,setLineMsg] = useState("");
   const [qrAttendDone,setQrAttendDone] = useState(null); // {empName, trainingName}
-  // デモ運用中のお知らせポップアップ（1日1回）
   // ローカル日付をYYYY-MM-DDで返す（toISOStringはUTC基準になり、日本時間の深夜〜9時台に日付がズレるため使わない）
   const today10 = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
-  const [showDemoNotice,setShowDemoNotice] = useState(()=>{ try{ return localStorage.getItem("demo_notice_date")!==today10(); }catch(_){ return true; } });
-  const dismissDemoNotice = ()=>{ try{ localStorage.setItem("demo_notice_date",today10()); }catch(_){}; setShowDemoNotice(false); };
   // 固定NFCタグ用：?attend=today を、本日開催の研修IDに自動変換（研修が読み込まれてから解決）
   useEffect(()=>{
     if(loading||pendingAttend!=="today") return;
@@ -523,7 +520,8 @@ export default function App() {
         :"本日は複数の研修が予定されているため自動判定できませんでした。各研修専用のQRコードをご利用ください。");
     }
   },[loading,pendingAttend,internals]);// eslint-disable-line
-  const withDemo = (screen)=> <>{screen}<DemoRibbon/>{showDemoNotice&&<DemoNoticeModal onClose={dismissDemoNotice}/>}</>;
+  // 本格運用のためデモ表示（リボン・お知らせポップアップ）は撤去。画面をそのまま返す
+  const withDemo = (screen)=> screen;
   const finishLineLogin = async(idToken) => {
     idToken = idToken || (window.liff && window.liff.getIDToken());
     if(!idToken){ setLineMsg("LINEログイン情報を取得できませんでした。もう一度お試しください。"); return; }
@@ -794,36 +792,6 @@ export default function App() {
   );
 }
 
-// 🚧 デモ運用中バッジ（全画面 常時表示）
-function DemoRibbon(){
-  return(
-    <div style={{position:"fixed",left:12,bottom:14,zIndex:950,display:"flex",alignItems:"center",gap:6,background:"#b91c1c",color:"#fff",padding:"6px 12px",borderRadius:20,fontSize:12,fontWeight:800,boxShadow:"0 4px 14px rgba(185,28,28,.4)",letterSpacing:.5,pointerEvents:"none"}}>
-      🚧 デモ運用中
-    </div>
-  );
-}
-// 📢 デモ運用中のお知らせポップアップ
-function DemoNoticeModal({onClose}){
-  return(
-    <div style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px 16px"}} onClick={onClose}>
-      <div style={{width:"100%",maxWidth:420,background:"#fff",borderRadius:20,padding:"26px 22px",boxShadow:"0 20px 60px rgba(0,0,0,.3)",border:"1px solid #E8D5B0"}} onClick={e=>e.stopPropagation()}>
-        <div style={{textAlign:"center",marginBottom:16}}>
-          <div style={{fontSize:44,marginBottom:8,lineHeight:1}}>🚧</div>
-          <div style={{fontSize:19,fontWeight:800,color:"#b91c1c"}}>ただいまデモ運用中です</div>
-        </div>
-        <div style={{background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:12,padding:"14px 16px",fontSize:13.5,color:"#7f1d1d",lineHeight:1.9,marginBottom:18}}>
-          このシステムは現在<b>お試し（デモ）運用中</b>です。<br/>
-          自由に触ってご確認いただけます。<br/><br/>
-          🗓 <b>研修参加のQRログインの本格運用は 8月以降</b> を予定しています。<br/>
-          実際に使用を開始する際は、あらためて<b>ご連絡します</b>ので、それまでは操作の確認としてご利用ください。
-        </div>
-        <button onClick={onClose} style={{width:"100%",padding:"13px",background:"#C89A55",color:"#fff",border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer"}}>
-          確認しました
-        </button>
-      </div>
-    </div>
-  );
-}
 // 📖 使い方チュートリアル（スライド式）
 const TUTORIAL_STEPS=[
   {icon:"👋",title:"ようこそ！",body:<>この研修管理アプリの使い方をかんたんにご案内します。<br/>あとから <b>「❓使い方」</b> でいつでも見返せます。</>},
