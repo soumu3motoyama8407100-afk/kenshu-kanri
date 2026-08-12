@@ -1450,6 +1450,119 @@ function QRScanModal({onScan,onClose}){
   );
 }
 
+// ── 会議報告書（Wordダウンロード）─────────────────────────
+// gijiroku-web（記録ノートWEBアプリ）の会議報告書様式を、依存を増やさずWord互換HTML(.doc)で再現。
+// 承認印欄の役職名は法人共通の固定値（gijirokuと同一）。
+const REPORT_STAMP_A=["施設長","総務部長","総務運営推進主任","デイ主任相談員","介護主任","看護主任","管理栄養士"];
+const REPORT_STAMP_B=["生活相談員","生活相談員","介護支援専門員","小規模管理者","DSサイタ管理者","ポム管理者",""];
+const esc=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const nl2br=s=>esc(s).replace(/\n/g,"<br>");
+function buildMeetingReportHtml(f){
+  const stampRow=labels=>`<tr>${labels.map(l=>`<td class="stlbl">${esc(l)}</td>`).join("")}</tr>`;
+  const stampBlank=()=>`<tr>${REPORT_STAMP_A.map(()=>`<td class="stblank">&nbsp;</td>`).join("")}</tr>`;
+  const body=(f.agenda||"").trim();
+  const agendaHtml=body?nl2br(body):"<span style='color:#666'>（該当なし）</span>";
+  return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head><meta charset='utf-8'><title>会議報告書</title>
+<style>
+  @page{size:A4;margin:1.6cm;}
+  body{font-family:'MS Mincho',serif;font-size:12pt;color:#000;}
+  table{border-collapse:collapse;}
+  .stamp{width:100%;} .stamp td{border:1px solid #000;text-align:center;font-size:9pt;padding:2px;}
+  .stamp .stblank{height:52px;}
+  .info{width:100%;} .info td{border:1px solid #000;padding:5px 8px;font-size:12pt;vertical-align:middle;}
+  .info .lbl{background:#F2F2F2;font-weight:bold;text-align:center;white-space:nowrap;width:15%;}
+  .right{text-align:right;} .center{text-align:center;}
+  .title{font-size:20pt;font-weight:bold;letter-spacing:8px;}
+  .org{font-size:9pt;}
+</style></head><body>
+  <p class="right org">（社会福祉法人ザ・ハート・クラブ）</p>
+  <table class="stamp">
+    ${stampRow(REPORT_STAMP_A)}${stampBlank()}${stampRow(REPORT_STAMP_B)}${stampBlank()}
+  </table>
+  <p class="center title" style="margin:18px 0 6px;">会　議　報　告　書</p>
+  <p class="right" style="margin:0;">報告者　部署名： ${esc(f.department)}</p>
+  <p class="right" style="margin:2px 0 12px;">氏　名： ${esc(f.name)}</p>
+  <table class="info">
+    <tr><td class="lbl">会議名</td><td colspan="3">${esc(f.meetingName)}</td></tr>
+    <tr><td class="lbl">日時</td><td colspan="3">${esc(f.datetime)}</td></tr>
+    <tr><td class="lbl">場所</td><td colspan="3">${esc(f.place)}</td></tr>
+    <tr><td class="lbl">進行</td><td style="width:35%;">${esc(f.facilitator)}</td><td class="lbl" style="width:15%;">記録</td><td>${esc(f.recorder)}</td></tr>
+    <tr><td class="lbl">参加者</td><td colspan="3" style="height:70px;vertical-align:top;">${nl2br(f.attendees)}</td></tr>
+  </table>
+  <p style="font-weight:bold;margin:18px 0 6px;">【協議事項】</p>
+  <div style="line-height:1.9;">${agendaHtml}</div>
+</body></html>`;
+}
+function MeetingReportTab({emp,committees}){
+  const [f,setF]=useState({committeeId:"",meetingName:"",department:emp.dept||"",name:emp.name||"",date:"",startTime:"",endTime:"",place:"",facilitator:"",recorder:"",attendees:"",agenda:""});
+  const set=(k,v)=>setF(p=>({...p,[k]:v}));
+  const onCommittee=id=>{ const c=committees.find(x=>x.id===id); setF(p=>({...p,committeeId:id,meetingName:c?c.name:p.meetingName})); };
+  const datetimeStr=()=>{
+    if(!f.date)return "";
+    const base=formatDate(f.date);
+    const t=(f.startTime||f.endTime)?` ${f.startTime||""}${f.endTime?`〜${f.endTime}`:""}`:"";
+    return base+t;
+  };
+  const download=()=>{
+    if(!f.meetingName.trim()){alert("会議名を入力（または委員会を選択）してください。");return;}
+    const html=buildMeetingReportHtml({
+      meetingName:f.meetingName,department:f.department,name:f.name,
+      datetime:datetimeStr(),place:f.place,facilitator:f.facilitator,recorder:f.recorder,
+      attendees:f.attendees,agenda:f.agenda,
+    });
+    const blob=new Blob(["﻿"+html],{type:"application/msword"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url; a.download=`会議報告書_${(f.meetingName||"会議").replace(/[\\/?*[\]:：]/g,"")}_${f.date||""}.doc`; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  };
+  const lbl={display:"block",fontSize:12,fontWeight:700,color:"#4A3020",marginBottom:4};
+  const input={...S.input};
+  return(
+    <div style={{maxWidth:640}}>
+      <div style={{fontWeight:800,fontSize:15,color:"#4A3020",marginBottom:4}}>📝 会議報告書の作成</div>
+      <div style={{fontSize:12,color:"#6b7280",marginBottom:14,lineHeight:1.7}}>必要な項目を入力し、下の「Wordでダウンロード」を押すと、承認印欄つきの会議報告書（Word）が保存されます。</div>
+      <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16,display:"flex",flexDirection:"column",gap:12}}>
+        <div>
+          <label style={lbl}>委員会を選ぶと会議名が入ります</label>
+          <select style={input} value={f.committeeId} onChange={e=>onCommittee(e.target.value)}>
+            <option value="">（委員会を選択／自由入力）</option>
+            {committees.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={lbl}>会議名 <span style={{color:"#dc2626"}}>*</span></label>
+          <input style={input} value={f.meetingName} placeholder="例：褥瘡対策委員会" onChange={e=>set("meetingName",e.target.value)}/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div><label style={lbl}>報告者 部署名</label><input style={input} value={f.department} onChange={e=>set("department",e.target.value)}/></div>
+          <div><label style={lbl}>氏名</label><input style={input} value={f.name} onChange={e=>set("name",e.target.value)}/></div>
+        </div>
+        <div>
+          <label style={lbl}>日時</label>
+          <div className="form-2col" style={{marginBottom:0}}>
+            <div><input type="date" style={input} value={f.date} onChange={e=>set("date",e.target.value)}/></div>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <input type="time" style={input} value={f.startTime} onChange={e=>set("startTime",e.target.value)}/>
+              <span style={{color:"#9ca3af"}}>〜</span>
+              <input type="time" style={input} value={f.endTime} onChange={e=>set("endTime",e.target.value)}/>
+            </div>
+          </div>
+        </div>
+        <div><label style={lbl}>場所</label><input style={input} value={f.place} placeholder="例：本館2階 会議室" onChange={e=>set("place",e.target.value)}/></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div><label style={lbl}>進行</label><input style={input} value={f.facilitator} onChange={e=>set("facilitator",e.target.value)}/></div>
+          <div><label style={lbl}>記録</label><input style={input} value={f.recorder} onChange={e=>set("recorder",e.target.value)}/></div>
+        </div>
+        <div><label style={lbl}>参加者</label><textarea style={{...input,minHeight:60,resize:"vertical"}} value={f.attendees} placeholder="複数名は改行で入力できます" onChange={e=>set("attendees",e.target.value)}/></div>
+        <div><label style={lbl}>協議事項</label><textarea style={{...input,minHeight:120,resize:"vertical"}} value={f.agenda} placeholder="協議・報告した内容を入力（改行で複数項目）" onChange={e=>set("agenda",e.target.value)}/></div>
+        <button onClick={download} style={{padding:"12px",background:"#2f7d4f",color:"#fff",border:"none",borderRadius:12,fontSize:15,fontWeight:800,cursor:"pointer"}}>⬇ Wordでダウンロード</button>
+        <div style={{fontSize:11,color:"#9ca3af"}}>※ 承認印欄（施設長〜各主任・相談員など）はWordに自動で入ります。ダウンロードしたファイルはWordで開いて印刷・保存できます。</div>
+      </div>
+    </div>
+  );
+}
 function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminars,getSMV,setSMV,fiscalYear,getCount,onLogout,onRefresh,refreshing,isManager,isViewer,deptEmployees,managedDepts,setFiscalYear,committeeProps,onSwitchToAdmin}){
   const [tab,setTab]=useState("notices");
   const [videoT,setVideoT]=useState(null);
@@ -1646,7 +1759,9 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
         <div style={S.tabBar}>
           {[["notices","📢 お知らせ"],
             ["training","📚 研修"],["seminar","📺 セミナー"],
-            ...((isManager||isViewer)?[["mgr","📋 部署管理"]]:[])]
+            ...((isManager||isViewer)?[["mgr","📋 部署管理"]]:[]),
+            // 会議報告書は試験運用のためID158のみ表示（完成後に部署長・管理者へ開放予定）
+            ...(["158"].includes(String(emp.id).replace(/\D/g,""))?[["report","📝 会議報告書"]]:[])]
             .map(([k,l])=>{
               const isLocked=false; // 委員会タブは準備中のため非表示（配列から除外済み）
               return(
@@ -1755,6 +1870,9 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
           )}
           {tab==="chair"&&committeeProps&&(
             <ChairCommitteeView emp={emp} {...committeeProps}/>
+          )}
+          {tab==="report"&&(
+            <MeetingReportTab emp={emp} committees={committeeProps?.committees||[]}/>
           )}
           {tab==="notices"&&(()=>{
             const today=new Date(); today.setHours(0,0,0,0);
