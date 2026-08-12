@@ -3627,10 +3627,10 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
         mkRow([cell(`日程：${dateStr}`),cell(`時間：${timeStr}`)]),
         mkRow([cell(`参加者 ${attendees.length}名（当日参加）`)]),
         mkRow([cell("")]),
-        mkRow([cell("名前"),cell("部署"),cell("No.")]),
+        mkRow([cell("No."),cell("名前"),cell("部署")]),
       ];
       attendees.forEach((e,i)=>{
-        rs.push(mkRow([cell(e.name),cell(e.dept),cell(i+1,"Number")]));
+        rs.push(mkRow([cell(i+1,"Number"),cell(e.name),cell(e.dept)]));
       });
       sheets.push(`<Worksheet ss:Name="${esc(safeName(t.title))}"><Table>${rs.join("")}</Table></Worksheet>`);
     });
