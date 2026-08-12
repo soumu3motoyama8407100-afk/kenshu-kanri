@@ -1457,60 +1457,66 @@ const REPORT_STAMP_A=["施設長","総務部長","総務運営推進主任","デ
 const REPORT_STAMP_B=["生活相談員","生活相談員","介護支援専門員","小規模管理者","DSサイタ管理者","ポム管理者",""];
 const esc=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 const nl2br=s=>esc(s).replace(/\n/g,"<br>");
-function buildMeetingReportHtml(f){
-  const stampRow=labels=>`<tr>${labels.map(l=>`<td class="stlbl">${esc(l)}</td>`).join("")}</tr>`;
-  const stampBlank=()=>`<tr>${REPORT_STAMP_A.map(()=>`<td class="stblank">&nbsp;</td>`).join("")}</tr>`;
+// 承認印欄：7列を colgroup で均等幅に固定し、文字が収まるよう小さめフォント＋折り返し
+function reportStampHtml(){
+  const col=`<colgroup>${'<col style="width:14.28%;">'.repeat(7)}</colgroup>`;
+  const cell=(t,blank)=>`<td style="border:1px solid #000;text-align:center;font-size:8pt;padding:2px 1px;word-break:break-all;line-height:1.25;${blank?"height:50px;":""}">${blank?"&nbsp;":esc(t)}</td>`;
+  const row=(labels,blank)=>`<tr>${labels.map(l=>cell(l,blank)).join("")}</tr>`;
+  return `<table style="border-collapse:collapse;width:100%;table-layout:fixed;">${col}${row(REPORT_STAMP_A)}${row(REPORT_STAMP_A,true)}${row(REPORT_STAMP_B)}${row(REPORT_STAMP_B,true)}</table>`;
+}
+// 情報表＋協議事項（Word・画面プレビュー共通。インラインスタイルで両方に効く）
+function reportTablesHtml(f){
+  const c="border:1px solid #000;padding:5px 8px;font-size:12pt;vertical-align:middle;";
+  const lb=c+"background:#F2F2F2;font-weight:bold;text-align:center;white-space:nowrap;";
   const body=(f.agenda||"").trim();
-  const agendaHtml=body?nl2br(body):"<span style='color:#666'>（該当なし）</span>";
+  const agenda=body?nl2br(body):"<span style='color:#666'>（該当なし）</span>";
+  return `<table style="border-collapse:collapse;width:100%;">
+    <tr><td style="${lb}width:16%;">会議名</td><td style="${c}" colspan="3">${esc(f.meetingName)}</td></tr>
+    <tr><td style="${lb}">日時</td><td style="${c}" colspan="3">${esc(f.datetime)}</td></tr>
+    <tr><td style="${lb}">場所</td><td style="${c}" colspan="3">${esc(f.place)}</td></tr>
+    <tr><td style="${lb}">進行</td><td style="${c}width:34%;">${esc(f.facilitator)}</td><td style="${lb}width:16%;">記録</td><td style="${c}">${esc(f.recorder)}</td></tr>
+    <tr><td style="${lb}">参加者</td><td style="${c}height:70px;vertical-align:top;" colspan="3">${nl2br(f.attendees)}</td></tr>
+  </table>
+  <p style="font-weight:bold;margin:16px 0 6px;">【協議事項】</p>
+  <div style="line-height:1.9;">${agenda}</div>`;
+}
+function buildMeetingReportHtml(f){
   return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
 <head><meta charset='utf-8'><title>会議報告書</title>
-<style>
-  @page{size:A4;margin:1.6cm;}
-  body{font-family:'MS Mincho',serif;font-size:12pt;color:#000;}
-  table{border-collapse:collapse;}
-  .stamp{width:100%;} .stamp td{border:1px solid #000;text-align:center;font-size:9pt;padding:2px;}
-  .stamp .stblank{height:52px;}
-  .info{width:100%;} .info td{border:1px solid #000;padding:5px 8px;font-size:12pt;vertical-align:middle;}
-  .info .lbl{background:#F2F2F2;font-weight:bold;text-align:center;white-space:nowrap;width:15%;}
-  .right{text-align:right;} .center{text-align:center;}
-  .title{font-size:20pt;font-weight:bold;letter-spacing:8px;}
-  .org{font-size:9pt;}
-</style></head><body>
-  <p class="right org">（社会福祉法人ザ・ハート・クラブ）</p>
-  <table class="stamp">
-    ${stampRow(REPORT_STAMP_A)}${stampBlank()}${stampRow(REPORT_STAMP_B)}${stampBlank()}
-  </table>
-  <p class="center title" style="margin:18px 0 6px;">会　議　報　告　書</p>
-  <p class="right" style="margin:0;">報告者　部署名： ${esc(f.department)}</p>
-  <p class="right" style="margin:2px 0 12px;">氏　名： ${esc(f.name)}</p>
-  <table class="info">
-    <tr><td class="lbl">会議名</td><td colspan="3">${esc(f.meetingName)}</td></tr>
-    <tr><td class="lbl">日時</td><td colspan="3">${esc(f.datetime)}</td></tr>
-    <tr><td class="lbl">場所</td><td colspan="3">${esc(f.place)}</td></tr>
-    <tr><td class="lbl">進行</td><td style="width:35%;">${esc(f.facilitator)}</td><td class="lbl" style="width:15%;">記録</td><td>${esc(f.recorder)}</td></tr>
-    <tr><td class="lbl">参加者</td><td colspan="3" style="height:70px;vertical-align:top;">${nl2br(f.attendees)}</td></tr>
-  </table>
-  <p style="font-weight:bold;margin:18px 0 6px;">【協議事項】</p>
-  <div style="line-height:1.9;">${agendaHtml}</div>
+<style>@page{size:A4;margin:1.6cm;} body{font-family:'MS Mincho',serif;font-size:12pt;color:#000;}</style></head><body>
+  <p style="text-align:right;font-size:9pt;">（社会福祉法人ザ・ハート・クラブ）</p>
+  ${reportStampHtml()}
+  <p style="text-align:center;font-size:20pt;font-weight:bold;letter-spacing:8px;margin:18px 0 6px;">会　議　報　告　書</p>
+  <p style="text-align:right;margin:0;">報告者　部署名： ${esc(f.department)}</p>
+  <p style="text-align:right;margin:2px 0 12px;">氏　名： ${esc(f.name)}</p>
+  ${reportTablesHtml(f)}
 </body></html>`;
 }
-function MeetingReportTab({emp,committees}){
-  const [f,setF]=useState({committeeId:"",meetingName:"",department:emp.dept||"",name:emp.name||"",date:"",startTime:"",endTime:"",place:"",facilitator:"",recorder:"",attendees:"",agenda:""});
+function MeetingReportTab({emp,committees,internals,getIS,employees}){
+  const [f,setF]=useState({committeeId:"",meetingName:"",department:emp.dept||"",name:emp.name||"",date:"",startTime:"",endTime:"",place:"",placeOther:"",facilitator:"",recorder:"",attendees:"",agenda:"別紙参照",attendTrainingId:""});
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
   const onCommittee=id=>{ const c=committees.find(x=>x.id===id); setF(p=>({...p,committeeId:id,meetingName:c?c.name:p.meetingName})); };
+  const placeVal=f.place==="その他"?(f.placeOther||""):f.place;
   const datetimeStr=()=>{
     if(!f.date)return "";
-    const base=formatDate(f.date);
     const t=(f.startTime||f.endTime)?` ${f.startTime||""}${f.endTime?`〜${f.endTime}`:""}`:"";
-    return base+t;
+    return formatDate(f.date)+t;
   };
+  // 研修を選ぶと、その研修に当日参加した職員を「【部署】氏名」で自動取り込み
+  const fyTrainings=(internals||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const importAttendees=tid=>{
+    set("attendTrainingId",tid);
+    if(!tid){return;}
+    const deptIdx=d=>{const i=DEPT_ORDER.indexOf(d);return i<0?999:i;};
+    const list=(employees||[]).filter(e=>getIS(e.id,tid).attendance==="参加済")
+      .sort((a,b)=>deptIdx(a.dept)-deptIdx(b.dept)||String(a.name).localeCompare(String(b.name),"ja"))
+      .map(e=>`【${e.dept||"部署未設定"}】${e.name}`);
+    set("attendees",list.join("\n"));
+  };
+  const previewData={meetingName:f.meetingName,department:f.department,name:f.name,datetime:datetimeStr(),place:placeVal,facilitator:f.facilitator,recorder:f.recorder,attendees:f.attendees,agenda:f.agenda};
   const download=()=>{
     if(!f.meetingName.trim()){alert("会議名を入力（または委員会を選択）してください。");return;}
-    const html=buildMeetingReportHtml({
-      meetingName:f.meetingName,department:f.department,name:f.name,
-      datetime:datetimeStr(),place:f.place,facilitator:f.facilitator,recorder:f.recorder,
-      attendees:f.attendees,agenda:f.agenda,
-    });
+    const html=buildMeetingReportHtml(previewData);
     const blob=new Blob(["﻿"+html],{type:"application/msword"});
     const url=URL.createObjectURL(blob);
     const a=document.createElement("a");
@@ -1520,45 +1526,74 @@ function MeetingReportTab({emp,committees}){
   const lbl={display:"block",fontSize:12,fontWeight:700,color:"#4A3020",marginBottom:4};
   const input={...S.input};
   return(
-    <div style={{maxWidth:640}}>
+    <div>
       <div style={{fontWeight:800,fontSize:15,color:"#4A3020",marginBottom:4}}>📝 会議報告書の作成</div>
-      <div style={{fontSize:12,color:"#6b7280",marginBottom:14,lineHeight:1.7}}>必要な項目を入力し、下の「Wordでダウンロード」を押すと、承認印欄つきの会議報告書（Word）が保存されます。</div>
-      <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16,display:"flex",flexDirection:"column",gap:12}}>
-        <div>
-          <label style={lbl}>委員会を選ぶと会議名が入ります</label>
-          <select style={input} value={f.committeeId} onChange={e=>onCommittee(e.target.value)}>
-            <option value="">（委員会を選択／自由入力）</option>
-            {committees.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label style={lbl}>会議名 <span style={{color:"#dc2626"}}>*</span></label>
-          <input style={input} value={f.meetingName} placeholder="例：褥瘡対策委員会" onChange={e=>set("meetingName",e.target.value)}/>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <div><label style={lbl}>報告者 部署名</label><input style={input} value={f.department} onChange={e=>set("department",e.target.value)}/></div>
-          <div><label style={lbl}>氏名</label><input style={input} value={f.name} onChange={e=>set("name",e.target.value)}/></div>
-        </div>
-        <div>
-          <label style={lbl}>日時</label>
-          <div className="form-2col" style={{marginBottom:0}}>
-            <div><input type="date" style={input} value={f.date} onChange={e=>set("date",e.target.value)}/></div>
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <input type="time" style={input} value={f.startTime} onChange={e=>set("startTime",e.target.value)}/>
-              <span style={{color:"#9ca3af"}}>〜</span>
-              <input type="time" style={input} value={f.endTime} onChange={e=>set("endTime",e.target.value)}/>
+      <div style={{fontSize:12,color:"#6b7280",marginBottom:14,lineHeight:1.7}}>必要な項目を入力し、「Wordでダウンロード」を押すと、承認印欄つきの会議報告書（Word）が保存されます。右のプレビューで仕上がりを確認できます（スマホでは下に表示）。</div>
+      <div style={{display:"flex",gap:16,flexWrap:"wrap",alignItems:"flex-start"}}>
+        {/* 入力フォーム */}
+        <div style={{flex:"1 1 320px",minWidth:0,background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16,display:"flex",flexDirection:"column",gap:12}}>
+          <div>
+            <label style={lbl}>委員会を選ぶと会議名が入ります</label>
+            <select style={input} value={f.committeeId} onChange={e=>onCommittee(e.target.value)}>
+              <option value="">（委員会を選択／自由入力）</option>
+              {committees.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={lbl}>会議名 <span style={{color:"#dc2626"}}>*</span></label>
+            <input style={input} value={f.meetingName} placeholder="例：褥瘡対策委員会" onChange={e=>set("meetingName",e.target.value)}/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <div><label style={lbl}>報告者 部署名</label><input style={input} value={f.department} onChange={e=>set("department",e.target.value)}/></div>
+            <div><label style={lbl}>氏名</label><input style={input} value={f.name} onChange={e=>set("name",e.target.value)}/></div>
+          </div>
+          <div>
+            <label style={lbl}>日時</label>
+            <div className="form-2col" style={{marginBottom:0}}>
+              <div><input type="date" style={input} value={f.date} onChange={e=>set("date",e.target.value)}/></div>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <input type="time" style={input} value={f.startTime} onChange={e=>set("startTime",e.target.value)}/>
+                <span style={{color:"#9ca3af"}}>〜</span>
+                <input type="time" style={input} value={f.endTime} onChange={e=>set("endTime",e.target.value)}/>
+              </div>
             </div>
           </div>
+          <div>
+            <label style={lbl}>場所</label>
+            <select style={input} value={f.place} onChange={e=>set("place",e.target.value)}>
+              <option value="">（選択してください）</option>
+              {LOCATIONS.map(l=><option key={l} value={l}>{l}</option>)}
+            </select>
+            {f.place==="その他"&&<input style={{...input,marginTop:8}} value={f.placeOther} placeholder="場所を入力" onChange={e=>set("placeOther",e.target.value)}/>}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <div><label style={lbl}>進行</label><input style={input} value={f.facilitator} onChange={e=>set("facilitator",e.target.value)}/></div>
+            <div><label style={lbl}>記録</label><input style={input} value={f.recorder} onChange={e=>set("recorder",e.target.value)}/></div>
+          </div>
+          <div>
+            <label style={lbl}>参加者</label>
+            <div style={{fontSize:11,color:"#6b7280",marginBottom:6}}>研修を選ぶと、その研修の当日参加者を「【部署】氏名」で自動入力します（手直しも可）。</div>
+            <select style={{...input,marginBottom:8}} value={f.attendTrainingId} onChange={e=>importAttendees(e.target.value)}>
+              <option value="">（研修から参加者を取り込む…）</option>
+              {fyTrainings.map(t=><option key={t.id} value={t.id}>{t.title}（{formatDate(t.date)}）</option>)}
+            </select>
+            <textarea style={{...input,minHeight:80,resize:"vertical"}} value={f.attendees} placeholder={"【ホーム3F】山田 太郎\n【医務】佐藤 花子"} onChange={e=>set("attendees",e.target.value)}/>
+          </div>
+          <div><label style={lbl}>協議事項</label><textarea style={{...input,minHeight:90,resize:"vertical"}} value={f.agenda} onChange={e=>set("agenda",e.target.value)}/></div>
+          <button onClick={download} style={{padding:"12px",background:"#2f7d4f",color:"#fff",border:"none",borderRadius:12,fontSize:15,fontWeight:800,cursor:"pointer"}}>⬇ Wordでダウンロード</button>
+          <div style={{fontSize:11,color:"#9ca3af"}}>※ 承認印欄（施設長〜各主任・相談員など）はWordに自動で入ります。</div>
         </div>
-        <div><label style={lbl}>場所</label><input style={input} value={f.place} placeholder="例：本館2階 会議室" onChange={e=>set("place",e.target.value)}/></div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <div><label style={lbl}>進行</label><input style={input} value={f.facilitator} onChange={e=>set("facilitator",e.target.value)}/></div>
-          <div><label style={lbl}>記録</label><input style={input} value={f.recorder} onChange={e=>set("recorder",e.target.value)}/></div>
+        {/* プレビュー */}
+        <div style={{flex:"1 1 320px",minWidth:0}}>
+          <div style={{fontWeight:700,fontSize:13,color:"#4A3020",marginBottom:6}}>Wordプレビュー</div>
+          <div style={{fontSize:11,color:"#6b7280",marginBottom:8}}>実際のWordには承認印欄も含まれます。ここでは内容を確認しやすいよう省略しています。</div>
+          <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:12,padding:"18px 16px",overflowX:"auto"}}>
+            <div style={{textAlign:"center",fontSize:17,fontWeight:800,letterSpacing:4,color:"#111",marginBottom:8}}>会　議　報　告　書</div>
+            <div style={{textAlign:"right",fontSize:12,color:"#333"}}>報告者　部署名： {f.department||"　"}</div>
+            <div style={{textAlign:"right",fontSize:12,color:"#333",marginBottom:10}}>氏　名： {f.name||"　"}</div>
+            <div style={{fontSize:12,color:"#111"}} dangerouslySetInnerHTML={{__html:reportTablesHtml(previewData)}}/>
+          </div>
         </div>
-        <div><label style={lbl}>参加者</label><textarea style={{...input,minHeight:60,resize:"vertical"}} value={f.attendees} placeholder="複数名は改行で入力できます" onChange={e=>set("attendees",e.target.value)}/></div>
-        <div><label style={lbl}>協議事項</label><textarea style={{...input,minHeight:120,resize:"vertical"}} value={f.agenda} placeholder="協議・報告した内容を入力（改行で複数項目）" onChange={e=>set("agenda",e.target.value)}/></div>
-        <button onClick={download} style={{padding:"12px",background:"#2f7d4f",color:"#fff",border:"none",borderRadius:12,fontSize:15,fontWeight:800,cursor:"pointer"}}>⬇ Wordでダウンロード</button>
-        <div style={{fontSize:11,color:"#9ca3af"}}>※ 承認印欄（施設長〜各主任・相談員など）はWordに自動で入ります。ダウンロードしたファイルはWordで開いて印刷・保存できます。</div>
       </div>
     </div>
   );
@@ -1872,7 +1907,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
             <ChairCommitteeView emp={emp} {...committeeProps}/>
           )}
           {tab==="report"&&(
-            <MeetingReportTab emp={emp} committees={committeeProps?.committees||[]}/>
+            <MeetingReportTab emp={emp} committees={committeeProps?.committees||[]}
+              internals={internals} getIS={getIS} employees={committeeProps?.employees||deptEmployees||[]}/>
           )}
           {tab==="notices"&&(()=>{
             const today=new Date(); today.setHours(0,0,0,0);
