@@ -1462,7 +1462,7 @@ const nl2br=s=>esc(s).replace(/\n/g,"<br>");
 // 「はみ出さない＋7列均等」を両立。Wordが内容長で崩さないよう mso-table-layout-alt:fixed も付与。
 function reportStampHtml(){
   const cw="14.28%";
-  const cell=(t,blank)=>`<td width="${cw}" valign="middle" style="width:${cw};border:1px solid #000;text-align:center;font-size:8pt;padding:2px 1px;word-break:break-all;overflow-wrap:break-word;line-height:1.25;${blank?"height:50px;":""}">${blank?"&nbsp;":esc(t)}</td>`;
+  const cell=(t,blank)=>`<td width="${cw}" valign="middle" style="width:${cw};border:1px solid #000;text-align:center;font-size:7pt;padding:2px 1px;word-break:break-all;overflow-wrap:break-word;line-height:1.25;${blank?"height:50px;":""}">${blank?"&nbsp;":esc(t)}</td>`;
   const row=(labels,blank)=>`<tr>${labels.map(l=>cell(l,blank)).join("")}</tr>`;
   return `<table width="100%" cellspacing="0" style="border-collapse:collapse;width:100%;table-layout:fixed;mso-table-layout-alt:fixed;">${row(REPORT_STAMP_A)}${row(REPORT_STAMP_A,true)}${row(REPORT_STAMP_B)}${row(REPORT_STAMP_B,true)}</table>`;
 }
