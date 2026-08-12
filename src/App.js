@@ -1457,13 +1457,14 @@ const REPORT_STAMP_A=["施設長","総務部長","総務運営推進主任","デ
 const REPORT_STAMP_B=["生活相談員","生活相談員","介護支援専門員","小規模管理者","DSサイタ管理者","ポム管理者",""];
 const esc=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 const nl2br=s=>esc(s).replace(/\n/g,"<br>");
-// 承認印欄：Wordはtable-layout:fixed/colgroupを無視して内容で列幅を変えるため、
-// 全セルに同じ width 属性＋固定スタイルを明示して7列を均等幅にする。長い役職名は折り返して収める。
-const STAMP_CW=96; // 各列の幅(px)。A4本文幅にほぼ収まる（96×7=672px）
+// 承認印欄：Wordは既定の広い余白を使うため固定px幅だと右にはみ出す。
+// テーブル幅を100%（ページ本文幅に自動フィット）にし、各列を等パーセント幅にして
+// 「はみ出さない＋7列均等」を両立。Wordが内容長で崩さないよう mso-table-layout-alt:fixed も付与。
 function reportStampHtml(){
-  const cell=(t,blank)=>`<td width="${STAMP_CW}" valign="middle" style="width:${STAMP_CW}px;border:1px solid #000;text-align:center;font-size:8pt;padding:2px 1px;word-break:break-all;overflow-wrap:break-word;line-height:1.25;${blank?"height:50px;":""}">${blank?"&nbsp;":esc(t)}</td>`;
+  const cw="14.28%";
+  const cell=(t,blank)=>`<td width="${cw}" valign="middle" style="width:${cw};border:1px solid #000;text-align:center;font-size:8pt;padding:2px 1px;word-break:break-all;overflow-wrap:break-word;line-height:1.25;${blank?"height:50px;":""}">${blank?"&nbsp;":esc(t)}</td>`;
   const row=(labels,blank)=>`<tr>${labels.map(l=>cell(l,blank)).join("")}</tr>`;
-  return `<table width="${STAMP_CW*7}" cellspacing="0" style="border-collapse:collapse;width:${STAMP_CW*7}px;table-layout:fixed;mso-table-layout-alt:fixed;">${row(REPORT_STAMP_A)}${row(REPORT_STAMP_A,true)}${row(REPORT_STAMP_B)}${row(REPORT_STAMP_B,true)}</table>`;
+  return `<table width="100%" cellspacing="0" style="border-collapse:collapse;width:100%;table-layout:fixed;mso-table-layout-alt:fixed;">${row(REPORT_STAMP_A)}${row(REPORT_STAMP_A,true)}${row(REPORT_STAMP_B)}${row(REPORT_STAMP_B,true)}</table>`;
 }
 // 情報表＋協議事項（Word・画面プレビュー共通。インラインスタイルで両方に効く）
 function reportTablesHtml(f){
