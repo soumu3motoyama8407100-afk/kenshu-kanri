@@ -1489,6 +1489,7 @@ function buildMeetingReportHtml(f){
   <p style="text-align:right;font-size:9pt;">（社会福祉法人ザ・ハート・クラブ）</p>
   ${reportStampHtml()}
   <p style="text-align:center;font-size:20pt;font-weight:bold;letter-spacing:8px;margin:18px 0 6px;">会　議　報　告　書</p>
+  <p style="font-size:8pt;margin:0;">&nbsp;</p>
   <p style="text-align:right;margin:0;">報告者　部署名： ${esc(f.department)}</p>
   <p style="text-align:right;margin:2px 0 12px;">氏　名： ${esc(f.name)}</p>
   ${reportTablesHtml(f)}
