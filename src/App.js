@@ -1508,10 +1508,14 @@ function MeetingReportTab({emp,committees,internals,getIS,employees}){
     set("attendTrainingId",tid);
     if(!tid){return;}
     const deptIdx=d=>{const i=DEPT_ORDER.indexOf(d);return i<0?999:i;};
-    const list=(employees||[]).filter(e=>getIS(e.id,tid).attendance==="参加済")
-      .sort((a,b)=>deptIdx(a.dept)-deptIdx(b.dept)||String(a.name).localeCompare(String(b.name),"ja"))
-      .map(e=>`【${e.dept||"部署未設定"}】${e.name}`);
-    set("attendees",list.join("\n"));
+    // 部署ごとにまとめて「【部署】氏名、氏名、氏名」。部署ごとに改行
+    const byDept={};
+    (employees||[]).filter(e=>getIS(e.id,tid).attendance==="参加済").forEach(e=>{
+      const d=e.dept||"部署未設定"; (byDept[d]=byDept[d]||[]).push(e.name);
+    });
+    const lines=Object.keys(byDept).sort((a,b)=>deptIdx(a)-deptIdx(b))
+      .map(d=>`【${d}】${byDept[d].sort((a,b)=>String(a).localeCompare(String(b),"ja")).join("、")}`);
+    set("attendees",lines.join("\n"));
   };
   const previewData={meetingName:f.meetingName,department:f.department,name:f.name,datetime:datetimeStr(),place:placeVal,facilitator:f.facilitator,recorder:f.recorder,attendees:f.attendees,agenda:f.agenda};
   const download=()=>{
@@ -1572,12 +1576,12 @@ function MeetingReportTab({emp,committees,internals,getIS,employees}){
           </div>
           <div>
             <label style={lbl}>参加者</label>
-            <div style={{fontSize:11,color:"#6b7280",marginBottom:6}}>研修を選ぶと、その研修の当日参加者を「【部署】氏名」で自動入力します（手直しも可）。</div>
+            <div style={{fontSize:11,color:"#6b7280",marginBottom:6}}>研修を選ぶと、その研修の当日参加者を部署ごとにまとめて自動入力します（手直しも可）。</div>
             <select style={{...input,marginBottom:8}} value={f.attendTrainingId} onChange={e=>importAttendees(e.target.value)}>
               <option value="">（研修から参加者を取り込む…）</option>
               {fyTrainings.map(t=><option key={t.id} value={t.id}>{t.title}（{formatDate(t.date)}）</option>)}
             </select>
-            <textarea style={{...input,minHeight:80,resize:"vertical"}} value={f.attendees} placeholder={"【ホーム3F】山田 太郎\n【医務】佐藤 花子"} onChange={e=>set("attendees",e.target.value)}/>
+            <textarea style={{...input,minHeight:80,resize:"vertical"}} value={f.attendees} placeholder={"【ホーム3F】山田 太郎、佐藤 花子\n【医務】鈴木 一郎"} onChange={e=>set("attendees",e.target.value)}/>
           </div>
           <div><label style={lbl}>協議事項</label><textarea style={{...input,minHeight:90,resize:"vertical"}} value={f.agenda} onChange={e=>set("agenda",e.target.value)}/></div>
           <button onClick={download} style={{padding:"12px",background:"#2f7d4f",color:"#fff",border:"none",borderRadius:12,fontSize:15,fontWeight:800,cursor:"pointer"}}>⬇ Wordでダウンロード</button>
