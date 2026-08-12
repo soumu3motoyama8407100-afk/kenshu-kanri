@@ -845,6 +845,13 @@ function TutorialModal({onClose}){
 }
 // 🆕 更新情報（新しい順に上から追加していく。日付は "YYYY-MM-DD"）
 const RELEASE_NOTES=[
+  {id:"r20260728b",date:"2026-07-28",title:"研修報告書がアプリで作れるようになりました",sections:[
+    {h:"研修報告書が簡単に書けるようになりました",items:[
+      "研修報告書を、アプリで必要事項を入力するだけで作成し、Wordでダウンロードできるようになりました。",
+      "委員会を選ぶと会議名が自動で入り、研修を選ぶと当日参加者を自動で取り込めます。承認印欄つきの様式で出力されます。",
+      "この機能は対象の担当者の画面にのみ「📝 研修報告書」タブとして表示されます。",
+    ]},
+  ]},
   {id:"r20260728",date:"2026-07-28",title:"研修画面が見やすくなりました／表示の不具合を修正",sections:[
     {h:"研修タブが見やすくなりました",items:[
       "内部研修・外部研修とも、まだ済んでいないもの（未完了・未受講）を最初に表示するようにしました。",
@@ -1450,8 +1457,8 @@ function QRScanModal({onScan,onClose}){
   );
 }
 
-// ── 会議報告書（Wordダウンロード）─────────────────────────
-// gijiroku-web（記録ノートWEBアプリ）の会議報告書様式を、依存を増やさずWord互換HTML(.doc)で再現。
+// ── 研修報告書（Wordダウンロード）─────────────────────────
+// gijiroku-web（記録ノートWEBアプリ）の報告書様式を、依存を増やさずWord互換HTML(.doc)で再現。
 // 承認印欄の役職名は法人共通の固定値（gijirokuと同一）。
 const REPORT_STAMP_A=["施設長","総務部長","総務運営推進主任","デイ主任相談員","介護主任","看護主任","管理栄養士"];
 const REPORT_STAMP_B=["生活相談員","生活相談員","介護支援専門員","小規模管理者","DSサイタ管理者","ポム管理者",""];
@@ -1488,11 +1495,11 @@ function reportTablesHtml(f){
 }
 function buildMeetingReportHtml(f){
   return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-<head><meta charset='utf-8'><title>会議報告書</title>
+<head><meta charset='utf-8'><title>研修報告書</title>
 <style>@page{size:A4;margin:1.6cm;} body{font-family:'MS Mincho',serif;font-size:12pt;color:#000;}</style></head><body>
   <p style="text-align:right;font-size:9pt;">（社会福祉法人ザ・ハート・クラブ）</p>
   ${reportStampHtml()}
-  <p style="text-align:center;font-size:20pt;font-weight:bold;letter-spacing:8px;margin:18px 0 6px;">会　議　報　告　書</p>
+  <p style="text-align:center;font-size:20pt;font-weight:bold;letter-spacing:8px;margin:18px 0 6px;">研　修　報　告　書</p>
   <p style="font-size:8pt;margin:0;">&nbsp;</p>
   <p style="text-align:right;margin:0;">報告者　部署名： ${esc(f.department)}</p>
   <p style="text-align:right;margin:2px 0 12px;">氏　名： ${esc(f.name)}</p>
@@ -1531,15 +1538,15 @@ function MeetingReportTab({emp,committees,internals,getIS,employees}){
     const blob=new Blob(["﻿"+html],{type:"application/msword"});
     const url=URL.createObjectURL(blob);
     const a=document.createElement("a");
-    a.href=url; a.download=`会議報告書_${(f.meetingName||"会議").replace(/[\\/?*[\]:：]/g,"")}_${f.date||""}.doc`; a.click();
+    a.href=url; a.download=`研修報告書_${(f.meetingName||"研修").replace(/[\\/?*[\]:：]/g,"")}_${f.date||""}.doc`; a.click();
     setTimeout(()=>URL.revokeObjectURL(url),1000);
   };
   const lbl={display:"block",fontSize:12,fontWeight:700,color:"#4A3020",marginBottom:4};
   const input={...S.input};
   return(
     <div>
-      <div style={{fontWeight:800,fontSize:15,color:"#4A3020",marginBottom:4}}>📝 会議報告書の作成</div>
-      <div style={{fontSize:12,color:"#6b7280",marginBottom:14,lineHeight:1.7}}>必要な項目を入力し、「Wordでダウンロード」を押すと、承認印欄つきの会議報告書（Word）が保存されます。右のプレビューで仕上がりを確認できます（スマホでは下に表示）。</div>
+      <div style={{fontWeight:800,fontSize:15,color:"#4A3020",marginBottom:4}}>📝 研修報告書の作成</div>
+      <div style={{fontSize:12,color:"#6b7280",marginBottom:14,lineHeight:1.7}}>必要な項目を入力し、「Wordでダウンロード」を押すと、承認印欄つきの研修報告書（Word）が保存されます。右のプレビューで仕上がりを確認できます（スマホでは下に表示）。</div>
       <div style={{display:"flex",gap:16,flexWrap:"wrap",alignItems:"flex-start"}}>
         {/* 入力フォーム */}
         <div style={{flex:"1 1 320px",minWidth:0,background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16,display:"flex",flexDirection:"column",gap:12}}>
@@ -1599,7 +1606,7 @@ function MeetingReportTab({emp,committees,internals,getIS,employees}){
           <div style={{fontWeight:700,fontSize:13,color:"#4A3020",marginBottom:6}}>Wordプレビュー</div>
           <div style={{fontSize:11,color:"#6b7280",marginBottom:8}}>実際のWordには承認印欄も含まれます。ここでは内容を確認しやすいよう省略しています。</div>
           <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:12,padding:"18px 16px",overflowX:"auto"}}>
-            <div style={{textAlign:"center",fontSize:17,fontWeight:800,letterSpacing:4,color:"#111",marginBottom:8}}>会　議　報　告　書</div>
+            <div style={{textAlign:"center",fontSize:17,fontWeight:800,letterSpacing:4,color:"#111",marginBottom:8}}>研　修　報　告　書</div>
             <div style={{textAlign:"right",fontSize:12,color:"#333"}}>報告者　部署名： {f.department||"　"}</div>
             <div style={{textAlign:"right",fontSize:12,color:"#333",marginBottom:10}}>氏　名： {f.name||"　"}</div>
             <div style={{fontSize:12,color:"#111"}} dangerouslySetInnerHTML={{__html:reportInfoTableHtml(previewData)}}/>
@@ -1812,8 +1819,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
           {[["notices","📢 お知らせ"],
             ["training","📚 研修"],["seminar","📺 セミナー"],
             ...((isManager||isViewer)?[["mgr","📋 部署管理"]]:[]),
-            // 会議報告書は試験運用のためID158のみ表示（完成後に部署長・管理者へ開放予定）
-            ...(["158"].includes(String(emp.id).replace(/\D/g,""))?[["report","📝 会議報告書"]]:[])]
+            // 研修報告書は対象者のみ表示：本山(158)・前田(112)・植村幸栄(151)・西岡雄斗(117)・田中裕美子(354)・阿部(235)
+            ...(["158","112","151","117","354","235"].includes(String(emp.id).replace(/\D/g,""))?[["report","📝 研修報告書"]]:[])]
             .map(([k,l])=>{
               const isLocked=false; // 委員会タブは準備中のため非表示（配列から除外済み）
               return(
