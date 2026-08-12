@@ -1466,19 +1466,23 @@ function reportStampHtml(){
   const row=(labels,blank)=>`<tr>${labels.map(l=>cell(l,blank)).join("")}</tr>`;
   return `<table width="100%" cellspacing="0" style="border-collapse:collapse;width:100%;table-layout:fixed;mso-table-layout-alt:fixed;">${row(REPORT_STAMP_A)}${row(REPORT_STAMP_A,true)}${row(REPORT_STAMP_B)}${row(REPORT_STAMP_B,true)}</table>`;
 }
-// 情報表＋協議事項（Word・画面プレビュー共通。インラインスタイルで両方に効く）
-function reportTablesHtml(f){
+// 情報表のみ（会議名〜参加者）。Word・プレビュー共通
+function reportInfoTableHtml(f){
   const c="border:1px solid #000;padding:5px 8px;font-size:12pt;vertical-align:middle;";
   const lb=c+"background:#F2F2F2;font-weight:bold;text-align:center;white-space:nowrap;";
-  const body=(f.agenda||"").trim();
-  const agenda=body?nl2br(body):"<span style='color:#666'>（該当なし）</span>";
   return `<table style="border-collapse:collapse;width:100%;">
     <tr><td style="${lb}width:16%;">会議名</td><td style="${c}" colspan="3">${esc(f.meetingName)}</td></tr>
     <tr><td style="${lb}">日時</td><td style="${c}" colspan="3">${esc(f.datetime)}</td></tr>
     <tr><td style="${lb}">場所</td><td style="${c}" colspan="3">${esc(f.place)}</td></tr>
     <tr><td style="${lb}">進行</td><td style="${c}width:34%;">${esc(f.facilitator)}</td><td style="${lb}width:16%;">記録</td><td style="${c}">${esc(f.recorder)}</td></tr>
     <tr><td style="${lb}">参加者</td><td style="${c}height:70px;vertical-align:top;" colspan="3">${nl2br(f.attendees)}</td></tr>
-  </table>
+  </table>`;
+}
+// 情報表＋協議事項（Word用）
+function reportTablesHtml(f){
+  const body=(f.agenda||"").trim();
+  const agenda=body?nl2br(body):"<span style='color:#666'>（該当なし）</span>";
+  return `${reportInfoTableHtml(f)}
   <p style="font-weight:bold;margin:16px 0 6px;">【協議事項】</p>
   <div style="line-height:1.9;">${agenda}</div>`;
 }
@@ -1598,7 +1602,13 @@ function MeetingReportTab({emp,committees,internals,getIS,employees}){
             <div style={{textAlign:"center",fontSize:17,fontWeight:800,letterSpacing:4,color:"#111",marginBottom:8}}>会　議　報　告　書</div>
             <div style={{textAlign:"right",fontSize:12,color:"#333"}}>報告者　部署名： {f.department||"　"}</div>
             <div style={{textAlign:"right",fontSize:12,color:"#333",marginBottom:10}}>氏　名： {f.name||"　"}</div>
-            <div style={{fontSize:12,color:"#111"}} dangerouslySetInnerHTML={{__html:reportTablesHtml(previewData)}}/>
+            <div style={{fontSize:12,color:"#111"}} dangerouslySetInnerHTML={{__html:reportInfoTableHtml(previewData)}}/>
+            {/* 協議事項はここで直接手入力できる（左フォームと同じ内容・同期） */}
+            <div style={{fontWeight:700,color:"#111",margin:"14px 0 6px"}}>【協議事項】</div>
+            <textarea value={f.agenda} onChange={e=>set("agenda",e.target.value)}
+              style={{width:"100%",minHeight:140,resize:"vertical",fontSize:12,lineHeight:1.9,color:"#111",padding:"8px 10px",border:"1px dashed #C89A55",borderRadius:8,background:"#fffdf8",boxSizing:"border-box",fontFamily:"inherit"}}
+              placeholder="ここに協議事項を直接入力できます（改行で複数項目）"/>
+            <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>↑ 協議事項はここで直接編集できます（左の入力欄と同じ内容です）。</div>
           </div>
         </div>
       </div>
