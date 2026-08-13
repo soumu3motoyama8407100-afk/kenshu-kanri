@@ -1478,7 +1478,7 @@ function reportInfoTableHtml(f){
   const c="border:1px solid #000;padding:5px 8px;font-size:12pt;vertical-align:middle;";
   const lb=c+"background:#F2F2F2;font-weight:bold;text-align:center;white-space:nowrap;";
   return `<table style="border-collapse:collapse;width:100%;">
-    <tr><td style="${lb}width:16%;">会議名</td><td style="${c}" colspan="3">${esc(f.meetingName)}</td></tr>
+    <tr><td style="${lb}width:16%;">研修名</td><td style="${c}" colspan="3">${esc(f.meetingName)}</td></tr>
     <tr><td style="${lb}">日時</td><td style="${c}" colspan="3">${esc(f.datetime)}</td></tr>
     <tr><td style="${lb}">場所</td><td style="${c}" colspan="3">${esc(f.place)}</td></tr>
     <tr><td style="${lb}">講師</td><td style="${c}" colspan="3">${esc(f.lecturer)}</td></tr>
@@ -1506,21 +1506,19 @@ function buildMeetingReportHtml(f){
   ${reportTablesHtml(f)}
 </body></html>`;
 }
-function MeetingReportTab({emp,committees,internals,getIS,employees}){
+function MeetingReportTab({emp,internals,getIS,employees}){
   const [f,setF]=useState({committeeId:"",meetingName:"",department:emp.dept||"",name:emp.name||"",date:"",startTime:"17:30",endTime:"18:30",place:"",placeOther:"",lecturer:"",attendees:"",agenda:"別紙参照",attendTrainingId:""});
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
-  const onCommittee=id=>{ const c=committees.find(x=>x.id===id); setF(p=>({...p,committeeId:id,meetingName:c?c.name:p.meetingName})); };
   const placeVal=f.place==="その他"?(f.placeOther||""):f.place;
   const datetimeStr=()=>{
     if(!f.date)return "";
     const t=(f.startTime||f.endTime)?` ${f.startTime||""}${f.endTime?`〜${f.endTime}`:""}`:"";
     return formatDate(f.date)+t;
   };
-  // 研修を選ぶと、その研修の当日参加者を「【部署】氏名」で、講師を講師欄から自動取り込み
+  // 研修を選ぶと、研修名・当日参加者（【部署】氏名）・講師をまとめて自動取り込み
   const fyTrainings=(internals||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
-  const importAttendees=tid=>{
-    set("attendTrainingId",tid);
-    if(!tid){ return; }
+  const onSelectTraining=tid=>{
+    if(!tid){ set("attendTrainingId",""); return; }
     const t=(internals||[]).find(x=>x.id===tid);
     const deptIdx=d=>{const i=DEPT_ORDER.indexOf(d);return i<0?999:i;};
     // 部署ごとにまとめて「【部署】氏名、氏名、氏名」。部署ごとに改行
@@ -1530,11 +1528,11 @@ function MeetingReportTab({emp,committees,internals,getIS,employees}){
     });
     const lines=Object.keys(byDept).sort((a,b)=>deptIdx(a)-deptIdx(b))
       .map(d=>`【${d}】${byDept[d].sort((a,b)=>String(a).localeCompare(String(b),"ja")).join("、")}`);
-    setF(p=>({...p,attendees:lines.join("\n"),lecturer:(t&&t.lecturer)||p.lecturer}));
+    setF(p=>({...p,attendTrainingId:tid,meetingName:(t&&t.title)||p.meetingName,attendees:lines.join("\n"),lecturer:(t&&t.lecturer)||p.lecturer}));
   };
   const previewData={meetingName:f.meetingName,department:f.department,name:f.name,datetime:datetimeStr(),place:placeVal,lecturer:f.lecturer,attendees:f.attendees,agenda:f.agenda};
   const download=()=>{
-    if(!f.meetingName.trim()){alert("会議名を入力（または委員会を選択）してください。");return;}
+    if(!f.meetingName.trim()){alert("研修名を入力（または研修を選択）してください。");return;}
     const html=buildMeetingReportHtml(previewData);
     const blob=new Blob(["﻿"+html],{type:"application/msword"});
     const url=URL.createObjectURL(blob);
@@ -1552,15 +1550,15 @@ function MeetingReportTab({emp,committees,internals,getIS,employees}){
         {/* 入力フォーム */}
         <div style={{flex:"1 1 320px",minWidth:0,background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16,display:"flex",flexDirection:"column",gap:12}}>
           <div>
-            <label style={lbl}>委員会を選ぶと会議名が入ります</label>
-            <select style={input} value={f.committeeId} onChange={e=>onCommittee(e.target.value)}>
-              <option value="">（委員会を選択／自由入力）</option>
-              {committees.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+            <label style={lbl}>研修を選ぶと、研修名・参加者・講師が自動で入ります</label>
+            <select style={input} value={f.attendTrainingId} onChange={e=>onSelectTraining(e.target.value)}>
+              <option value="">（研修を選択／自由入力）</option>
+              {fyTrainings.map(t=><option key={t.id} value={t.id}>{t.title}（{formatDate(t.date)}）</option>)}
             </select>
           </div>
           <div>
-            <label style={lbl}>会議名 <span style={{color:"#dc2626"}}>*</span></label>
-            <input style={input} value={f.meetingName} placeholder="例：褥瘡対策委員会" onChange={e=>set("meetingName",e.target.value)}/>
+            <label style={lbl}>研修名 <span style={{color:"#dc2626"}}>*</span></label>
+            <input style={input} value={f.meetingName} placeholder="例：接遇マナー研修" onChange={e=>set("meetingName",e.target.value)}/>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <div><label style={lbl}>報告者 部署名</label><input style={input} value={f.department} onChange={e=>set("department",e.target.value)}/></div>
@@ -1591,11 +1589,7 @@ function MeetingReportTab({emp,committees,internals,getIS,employees}){
           </div>
           <div>
             <label style={lbl}>参加者</label>
-            <div style={{fontSize:11,color:"#6b7280",marginBottom:6}}>研修を選ぶと、当日参加者を部署ごとにまとめて、講師も自動で取り込みます（手直しも可）。</div>
-            <select style={{...input,marginBottom:8}} value={f.attendTrainingId} onChange={e=>importAttendees(e.target.value)}>
-              <option value="">（研修から参加者を取り込む…）</option>
-              {fyTrainings.map(t=><option key={t.id} value={t.id}>{t.title}（{formatDate(t.date)}）</option>)}
-            </select>
+            <div style={{fontSize:11,color:"#6b7280",marginBottom:6}}>上で研修を選ぶと、当日参加者が部署ごとにまとめて自動で入ります（手直しも可）。</div>
             <textarea style={{...input,minHeight:80,resize:"vertical"}} value={f.attendees} placeholder={"【ホーム3F】山田 太郎、佐藤 花子\n【医務】鈴木 一郎"} onChange={e=>set("attendees",e.target.value)}/>
           </div>
           <div><label style={lbl}>協議事項</label><textarea style={{...input,minHeight:90,resize:"vertical"}} value={f.agenda} onChange={e=>set("agenda",e.target.value)}/></div>
@@ -1932,7 +1926,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
             <ChairCommitteeView emp={emp} {...committeeProps}/>
           )}
           {tab==="report"&&(
-            <MeetingReportTab emp={emp} committees={committeeProps?.committees||[]}
+            <MeetingReportTab emp={emp}
               internals={internals} getIS={getIS} employees={committeeProps?.employees||deptEmployees||[]}/>
           )}
           {tab==="notices"&&(()=>{
