@@ -1507,7 +1507,7 @@ function buildMeetingReportHtml(f){
 </body></html>`;
 }
 function MeetingReportTab({emp,committees,internals,getIS,employees}){
-  const [f,setF]=useState({committeeId:"",meetingName:"",department:emp.dept||"",name:emp.name||"",date:"",startTime:"",endTime:"",place:"",placeOther:"",lecturer:"",attendees:"",agenda:"別紙参照",attendTrainingId:""});
+  const [f,setF]=useState({committeeId:"",meetingName:"",department:emp.dept||"",name:emp.name||"",date:"",startTime:"17:30",endTime:"18:30",place:"",placeOther:"",lecturer:"",attendees:"",agenda:"別紙参照",attendTrainingId:""});
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
   const onCommittee=id=>{ const c=committees.find(x=>x.id===id); setF(p=>({...p,committeeId:id,meetingName:c?c.name:p.meetingName})); };
   const placeVal=f.place==="その他"?(f.placeOther||""):f.place;
