@@ -1127,20 +1127,20 @@ function DualLoginScreen({pendingAttend,internals,employees,onLogin,onManualLogi
             onLineLogin={onLineLogin} lineLoggingIn={lineLoggingIn} lineMsg={lineMsg}
             onLogin={(empId,isAdmin,isManager,isViewer,dept)=>onLogin(empId,isAdmin,isManager||false,isViewer||false,dept||"")}/>
           {MANUAL_ENABLED&&<ManualLoginCard employees={employees} onManualLogin={onManualLogin}/>}
-          {/* 記録ノートへの入り口（現在は準備中・ログイン不可） */}
-          <div style={{width:"100%",background:"#fff",borderRadius:20,padding:"22px",boxShadow:"0 12px 40px rgba(14,116,144,.15)",border:"1px solid #67e8f9",position:"relative",overflow:"hidden",opacity:.95}}>
+          {/* 記録ノートへの入り口（現在は準備中・ログイン不可）。記録ノートの緑系配色に合わせる */}
+          <div style={{width:"100%",background:"#fcfdf8",borderRadius:20,padding:"22px",boxShadow:"0 12px 40px rgba(76,110,78,.18)",border:"1px solid #9dc2a0",position:"relative",overflow:"hidden",opacity:.98}}>
             <div style={{position:"absolute",top:12,right:12,background:"#f59e0b",color:"#fff",fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,letterSpacing:1}}>準備中</div>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
               <span style={{fontSize:28}}>📝</span>
               <div>
-                <div style={{fontSize:16,fontWeight:800,color:"#0e7490"}}>記録ノート</div>
-                <div style={{fontSize:11,color:"#0e7490"}}>会議・研修の記録を作成するツール</div>
+                <div style={{fontSize:16,fontWeight:800,color:"#3c5a3f"}}>記録ノート</div>
+                <div style={{fontSize:11,color:"#729875"}}>会議・研修の記録を作成するツール</div>
               </div>
             </div>
-            <div style={{background:"#f3f4f6",borderRadius:12,padding:"14px",textAlign:"center",cursor:"not-allowed"}}>
+            <div style={{background:"#f2f6e8",borderRadius:12,padding:"14px",textAlign:"center",cursor:"not-allowed",border:"1px solid #d8e0cb"}}>
               <div style={{fontSize:22,marginBottom:6}}>🚧</div>
-              <div style={{fontSize:13,fontWeight:600,color:"#6b7280"}}>現在準備中です</div>
-              <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>公開までしばらくお待ちください</div>
+              <div style={{fontSize:13,fontWeight:600,color:"#4c6e4e"}}>現在準備中です</div>
+              <div style={{fontSize:11,color:"#7a9a76",marginTop:4}}>公開までしばらくお待ちください</div>
             </div>
           </div>
         </div>
