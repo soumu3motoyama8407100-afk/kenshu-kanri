@@ -1127,8 +1127,8 @@ function DualLoginScreen({pendingAttend,internals,employees,onLogin,onManualLogi
             onLineLogin={onLineLogin} lineLoggingIn={lineLoggingIn} lineMsg={lineMsg}
             onLogin={(empId,isAdmin,isManager,isViewer,dept)=>onLogin(empId,isAdmin,isManager||false,isViewer||false,dept||"")}/>
           {MANUAL_ENABLED&&<ManualLoginCard employees={employees} onManualLogin={onManualLogin}/>}
-          {/* 記録ノートへの入り口（現在は準備中・ログイン不可）。記録ノートの緑系配色に合わせる */}
-          <div style={{width:"100%",background:"#fcfdf8",borderRadius:20,padding:"22px",boxShadow:"0 12px 40px rgba(76,110,78,.18)",border:"1px solid #9dc2a0",position:"relative",overflow:"hidden",opacity:.98}}>
+          {/* 記録ノートへの入り口（PCのみ表示・スマホでは非表示。現在は準備中・ログイン不可）。記録ノートの緑系配色に合わせる */}
+          <div className="login-desktop-view" style={{width:"100%",background:"#fcfdf8",borderRadius:20,padding:"22px",boxShadow:"0 12px 40px rgba(76,110,78,.18)",border:"1px solid #9dc2a0",position:"relative",overflow:"hidden",opacity:.98}}>
             <div style={{position:"absolute",top:12,right:12,background:"#f59e0b",color:"#fff",fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,letterSpacing:1}}>準備中</div>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
               <span style={{fontSize:28}}>📝</span>
