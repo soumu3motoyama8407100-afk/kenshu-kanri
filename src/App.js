@@ -1819,8 +1819,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
           {[["notices","📢 お知らせ"],
             ["training","📚 研修"],["seminar","📺 セミナー"],
             ...((isManager||isViewer)?[["mgr","📋 部署管理"]]:[]),
-            // 研修報告書は対象者のみ表示：本山(158)・前田(112)・植村幸栄(151)・西岡雄斗(117)・田中裕美子(354)・阿部(235)
-            ...(["158","112","151","117","354","235"].includes(String(emp.id).replace(/\D/g,""))?[["report","📝 研修報告書"]]:[])]
+            // 研修報告書は対象者のみ表示：本山(158)・前田(112)・植村幸栄(151)・西岡雄斗(117)・田中裕美子(354)・阿部(235)・山﨑あずさ(103)
+            ...(["158","112","151","117","354","235","103"].includes(String(emp.id).replace(/\D/g,""))?[["report","📝 研修報告書"]]:[])]
             .map(([k,l])=>{
               const isLocked=false; // 委員会タブは準備中のため非表示（配列から除外済み）
               return(
