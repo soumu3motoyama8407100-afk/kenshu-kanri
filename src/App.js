@@ -2198,7 +2198,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
             {/* ② 選んだ研修の職員リスト */}
             {curT&&<>
               <button className="tsel-chip" onClick={()=>setSelTraining(null)}
-                style={{display:"block",marginBottom:10,padding:"8px 16px",borderRadius:20,border:"1.5px solid #E8D5B0",background:"#fff",color:"#A07840",fontSize:12.5,fontWeight:700,cursor:"pointer"}}>‹ 研修一覧に戻る</button>
+                style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",marginBottom:12,padding:"13px 16px",borderRadius:12,border:"none",background:"#1e3a5f",color:"#fff",fontSize:15,fontWeight:800,cursor:"pointer",boxShadow:"0 3px 10px rgba(30,58,95,.3)"}}>← 研修一覧に戻る</button>
               {/* いまどの研修を操作しているのかを明示する（研修タブと同じクリーム＋ゴールドの配色） */}
               <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#FDF6EC",border:"1px solid #E8D5B0",borderLeft:"4px solid #C89A55",borderRadius:10,marginBottom:10}}>
                 <span style={{fontSize:10,fontWeight:700,color:"#fff",background:"#C89A55",borderRadius:6,padding:"3px 8px",flexShrink:0,whiteSpace:"nowrap"}}>操作中</span>
@@ -3706,7 +3706,7 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
       {fyInternals.length>0&&curT&&<>
         <div style={{display:"flex",alignItems:"center",gap:8,margin:"12px 0 10px",flexWrap:"wrap"}}>
           <button className="tsel-chip" onClick={()=>{setSelT(null);setBulkMode(false);setBulkIds([]);}}
-            style={{padding:"8px 16px",borderRadius:20,border:"1.5px solid #E8D5B0",background:"#fff",color:"#A07840",fontSize:12.5,fontWeight:700,cursor:"pointer"}}>‹ 研修一覧に戻る</button>
+            style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"12px 18px",borderRadius:12,border:"none",background:"#1e3a5f",color:"#fff",fontSize:15,fontWeight:800,cursor:"pointer",boxShadow:"0 3px 10px rgba(30,58,95,.3)"}}>← 研修一覧に戻る</button>
           <button style={S.qrBtn} onClick={()=>onQR(curT)}>QR生成</button>
         </div>
         {/* いまどの研修を操作しているのかを明示する */}
@@ -4094,7 +4094,7 @@ function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear}){
       {/* ② 選んだ研修の職員一覧 */}
       {fyExternals.length>0&&curX&&(()=>{const x=curX;const targets=targetsOf(x);return(
         <div>
-          <button className="tsel-chip" onClick={()=>setSelX(null)} style={{display:"block",marginBottom:10,padding:"8px 16px",borderRadius:20,border:"1.5px solid #E8D5B0",background:"#fff",color:"#A07840",fontSize:12.5,fontWeight:700,cursor:"pointer"}}>‹ 研修一覧に戻る</button>
+          <button className="tsel-chip" onClick={()=>setSelX(null)} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",marginBottom:12,padding:"13px 16px",borderRadius:12,border:"none",background:"#1e3a5f",color:"#fff",fontSize:15,fontWeight:800,cursor:"pointer",boxShadow:"0 3px 10px rgba(30,58,95,.3)"}}>← 研修一覧に戻る</button>
           <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#FDF6EC",border:"1px solid #E8D5B0",borderLeft:"4px solid #C89A55",borderRadius:10,marginBottom:10}}>
             <span style={{fontSize:10,fontWeight:700,color:"#fff",background:"#C89A55",borderRadius:6,padding:"3px 8px",flexShrink:0,whiteSpace:"nowrap"}}>操作中</span>
             <div style={{minWidth:0,flex:1}}>
