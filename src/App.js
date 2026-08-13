@@ -1481,7 +1481,7 @@ function reportInfoTableHtml(f){
     <tr><td style="${lb}width:16%;">会議名</td><td style="${c}" colspan="3">${esc(f.meetingName)}</td></tr>
     <tr><td style="${lb}">日時</td><td style="${c}" colspan="3">${esc(f.datetime)}</td></tr>
     <tr><td style="${lb}">場所</td><td style="${c}" colspan="3">${esc(f.place)}</td></tr>
-    <tr><td style="${lb}">進行</td><td style="${c}width:34%;">${esc(f.facilitator)}</td><td style="${lb}width:16%;">記録</td><td style="${c}">${esc(f.recorder)}</td></tr>
+    <tr><td style="${lb}">講師</td><td style="${c}" colspan="3">${esc(f.lecturer)}</td></tr>
     <tr><td style="${lb}">参加者</td><td style="${c}height:70px;vertical-align:top;" colspan="3">${nl2br(f.attendees)}</td></tr>
   </table>`;
 }
@@ -1507,7 +1507,7 @@ function buildMeetingReportHtml(f){
 </body></html>`;
 }
 function MeetingReportTab({emp,committees,internals,getIS,employees}){
-  const [f,setF]=useState({committeeId:"",meetingName:"",department:emp.dept||"",name:emp.name||"",date:"",startTime:"",endTime:"",place:"",placeOther:"",facilitator:"",recorder:"",attendees:"",agenda:"別紙参照",attendTrainingId:""});
+  const [f,setF]=useState({committeeId:"",meetingName:"",department:emp.dept||"",name:emp.name||"",date:"",startTime:"",endTime:"",place:"",placeOther:"",lecturer:"",attendees:"",agenda:"別紙参照",attendTrainingId:""});
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
   const onCommittee=id=>{ const c=committees.find(x=>x.id===id); setF(p=>({...p,committeeId:id,meetingName:c?c.name:p.meetingName})); };
   const placeVal=f.place==="その他"?(f.placeOther||""):f.place;
@@ -1516,11 +1516,12 @@ function MeetingReportTab({emp,committees,internals,getIS,employees}){
     const t=(f.startTime||f.endTime)?` ${f.startTime||""}${f.endTime?`〜${f.endTime}`:""}`:"";
     return formatDate(f.date)+t;
   };
-  // 研修を選ぶと、その研修に当日参加した職員を「【部署】氏名」で自動取り込み
+  // 研修を選ぶと、その研修の当日参加者を「【部署】氏名」で、講師を講師欄から自動取り込み
   const fyTrainings=(internals||[]).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
   const importAttendees=tid=>{
     set("attendTrainingId",tid);
-    if(!tid){return;}
+    if(!tid){ return; }
+    const t=(internals||[]).find(x=>x.id===tid);
     const deptIdx=d=>{const i=DEPT_ORDER.indexOf(d);return i<0?999:i;};
     // 部署ごとにまとめて「【部署】氏名、氏名、氏名」。部署ごとに改行
     const byDept={};
@@ -1529,9 +1530,9 @@ function MeetingReportTab({emp,committees,internals,getIS,employees}){
     });
     const lines=Object.keys(byDept).sort((a,b)=>deptIdx(a)-deptIdx(b))
       .map(d=>`【${d}】${byDept[d].sort((a,b)=>String(a).localeCompare(String(b),"ja")).join("、")}`);
-    set("attendees",lines.join("\n"));
+    setF(p=>({...p,attendees:lines.join("\n"),lecturer:(t&&t.lecturer)||p.lecturer}));
   };
-  const previewData={meetingName:f.meetingName,department:f.department,name:f.name,datetime:datetimeStr(),place:placeVal,facilitator:f.facilitator,recorder:f.recorder,attendees:f.attendees,agenda:f.agenda};
+  const previewData={meetingName:f.meetingName,department:f.department,name:f.name,datetime:datetimeStr(),place:placeVal,lecturer:f.lecturer,attendees:f.attendees,agenda:f.agenda};
   const download=()=>{
     if(!f.meetingName.trim()){alert("会議名を入力（または委員会を選択）してください。");return;}
     const html=buildMeetingReportHtml(previewData);
@@ -1584,13 +1585,13 @@ function MeetingReportTab({emp,committees,internals,getIS,employees}){
             </select>
             {f.place==="その他"&&<input style={{...input,marginTop:8}} value={f.placeOther} placeholder="場所を入力" onChange={e=>set("placeOther",e.target.value)}/>}
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <div><label style={lbl}>進行</label><input style={input} value={f.facilitator} onChange={e=>set("facilitator",e.target.value)}/></div>
-            <div><label style={lbl}>記録</label><input style={input} value={f.recorder} onChange={e=>set("recorder",e.target.value)}/></div>
+          <div>
+            <label style={lbl}>講師</label>
+            <input style={input} value={f.lecturer} placeholder="研修を選ぶと自動で入ります（手直しも可）" onChange={e=>set("lecturer",e.target.value)}/>
           </div>
           <div>
             <label style={lbl}>参加者</label>
-            <div style={{fontSize:11,color:"#6b7280",marginBottom:6}}>研修を選ぶと、その研修の当日参加者を部署ごとにまとめて自動入力します（手直しも可）。</div>
+            <div style={{fontSize:11,color:"#6b7280",marginBottom:6}}>研修を選ぶと、当日参加者を部署ごとにまとめて、講師も自動で取り込みます（手直しも可）。</div>
             <select style={{...input,marginBottom:8}} value={f.attendTrainingId} onChange={e=>importAttendees(e.target.value)}>
               <option value="">（研修から参加者を取り込む…）</option>
               {fyTrainings.map(t=><option key={t.id} value={t.id}>{t.title}（{formatDate(t.date)}）</option>)}
