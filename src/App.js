@@ -1532,7 +1532,12 @@ function MeetingReportTab({emp,internals,getIS,employees}){
   };
   const previewData={meetingName:f.meetingName,department:f.department,name:f.name,datetime:datetimeStr(),place:placeVal,lecturer:f.lecturer,attendees:f.attendees,agenda:f.agenda};
   const download=()=>{
-    if(!f.meetingName.trim()){alert("研修名を入力（または研修を選択）してください。");return;}
+    // 必須：研修名・日時・場所
+    const miss=[];
+    if(!f.meetingName.trim())miss.push("研修名");
+    if(!f.date)miss.push("日時");
+    if(!placeVal.trim())miss.push("場所");
+    if(miss.length){ alert(`次の項目が未入力です：${miss.join("・")}\n研修を選ぶと研修名は自動で入ります。日時・場所も入力してください。`); return; }
     const html=buildMeetingReportHtml(previewData);
     const blob=new Blob(["﻿"+html],{type:"application/msword"});
     const url=URL.createObjectURL(blob);
@@ -1565,7 +1570,7 @@ function MeetingReportTab({emp,internals,getIS,employees}){
             <div><label style={lbl}>氏名</label><input style={input} value={f.name} onChange={e=>set("name",e.target.value)}/></div>
           </div>
           <div>
-            <label style={lbl}>日時</label>
+            <label style={lbl}>日時 <span style={{color:"#dc2626"}}>*</span></label>
             <div className="form-2col" style={{marginBottom:0}}>
               <div><input type="date" style={input} value={f.date} onChange={e=>set("date",e.target.value)}/></div>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -1576,7 +1581,7 @@ function MeetingReportTab({emp,internals,getIS,employees}){
             </div>
           </div>
           <div>
-            <label style={lbl}>場所</label>
+            <label style={lbl}>場所 <span style={{color:"#dc2626"}}>*</span></label>
             <select style={input} value={f.place} onChange={e=>set("place",e.target.value)}>
               <option value="">（選択してください）</option>
               {LOCATIONS.map(l=><option key={l} value={l}>{l}</option>)}
