@@ -1113,10 +1113,11 @@ function QRLandingScreen({training,employees,onLogin,onLineLogin,lineLoggingIn,l
   );
 }
 
-// 記録ノートへの入り口カード（PCのみ表示・スマホでは非表示。ログイン後のお知らせ下部に置く）
+// 記録ノートへの入り口カード（PCのみ表示・スマホでは非表示）。
+// お知らせのスクロール枠の最下部に sticky で貼り付き、お知らせが多くても常に見える。
 function KirokuNoteCard(){
   return(
-    <div className="login-desktop-view" style={{width:"100%",background:"#fcfdf8",borderRadius:16,padding:"18px",boxShadow:"0 8px 24px rgba(76,110,78,.15)",border:"1px solid #9dc2a0",marginTop:20}}>
+    <div className="login-desktop-view" style={{position:"sticky",bottom:8,zIndex:6,width:"100%",background:"#fcfdf8",borderRadius:16,padding:"16px 18px",boxShadow:"0 -2px 16px rgba(0,0,0,.08),0 8px 24px rgba(76,110,78,.15)",border:"1px solid #9dc2a0",marginTop:20}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
         <span style={{fontSize:26}}>📝</span>
         <div>
