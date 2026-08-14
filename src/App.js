@@ -1117,7 +1117,7 @@ function QRLandingScreen({training,employees,onLogin,onLineLogin,lineLoggingIn,l
 // 白い枠の外（下のベージュ部分）に中央寄せで配置する。
 function KirokuNoteCard(){
   return(
-    <div className="login-desktop-view" style={{width:"calc(100% - 32px)",maxWidth:560,margin:"16px auto 28px",background:"#fcfdf8",borderRadius:16,padding:"16px 18px",boxShadow:"0 8px 24px rgba(76,110,78,.15)",border:"1px solid #9dc2a0"}}>
+    <div className="login-desktop-view" style={{width:"100%",maxWidth:1200,margin:"12px 0 28px",boxSizing:"border-box",background:"#fcfdf8",borderRadius:16,padding:"16px 18px",boxShadow:"0 8px 24px rgba(76,110,78,.15)",border:"1px solid #9dc2a0"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
         <span style={{fontSize:26}}>📝</span>
         <div>
