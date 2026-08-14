@@ -414,9 +414,11 @@ export default function App() {
     try {
       // 職員・研修データは必須 → 先に確実に読み込む。
       // どれか1つでも失敗したらこのブロックは例外で抜け、既存データは一切上書きしない（白紙化の防止）
-      const [emps,iS,xS,int,ext] = await Promise.all([
-        db.getEmployees(),db.getIStatuses(),db.getXStatuses(),db.getInternals(),db.getExternals()
-      ]);
+      const empProm=db.getEmployees(), iSProm=db.getIStatuses(), xSProm=db.getXStatuses(), intProm=db.getInternals(), extProm=db.getExternals();
+      // 職員・研修だけは先に反映して、i_statuses等の読み込みを待たずにログインできるようにする
+      empProm.then(e=>setEmployees(e)).catch(()=>{});
+      intProm.then(i=>setInternals(i)).catch(()=>{});
+      const [emps,iS,xS,int,ext] = await Promise.all([empProm,iSProm,xSProm,intProm,extProm]);
       setEmployees(emps); setIStatuses(iS); setXStatuses(xS); setInternals(int); setExternals(ext);
       setDataReady(true); // ここまで来て初めて、自動処理・書き込みを許可する
       if(isInitial)setLoading(false);
