@@ -1127,9 +1127,8 @@ function DualLoginScreen({pendingAttend,internals,employees,onLogin,onManualLogi
             onLineLogin={onLineLogin} lineLoggingIn={lineLoggingIn} lineMsg={lineMsg}
             onLogin={(empId,isAdmin,isManager,isViewer,dept)=>onLogin(empId,isAdmin,isManager||false,isViewer||false,dept||"")}/>
           {MANUAL_ENABLED&&<ManualLoginCard employees={employees} onManualLogin={onManualLogin}/>}
-          {/* 記録ノートへの入り口（PCのみ表示・スマホでは非表示。現在は準備中・ログイン不可）。記録ノートの緑系配色に合わせる */}
-          <div className="login-desktop-view" style={{width:"100%",background:"#fcfdf8",borderRadius:20,padding:"22px",boxShadow:"0 12px 40px rgba(76,110,78,.18)",border:"1px solid #9dc2a0",position:"relative",overflow:"hidden",opacity:.98}}>
-            <div style={{position:"absolute",top:12,right:12,background:"#f59e0b",color:"#fff",fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,letterSpacing:1}}>準備中</div>
+          {/* 記録ノートへの入り口（PCのみ表示・スマホでは非表示）。記録ノートへそのまま遷移（LINE連携なし） */}
+          <div className="login-desktop-view" style={{width:"100%",background:"#fcfdf8",borderRadius:20,padding:"22px",boxShadow:"0 12px 40px rgba(76,110,78,.18)",border:"1px solid #9dc2a0",position:"relative",overflow:"hidden"}}>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
               <span style={{fontSize:28}}>📝</span>
               <div>
@@ -1137,11 +1136,10 @@ function DualLoginScreen({pendingAttend,internals,employees,onLogin,onManualLogi
                 <div style={{fontSize:11,color:"#729875"}}>会議・研修の記録を作成するツール</div>
               </div>
             </div>
-            <div style={{background:"#f2f6e8",borderRadius:12,padding:"14px",textAlign:"center",cursor:"not-allowed",border:"1px solid #d8e0cb"}}>
-              <div style={{fontSize:22,marginBottom:6}}>🚧</div>
-              <div style={{fontSize:13,fontWeight:600,color:"#4c6e4e"}}>現在準備中です</div>
-              <div style={{fontSize:11,color:"#7a9a76",marginTop:4}}>公開までしばらくお待ちください</div>
-            </div>
+            <a href="https://gijiroku-web-six.vercel.app/" target="_blank" rel="noreferrer"
+              style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"13px",background:"#4c6e4e",color:"#fff",borderRadius:12,fontSize:15,fontWeight:800,textDecoration:"none",boxShadow:"0 3px 10px rgba(76,110,78,.3)",boxSizing:"border-box"}}>
+              ▶ 記録ノートを開く
+            </a>
           </div>
         </div>
       </div>
