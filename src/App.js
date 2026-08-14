@@ -1797,6 +1797,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
           </div>
         </div>
       )}
+      {/* 白い枠と記録ノートカードを縦に積む（横並びで右に出ないように） */}
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:"100%",maxWidth:1200}}>
       <div className="rsp-wrap" style={S.appWrap}>
         {/* ヘッダー */}
         <div style={{background:"#C89A55",color:"#fff",padding:"12px 16px",display:"block",boxSizing:"border-box"}}>
@@ -1853,8 +1855,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
               );
             })}
         </div>
-        {/* コンテンツ */}
-        <div style={S.scroll}>
+        {/* コンテンツ（お知らせタブは下の記録ノートカード分だけ枠を縮め、カードが最初から見えるようにする） */}
+        <div style={tab==="notices"?{...S.scroll,maxHeight:"calc(100vh - 320px)"}:S.scroll}>
           {tab==="training"&&(
             <div style={{display:"flex",flexDirection:"column",gap:16}}>
               {/* 外部研修：未受講のみ既定表示し、受講済みは折りたたむ（多くても内部研修が埋もれないように）。
@@ -2105,6 +2107,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
       </div>
       {/* 記録ノートへの入り口：白い枠の外（下のベージュ部分）に配置。お知らせタブのときだけ・PCのみ */}
       {tab==="notices"&&<KirokuNoteCard/>}
+      </div>
     </div>
   );
 }
