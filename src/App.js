@@ -1137,7 +1137,7 @@ function DualLoginScreen({pendingAttend,internals,employees,onLogin,onManualLogi
               </div>
             </div>
             <a href="https://gijiroku-web-six.vercel.app/" target="_blank" rel="noreferrer"
-              style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"13px",background:"#4c6e4e",color:"#fff",borderRadius:12,fontSize:15,fontWeight:800,textDecoration:"none",boxShadow:"0 3px 10px rgba(76,110,78,.3)",boxSizing:"border-box"}}>
+              style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"13px",background:"#7a9a76",color:"#fff",borderRadius:12,fontSize:15,fontWeight:800,textDecoration:"none",boxShadow:"0 3px 10px rgba(122,154,118,.3)",boxSizing:"border-box"}}>
               ▶ 記録ノートを開く
             </a>
           </div>
