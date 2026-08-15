@@ -93,8 +93,8 @@ const FUKUMEISHO_TRAINING_IDS = ["TFUKU158"];
 const toReiwa = s => { if(!s)return ""; const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/); if(!m)return s; const y=+m[1]-2018; return `令和${y}年${+m[2]}月${+m[3]}日`; };
 // 本文の行数を概算（罫線の本数を決めるためだけに使う。実際の本文は自然に折り返す）
 // 1行約38字で見積り、自然折り返し(約41字)より多めに出して罫線が本文に足りなくなるのを防ぐ
-const FUKU_LINE_PX=32;     // 本文の行の高さ(px)。罫線の間隔と一致させる
-const FUKU_MIN_LINES=18;   // フォームとして最低これだけ罫線を敷く（余白拡大後も確実に1ページに収まる本数）
+const FUKU_LINE_PX=26;     // 本文の行の高さ(px)。罫線の間隔と一致。26pxで1ページ約27行
+const FUKU_MIN_LINES=25;   // フォームとして最低これだけ罫線を敷く（1ページに収まる本数）
 function estFukuLines(text){
   const cw=ch=>{ const c=ch.codePointAt(0); return (c<=0x2FF||(ch>="｡"&&ch<="ﾟ"))?0.5:1; };
   let lines=0;
@@ -2592,7 +2592,7 @@ function FukumeishoForm({training,emp}){
                     <div style={{fontSize:12,fontWeight:700,color:countColor}}>{charCount}字 <span style={{fontSize:11,color:"#9ca3af",fontWeight:400}}>／ 目安800〜1200字</span></div>
                   </div>
                   {/* 本文欄はWordと同じ 本文幅170mm・11pt・游明朝 にして、改行位置・行数を一致させる */}
-                  <textarea style={{...inp,width:"165mm",maxWidth:"100%",boxSizing:"content-box",flex:1,minHeight:"44vh",resize:"none",fontFamily:"'游明朝','MS Mincho',serif",fontSize:"10pt",lineHeight:"32px",padding:"3px 8px",whiteSpace:"pre-wrap",wordBreak:"break-all"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。文章はそのまま入力すれば自動で折り返します（段落を分けたいときだけ改行してください）。"/>
+                  <textarea style={{...inp,width:"165mm",maxWidth:"100%",boxSizing:"content-box",flex:1,minHeight:"44vh",resize:"none",fontFamily:"'游明朝','MS Mincho',serif",fontSize:"10pt",lineHeight:"26px",padding:"3px 8px",whiteSpace:"pre-wrap",wordBreak:"break-all"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。文章はそのまま入力すれば自動で折り返します（段落を分けたいときだけ改行してください）。"/>
                 </div>
               </div>
               {/* 右パネル：動画／A4印刷プレビュー を切替。広い画面では入力欄が固定なので、余った幅はこちらが広がる */}
