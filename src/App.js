@@ -94,7 +94,7 @@ const toReiwa = s => { if(!s)return ""; const m=String(s).match(/(\d{4})-(\d{2})
 // 本文の行数を概算（罫線の本数を決めるためだけに使う。実際の本文は自然に折り返す）
 // 1行約38字で見積り、自然折り返し(約41字)より多めに出して罫線が本文に足りなくなるのを防ぐ
 const FUKU_LINE_PX=32;     // 本文の行の高さ(px)。罫線の間隔と一致させる
-const FUKU_MIN_LINES=21;   // フォームとして最低これだけ罫線を敷く（余白拡大後も1ページに収まる本数）
+const FUKU_MIN_LINES=18;   // フォームとして最低これだけ罫線を敷く（余白拡大後も確実に1ページに収まる本数）
 function estFukuLines(text){
   const cw=ch=>{ const c=ch.codePointAt(0); return (c<=0x2FF||(ch>="｡"&&ch<="ﾟ"))?0.5:1; };
   let lines=0;
@@ -127,7 +127,7 @@ function fukumeishoFormHTML({training,emp,job,submitDate,body}){
   <tr><td style="border:${bd};height:80px;">&nbsp;</td><td style="border:${bd};">&nbsp;</td><td style="border:${bd};">&nbsp;</td></tr>
   </table>
   <table style="border-collapse:collapse;width:100%;">
-  <tr><td style="${lb}width:13%;">研 修 名</td><td style="${c}width:37%;">${esc(training.title)}</td><td style="${lb}width:13%;">提 出 日</td><td style="${c}width:37%;">${toReiwa(submitDate)}</td></tr>
+  <tr><td style="${lb}width:12%;">研 修 名</td><td style="${c}width:42%;">${esc(training.title)}</td><td style="${lb}width:12%;">提 出 日</td><td style="${c}width:34%;">${toReiwa(submitDate)}</td></tr>
   <tr><td style="${lb}">研修場所</td><td style="${c}">${esc(training.location||"")}</td><td style="${lb}">部　署</td><td style="${c}">${esc(job||"")}</td></tr>
   <tr><td style="${lb}">日　時</td><td style="${c}">${jitiji}</td><td style="${lb}">氏　名</td><td style="${c}">${esc(emp.name||"")}</td></tr>
   </table>
@@ -2515,7 +2515,7 @@ function FukumeishoA4({training,emp,job,submitDate,body}){
       </tbody></table>
       {/* 中段：2列（研修名｜提出日 / 研修場所｜部署 / 日時｜氏名） */}
       <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
-        <tr><td style={{...lb,width:"13%"}}>研 修 名</td><td style={{...cell,width:"37%"}}>{training.title}</td><td style={{...lb,width:"13%"}}>提 出 日</td><td style={{...cell,width:"37%"}}>{toReiwa(submitDate)}</td></tr>
+        <tr><td style={{...lb,width:"12%"}}>研 修 名</td><td style={{...cell,width:"42%"}}>{training.title}</td><td style={{...lb,width:"12%"}}>提 出 日</td><td style={{...cell,width:"34%"}}>{toReiwa(submitDate)}</td></tr>
         <tr><td style={lb}>研修場所</td><td style={cell}>{training.location||""}</td><td style={lb}>部　署</td><td style={cell}>{job||""}</td></tr>
         <tr><td style={lb}>日　時</td><td style={cell}>{jitiji}</td><td style={lb}>氏　名</td><td style={cell}>{emp.name||""}</td></tr>
       </tbody></table>
