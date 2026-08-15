@@ -91,49 +91,62 @@ const isTargetedFor = (t,e) => ((t.targetEmpIds||[]).length>0 ? t.targetEmpIds.i
 const FUKUMEISHO_TRAINING_IDS = ["TFUKU158"];
 // 西暦(YYYY-MM-DD) → 令和表記
 const toReiwa = s => { if(!s)return ""; const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/); if(!m)return s; const y=+m[1]-2018; return `令和${y}年${+m[2]}月${+m[3]}日`; };
-// 復命書をWordで開けるファイル(.doc)として生成しダウンロードする。
-// docxライブラリはCRAのビルドと相性が悪いため、Wordが確実に開けるHTML(.doc)形式で出力する。
-function downloadFukumeishoDocx({training,emp,job,submitDate,body}){
+// 本文の行数を概算（罫線の本数を決めるためだけに使う。実際の本文は自然に折り返す）
+// 1行約38字で見積り、自然折り返し(約41字)より多めに出して罫線が本文に足りなくなるのを防ぐ
+const FUKU_LINE_PX=32;     // 本文の行の高さ(px)。罫線の間隔と一致させる
+const FUKU_MIN_LINES=24;   // フォームとして最低これだけ罫線を敷く
+function estFukuLines(text){
+  const cw=ch=>{ const c=ch.codePointAt(0); return (c<=0x2FF||(ch>="｡"&&ch<="ﾟ"))?0.5:1; };
+  let lines=0;
+  String(text||"").split("\n").forEach(p=>{ if(p===""){ lines+=1; return; } let u=0; for(const ch of p) u+=cw(ch); lines+=Math.max(1,Math.ceil(u/38)); });
+  return Math.max(FUKU_MIN_LINES, lines+1);
+}
+// 復命書フォームのHTML（印刷用ウィンドウとプレビューで共通の見た目にする）
+function fukumeishoFormHTML({training,emp,job,submitDate,body}){
   const esc=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const jitiji=`${toReiwa(training.date)}${training.date2?`・${toReiwa(training.date2)}`:""}${(training.startTime||training.endTime)?`　${esc(training.startTime||"")}${training.endTime?`〜${esc(training.endTime)}`:""}`:""}`;
   const bd="1px solid #000";
   const lb=`border:${bd};padding:4px 6px;text-align:center;font-weight:bold;white-space:nowrap;`;
   const c=`border:${bd};padding:4px 8px;word-break:break-all;`;
   const sc=`border:${bd};text-align:center;font-size:10.5pt;padding:2px;`;
-  const bodyHtml=esc(body).replace(/\n/g,"<br/>")||"&nbsp;";
-  const html=`<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>復命書</title>
-<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]-->
-<style>
-/* Wordのページ余白を狭め(15mm)に焼き込む。これでWord側の設定変更なしに印刷範囲へ収まる */
-@page Section1 { size:210.0mm 297.0mm; margin:15.0mm 15.0mm 15.0mm 15.0mm; mso-page-orientation:portrait; }
-div.Section1 { page:Section1; }
-@page { size:A4; margin:15mm; }
-body{font-family:'游明朝','MS Mincho',serif;font-size:11pt;color:#000;}
-table{border-collapse:collapse;width:100%;}</style></head><body>
-<div class="Section1">
-<table>
+  const bodyHtml=esc(body).replace(/\n/g,"<br/>");
+  const n=estFukuLines(body);
+  const rules=`<div style="height:${FUKU_LINE_PX}px;border-bottom:1px dotted #888;"></div>`.repeat(n);
+  const boxH=n*FUKU_LINE_PX;
+  // 罫線の下敷き（全幅の点線）＋その上に本文を自然折り返しで重ねる
+  const bodyBox=`<div style="position:relative;border:${bd};padding:2px 8px 0;">
+    <div style="position:absolute;left:8px;right:8px;top:2px;">${rules}</div>
+    <div style="position:relative;min-height:${boxH}px;font-size:12pt;line-height:${FUKU_LINE_PX}px;white-space:pre-wrap;word-break:break-all;">${bodyHtml}</div>
+  </div>`;
+  return `<table style="border-collapse:collapse;width:100%;">
   <tr>
     <td rowspan="2" style="border:${bd};width:58%;text-align:center;vertical-align:middle;"><span style="font-size:26pt;font-weight:bold;letter-spacing:0.4em;">復　命　書</span></td>
     <td style="${sc}width:14%;">施設長</td><td style="${sc}width:14%;">総務部長</td><td style="${sc}width:14%;">部署責任者</td>
   </tr>
-  <tr>
-    <td style="border:${bd};height:48px;">&nbsp;</td><td style="border:${bd};">&nbsp;</td><td style="border:${bd};">&nbsp;</td>
-  </tr>
-</table>
-<table>
+  <tr><td style="border:${bd};height:48px;">&nbsp;</td><td style="border:${bd};">&nbsp;</td><td style="border:${bd};">&nbsp;</td></tr>
+  </table>
+  <table style="border-collapse:collapse;width:100%;">
   <tr><td style="${lb}width:13%;">研 修 名</td><td style="${c}width:37%;">${esc(training.title)}</td><td style="${lb}width:13%;">提 出 日</td><td style="${c}width:37%;">${toReiwa(submitDate)}</td></tr>
   <tr><td style="${lb}">研修場所</td><td style="${c}">${esc(training.location||"")}</td><td style="${lb}">部　署</td><td style="${c}">${esc(job||"")}</td></tr>
   <tr><td style="${lb}">日　時</td><td style="${c}">${jitiji}</td><td style="${lb}">氏　名</td><td style="${c}">${esc(emp.name||"")}</td></tr>
-</table>
-<div style="border:${bd};min-height:205mm;padding:6px 8px;font-size:12pt;line-height:2.0;word-break:break-all;">${bodyHtml}</div>
-</div>
+  </table>
+  ${bodyBox}`;
+}
+// 復命書を印刷/PDF保存する。プレビューと同じHTMLを別ウィンドウで開き、ブラウザの印刷機能を呼ぶ。
+// （Wordはレイアウトを作り直して崩れるため廃止。ブラウザ印刷ならプレビューと完全一致・罫線も確実）
+function printFukumeisho(data){
+  const inner=fukumeishoFormHTML(data);
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>復命書_${data.emp.name||""}_${data.training.title}</title>
+<style>
+@page{size:A4;margin:15mm;}
+html,body{margin:0;padding:0;}
+body{font-family:'游明朝','MS Mincho',serif;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+</style></head><body>${inner}
+<script>window.onload=function(){setTimeout(function(){window.focus();window.print();},200);};window.onafterprint=function(){window.close();};<\/script>
 </body></html>`;
-  const blob=new Blob(["﻿"+html],{type:"application/msword;charset=utf-8"});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");
-  a.href=url; a.download=`復命書_${emp.name||""}_${training.title}.doc`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  const w=window.open("","_blank","width=900,height=1100");
+  if(!w){ alert("ポップアップがブロックされました。ブラウザのポップアップ許可（このサイトを許可）を有効にしてから、もう一度お試しください。"); return; }
+  w.document.open(); w.document.write(html); w.document.close();
 }
 // 部署の表示順（この順に並べ、リストにない部署は後ろに付く）
 const DEPT_ORDER = ["ホーム1F","ホーム2F","ホーム3F","ホーム4F","医務","サムフォット","小規模サイタ","D/Sサイタ","相談室","居宅ポム","総務","用務"];
@@ -2504,8 +2517,15 @@ function FukumeishoA4({training,emp,job,submitDate,body}){
         <tr><td style={lb}>研修場所</td><td style={cell}>{training.location||""}</td><td style={lb}>部　署</td><td style={cell}>{job||""}</td></tr>
         <tr><td style={lb}>日　時</td><td style={cell}>{jitiji}</td><td style={lb}>氏　名</td><td style={cell}>{emp.name||""}</td></tr>
       </tbody></table>
-      {/* 下部：本文（枠で囲み・12pt・自然に折り返し）。入力・プレビュー・Word出力を同じ形にするため罫線は引かず枠のみ */}
-      <div style={{border:bd,minHeight:"205mm",padding:"6px 8px",fontSize:"12pt",lineHeight:2.0,whiteSpace:"pre-wrap",wordBreak:"break-all"}}>{body||""}</div>
+      {/* 下部：本文（枠＋点線罫線）。罫線の下敷きの上に本文を自然折り返しで重ねる。印刷HTMLと同じ構造 */}
+      {(()=>{ const n=estFukuLines(body); return (
+        <div style={{position:"relative",border:bd,padding:"2px 8px 0"}}>
+          <div style={{position:"absolute",left:8,right:8,top:2}}>
+            {Array.from({length:n}).map((_,i)=><div key={i} style={{height:FUKU_LINE_PX,borderBottom:"1px dotted #888"}}/>)}
+          </div>
+          <div style={{position:"relative",minHeight:n*FUKU_LINE_PX,fontSize:"12pt",lineHeight:`${FUKU_LINE_PX}px`,whiteSpace:"pre-wrap",wordBreak:"break-all"}}>{body||""}</div>
+        </div>
+      );})()}
     </div>
   );
 }
@@ -2528,7 +2548,7 @@ function FukumeishoForm({training,emp}){
   useEffect(()=>{ if(!open)return; const el=previewColRef.current; if(!el||typeof ResizeObserver==="undefined")return; const calc=()=>{ const w=el.clientWidth-24; if(w>0)setPscale(Math.max(0.32,Math.min(0.92,w/794))); }; calc(); const ro=new ResizeObserver(calc); ro.observe(el); return ()=>ro.disconnect(); },[open,rightTab]);// eslint-disable-line
   useEffect(()=>{ let alive=true; db.getFukumeisho(emp.id,training.id).then(f=>{ if(!alive||!f)return; if(f.submitDate)setSubmitDate(f.submitDate); setBody(f.body||""); setSavedBody(f.body||""); }).finally(()=>{ if(alive)setLoaded(true); }); return ()=>{alive=false;}; },[emp.id,training.id]);// eslint-disable-line
   const save=async()=>{ setSaving(true); setMsg(""); try{ await db.upsertFukumeisho(emp.id,training.id,{job:dept,submitDate,body}); setSavedBody(body); setMsg("保存しました"); }catch(e){ setMsg("保存に失敗しました："+(e.message||"")); } setSaving(false); };
-  const dl=async()=>{ try{ await downloadFukumeishoDocx({training,emp,job:dept,submitDate,body}); }catch(e){ setMsg("Word出力に失敗しました："+(e.message||"")); } };
+  const dl=()=>{ try{ printFukumeisho({training,emp,job:dept,submitDate,body}); }catch(e){ setMsg("印刷の準備に失敗しました："+(e.message||"")); } };
   const dirty=body!==savedBody;
   const closeEditor=()=>{ if(dirty&&!window.confirm("保存していない変更があります。閉じてよろしいですか？")) return; setOpen(false); setMsg(""); };
   const charCount=[...body.replace(/\n/g,"")].length; // 改行を除いた文字数
@@ -2544,7 +2564,7 @@ function FukumeishoForm({training,emp}){
         <div style={{fontSize:11,color:"#9ca3af",marginBottom:10}}>{savedBody?`記入済み（${[...savedBody.replace(/\n/g,"")].length}字）：${preview}${savedBody.length>50?"…":""}`:"まだ記入されていません。パソコンでの記入がおすすめです。"}</div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <button style={{fontSize:14,fontWeight:700,padding:"10px 18px",borderRadius:10,border:"none",background:"#C89A55",color:"#fff",cursor:"pointer"}} disabled={!loaded} onClick={()=>{ setMsg(""); setOpen(true); }}>{savedBody?"✏️ 記入内容を編集する":"📝 復命書を記入する"}</button>
-          {savedBody&&<button style={{fontSize:14,fontWeight:700,padding:"10px 18px",borderRadius:10,border:"1.5px solid #C89A55",background:"#fff",color:"#A07840",cursor:"pointer"}} onClick={dl}>⬇ Wordでダウンロード</button>}
+          {savedBody&&<button style={{fontSize:14,fontWeight:700,padding:"10px 18px",borderRadius:10,border:"1.5px solid #C89A55",background:"#fff",color:"#A07840",cursor:"pointer"}} onClick={dl}>🖨 印刷 / PDF保存</button>}
         </div>
       </div>
 
@@ -2566,7 +2586,7 @@ function FukumeishoForm({training,emp}){
                 </div>
                 <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
-                    <div style={lbl}>本文（研修内容・所感）<span style={{fontSize:11,color:"#9ca3af",fontWeight:400,marginLeft:6}}>改行せず入力（自動で折り返し・Wordと同じ形）</span></div>
+                    <div style={lbl}>本文（研修内容・所感）<span style={{fontSize:11,color:"#9ca3af",fontWeight:400,marginLeft:6}}>改行せず入力（自動で折り返し・右のプレビュー＝印刷と同じ形）</span></div>
                     <div style={{fontSize:12,fontWeight:700,color:countColor}}>{charCount}字 <span style={{fontSize:11,color:"#9ca3af",fontWeight:400}}>／ 目安800〜1200字</span></div>
                   </div>
                   {/* 本文欄はWordと同じ 本文幅170mm・11pt・游明朝 にして、改行位置・行数を一致させる */}
@@ -2596,7 +2616,7 @@ function FukumeishoForm({training,emp}){
             {/* フッター */}
             <div style={{padding:"12px 18px",borderTop:"1px solid #F0D9B0",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",flexShrink:0}}>
               <button style={{fontSize:15,fontWeight:700,padding:"11px 22px",borderRadius:10,border:"none",background:saving?"#cbb892":"#C89A55",color:"#fff",cursor:saving?"default":"pointer"}} disabled={saving} onClick={save}>{saving?"保存中…":"💾 保存する"}</button>
-              <button style={{fontSize:15,fontWeight:700,padding:"11px 22px",borderRadius:10,border:"1.5px solid #C89A55",background:"#fff",color:"#A07840",cursor:"pointer"}} onClick={dl}>⬇ Wordでダウンロード</button>
+              <button style={{fontSize:15,fontWeight:700,padding:"11px 22px",borderRadius:10,border:"1.5px solid #C89A55",background:"#fff",color:"#A07840",cursor:"pointer"}} onClick={dl}>🖨 印刷 / PDF保存</button>
               {dirty&&<span style={{fontSize:12,color:"#d97706",fontWeight:700}}>未保存の変更があります</span>}
               {msg&&<span style={{fontSize:13,fontWeight:700,color:msg.includes("失敗")?"#dc2626":"#15803d"}}>{msg}</span>}
               <button style={{marginLeft:"auto",fontSize:13,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"9px 16px",cursor:"pointer"}} onClick={closeEditor}>閉じる</button>
