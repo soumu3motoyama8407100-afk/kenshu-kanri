@@ -93,7 +93,7 @@ const FUKUMEISHO_TRAINING_IDS = ["TFUKU158"];
 const toReiwa = s => { if(!s)return ""; const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/); if(!m)return s; const y=+m[1]-2018; return `令和${y}年${+m[2]}月${+m[3]}日`; };
 // 本文を1行あたり maxUnits（全角=1,半角=0.5）で折り返し、行の配列にする。
 // 明示改行(\n)は必ず改行。プレビューとWord出力で共通に使い、両者の行を一致させる。
-const FUKU_MAXUNITS=40; // 本文幅170mm・12ptで約40文字
+const FUKU_MAXUNITS=38; // 12ptで約38文字/行。Wordの印刷範囲からはみ出さないよう40より少し短く
 const FUKU_MINLINES=25; // 罫線で埋める最小行数（フォーム見た目のため）
 function wrapBody(text,maxUnits=FUKU_MAXUNITS){
   const cw=ch=>{ const c=ch.codePointAt(0); return (c<=0x2FF||(ch>="｡"&&ch<="ﾟ"))?0.5:1; };
@@ -119,9 +119,15 @@ function downloadFukumeishoDocx({training,emp,job,submitDate,body}){
   const sc=`border:${bd};text-align:center;font-size:10.5pt;padding:2px;`;
   const lineRows=fukuBodyLines(body).map(l=>`<div style="border-bottom:1px dotted #000;font-size:12pt;line-height:1.55;padding:2px 2px;white-space:nowrap;overflow:hidden;">${l?esc(l):"&nbsp;"}</div>`).join("");
   const html=`<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>復命書</title>
-<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
-<style>@page{size:A4;margin:18mm;} body{font-family:'游明朝','MS Mincho',serif;font-size:11pt;color:#000;}
+<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]-->
+<style>
+/* Wordのページ余白を狭め(15mm)に焼き込む。これでWord側の設定変更なしに印刷範囲へ収まる */
+@page Section1 { size:210.0mm 297.0mm; margin:15.0mm 15.0mm 15.0mm 15.0mm; mso-page-orientation:portrait; }
+div.Section1 { page:Section1; }
+@page { size:A4; margin:15mm; }
+body{font-family:'游明朝','MS Mincho',serif;font-size:11pt;color:#000;}
 table{border-collapse:collapse;width:100%;}</style></head><body>
+<div class="Section1">
 <table>
   <tr>
     <td rowspan="2" style="border:${bd};width:58%;text-align:center;vertical-align:middle;"><span style="font-size:26pt;font-weight:bold;letter-spacing:0.4em;">復　命　書</span></td>
@@ -139,6 +145,7 @@ table{border-collapse:collapse;width:100%;}</style></head><body>
 <table>
   <tr><td style="border:${bd};padding:6px 4px;">${lineRows}</td></tr>
 </table>
+</div>
 </body></html>`;
   const blob=new Blob(["﻿"+html],{type:"application/msword;charset=utf-8"});
   const url=URL.createObjectURL(blob);
@@ -2502,7 +2509,7 @@ function FukumeishoA4({training,emp,job,submitDate,body}){
   const lines=fukuBodyLines(body);
   return(
     // 210mm×297mm のA4用紙。本文12pt想定で、実際の印刷の文字量・折り返しが体感できる
-    <div style={{width:"210mm",minHeight:"297mm",background:"#fff",padding:"18mm",boxSizing:"border-box",fontFamily:"'游明朝','MS Mincho',serif",color:"#000"}}>
+    <div style={{width:"210mm",minHeight:"297mm",background:"#fff",padding:"15mm",boxSizing:"border-box",fontFamily:"'游明朝','MS Mincho',serif",color:"#000"}}>
       {/* 上部：復命書（大・中央）＋ 決裁印欄（ラベル＋押印枠） */}
       <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
         <tr>
@@ -2583,11 +2590,11 @@ function FukumeishoForm({training,emp}){
                 </div>
                 <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
-                    <div style={lbl}>本文（研修内容・所感）<span style={{fontSize:11,color:"#9ca3af",fontWeight:400,marginLeft:6}}>1行 約40字（Wordと同じ）</span></div>
+                    <div style={lbl}>本文（研修内容・所感）<span style={{fontSize:11,color:"#9ca3af",fontWeight:400,marginLeft:6}}>1行 約38字（Wordと同じ）</span></div>
                     <div style={{fontSize:12,fontWeight:700,color:countColor}}>{charCount}字 <span style={{fontSize:11,color:"#9ca3af",fontWeight:400}}>／ 目安800〜1200字</span></div>
                   </div>
                   {/* 本文欄はWordと同じ 本文幅170mm・11pt・游明朝 にして、改行位置・行数を一致させる */}
-                  <textarea style={{...inp,width:"170mm",maxWidth:"100%",boxSizing:"content-box",flex:1,minHeight:"44vh",resize:"none",fontFamily:"'游明朝','MS Mincho',serif",fontSize:"12pt",lineHeight:1.8,padding:"14px 16px",whiteSpace:"pre-wrap",wordBreak:"break-all"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。改行はそのままWordに反映されます。"/>
+                  <textarea style={{...inp,width:"161mm",maxWidth:"100%",boxSizing:"content-box",flex:1,minHeight:"44vh",resize:"none",fontFamily:"'游明朝','MS Mincho',serif",fontSize:"12pt",lineHeight:1.8,padding:"14px 16px",whiteSpace:"pre-wrap",wordBreak:"break-all"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。改行はそのままWordに反映されます。"/>
                 </div>
               </div>
               {/* 右パネル：動画／A4印刷プレビュー を切替。広い画面では入力欄が固定なので、余った幅はこちらが広がる */}
