@@ -117,7 +117,7 @@ function fukumeishoFormHTML({training,emp,job,submitDate,body}){
   const topPad=Math.round(FUKU_LINE_PX/2);
   const bodyBox=`<div style="position:relative;border:${bd};padding:${topPad}px 8px 0;">
     <div style="position:absolute;left:8px;right:8px;top:${topPad}px;">${rules}</div>
-    <div style="position:relative;min-height:${boxH}px;font-size:11pt;line-height:${FUKU_LINE_PX}px;white-space:pre-wrap;word-break:break-all;">${bodyHtml}</div>
+    <div style="position:relative;min-height:${boxH}px;font-size:10pt;line-height:${FUKU_LINE_PX}px;white-space:pre-wrap;word-break:break-all;">${bodyHtml}</div>
   </div>`;
   return `<table style="border-collapse:collapse;width:100%;">
   <tr>
@@ -2525,7 +2525,7 @@ function FukumeishoA4({training,emp,job,submitDate,body}){
           <div style={{position:"absolute",left:8,right:8,top:topPad}}>
             {Array.from({length:n}).map((_,i)=><div key={i} style={{boxSizing:"border-box",height:FUKU_LINE_PX,borderBottom:"1px dotted #888"}}/>)}
           </div>
-          <div style={{position:"relative",minHeight:n*FUKU_LINE_PX,fontSize:"11pt",lineHeight:`${FUKU_LINE_PX}px`,whiteSpace:"pre-wrap",wordBreak:"break-all"}}>{body||""}</div>
+          <div style={{position:"relative",minHeight:n*FUKU_LINE_PX,fontSize:"10pt",lineHeight:`${FUKU_LINE_PX}px`,whiteSpace:"pre-wrap",wordBreak:"break-all"}}>{body||""}</div>
         </div>
       );})()}
     </div>
@@ -2592,7 +2592,7 @@ function FukumeishoForm({training,emp}){
                     <div style={{fontSize:12,fontWeight:700,color:countColor}}>{charCount}字 <span style={{fontSize:11,color:"#9ca3af",fontWeight:400}}>／ 目安800〜1200字</span></div>
                   </div>
                   {/* 本文欄はWordと同じ 本文幅170mm・11pt・游明朝 にして、改行位置・行数を一致させる */}
-                  <textarea style={{...inp,width:"165mm",maxWidth:"100%",boxSizing:"content-box",flex:1,minHeight:"44vh",resize:"none",fontFamily:"'游明朝','MS Mincho',serif",fontSize:"11pt",lineHeight:"32px",padding:"3px 8px",whiteSpace:"pre-wrap",wordBreak:"break-all"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。文章はそのまま入力すれば自動で折り返します（段落を分けたいときだけ改行してください）。"/>
+                  <textarea style={{...inp,width:"165mm",maxWidth:"100%",boxSizing:"content-box",flex:1,minHeight:"44vh",resize:"none",fontFamily:"'游明朝','MS Mincho',serif",fontSize:"10pt",lineHeight:"32px",padding:"3px 8px",whiteSpace:"pre-wrap",wordBreak:"break-all"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。文章はそのまま入力すれば自動で折り返します（段落を分けたいときだけ改行してください）。"/>
                 </div>
               </div>
               {/* 右パネル：動画／A4印刷プレビュー を切替。広い画面では入力欄が固定なので、余った幅はこちらが広がる */}
