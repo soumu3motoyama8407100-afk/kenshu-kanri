@@ -93,8 +93,8 @@ const FUKUMEISHO_TRAINING_IDS = ["TFUKU158"];
 const toReiwa = s => { if(!s)return ""; const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/); if(!m)return s; const y=+m[1]-2018; return `令和${y}年${+m[2]}月${+m[3]}日`; };
 // 本文の行数を概算（罫線の本数を決めるためだけに使う。実際の本文は自然に折り返す）
 // 1行約38字で見積り、自然折り返し(約41字)より多めに出して罫線が本文に足りなくなるのを防ぐ
-const FUKU_LINE_PX=26;     // 本文の行の高さ(px)。罫線の間隔と一致。26pxで1ページ約27行
-const FUKU_MIN_LINES=25;   // フォームとして最低これだけ罫線を敷く（1ページに収まる本数）
+const FUKU_LINE_PX=26;     // 本文の行の高さ(px)。罫線の間隔と一致
+const FUKU_MIN_LINES=27;   // 最低これだけ罫線を敷く。項目欄を詰めたぶん1ページ最大約29行まで対応
 function estFukuLines(text){
   const cw=ch=>{ const c=ch.codePointAt(0); return (c<=0x2FF||(ch>="｡"&&ch<="ﾟ"))?0.5:1; };
   let lines=0;
@@ -106,8 +106,8 @@ function fukumeishoFormHTML({training,emp,job,submitDate,body}){
   const esc=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const jitiji=`${toReiwa(training.date)}${training.date2?`・${toReiwa(training.date2)}`:""}${(training.startTime||training.endTime)?`　${esc(training.startTime||"")}${training.endTime?`〜${esc(training.endTime)}`:""}`:""}`;
   const bd="1px solid #000";
-  const lb=`border:${bd};padding:11px 6px;text-align:center;font-weight:bold;white-space:nowrap;`;
-  const c=`border:${bd};padding:11px 8px;word-break:break-all;`;
+  const lb=`border:${bd};padding:5px 6px;text-align:center;font-weight:bold;white-space:nowrap;font-size:11pt;`;
+  const c=`border:${bd};padding:5px 8px;word-break:break-all;font-size:11pt;`;
   const sc=`border:${bd};text-align:center;font-size:10.5pt;padding:3px;`;
   const bodyHtml=esc(body).replace(/\n/g,"<br/>");
   const n=estFukuLines(body);
@@ -2498,7 +2498,7 @@ function ExternalProgress({status}){
 function FukumeishoA4({training,emp,job,submitDate,body}){
   const jitiji=`${toReiwa(training.date)}${training.date2?`・${toReiwa(training.date2)}`:""}${(training.startTime||training.endTime)?`　${training.startTime||""}${training.endTime?`〜${training.endTime}`:""}`:""}`;
   const bd="1px solid #000";
-  const cell={border:bd,padding:"11px 8px",fontSize:"10.5pt",verticalAlign:"middle",wordBreak:"break-all"};
+  const cell={border:bd,padding:"5px 8px",fontSize:"11pt",verticalAlign:"middle",wordBreak:"break-all"};
   const lb={...cell,fontWeight:"bold",textAlign:"center",whiteSpace:"nowrap"};
   const sc={border:bd,textAlign:"center",fontSize:"9.5pt",padding:"3px"};
   const topPad=Math.round(FUKU_LINE_PX/2); // 本文は0.5行分あけて書き出す
