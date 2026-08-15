@@ -111,20 +111,20 @@ function fukumeishoFormHTML({training,emp,job,submitDate,body}){
   const sc=`border:${bd};text-align:center;font-size:10.5pt;padding:3px;`;
   const bodyHtml=esc(body).replace(/\n/g,"<br/>");
   const n=estFukuLines(body);
-  const rules=`<div style="height:${FUKU_LINE_PX}px;border-bottom:1px dotted #888;"></div>`.repeat(n);
+  const rules=`<div style="box-sizing:border-box;height:${FUKU_LINE_PX}px;border-bottom:1px dotted #888;"></div>`.repeat(n);
   const boxH=n*FUKU_LINE_PX;
   // 罫線の下敷き（全幅の点線）＋その上に本文を自然折り返しで重ねる。上に0.5行分の余白を空けて書き出す
   const topPad=Math.round(FUKU_LINE_PX/2);
   const bodyBox=`<div style="position:relative;border:${bd};padding:${topPad}px 8px 0;">
     <div style="position:absolute;left:8px;right:8px;top:${topPad}px;">${rules}</div>
-    <div style="position:relative;min-height:${boxH}px;font-size:12pt;line-height:${FUKU_LINE_PX}px;white-space:pre-wrap;word-break:break-all;">${bodyHtml}</div>
+    <div style="position:relative;min-height:${boxH}px;font-size:11pt;line-height:${FUKU_LINE_PX}px;white-space:pre-wrap;word-break:break-all;">${bodyHtml}</div>
   </div>`;
   return `<table style="border-collapse:collapse;width:100%;">
   <tr>
     <td rowspan="2" style="border:${bd};width:58%;text-align:center;vertical-align:middle;"><span style="font-size:26pt;font-weight:bold;letter-spacing:0.4em;">復　命　書</span></td>
     <td style="${sc}width:14%;">施設長</td><td style="${sc}width:14%;">総務部長</td><td style="${sc}width:14%;">部署責任者</td>
   </tr>
-  <tr><td style="border:${bd};height:80px;">&nbsp;</td><td style="border:${bd};">&nbsp;</td><td style="border:${bd};">&nbsp;</td></tr>
+  <tr><td style="border:${bd};height:64px;">&nbsp;</td><td style="border:${bd};">&nbsp;</td><td style="border:${bd};">&nbsp;</td></tr>
   </table>
   <table style="border-collapse:collapse;width:100%;">
   <tr><td style="${lb}width:12%;">研 修 名</td><td style="${c}width:42%;">${esc(training.title)}</td><td style="${lb}width:12%;">提 出 日</td><td style="${c}width:34%;">${toReiwa(submitDate)}</td></tr>
@@ -2511,7 +2511,7 @@ function FukumeishoA4({training,emp,job,submitDate,body}){
           <td rowSpan={2} style={{border:bd,width:"58%",textAlign:"center",verticalAlign:"middle"}}><span style={{fontSize:"26pt",fontWeight:"bold",letterSpacing:"0.4em"}}>復　命　書</span></td>
           <td style={{...sc,width:"14%"}}>施設長</td><td style={{...sc,width:"14%"}}>総務部長</td><td style={{...sc,width:"14%"}}>部署責任者</td>
         </tr>
-        <tr><td style={{border:bd,height:80}}>&nbsp;</td><td style={{border:bd}}>&nbsp;</td><td style={{border:bd}}>&nbsp;</td></tr>
+        <tr><td style={{border:bd,height:64}}>&nbsp;</td><td style={{border:bd}}>&nbsp;</td><td style={{border:bd}}>&nbsp;</td></tr>
       </tbody></table>
       {/* 中段：2列（研修名｜提出日 / 研修場所｜部署 / 日時｜氏名） */}
       <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
@@ -2523,9 +2523,9 @@ function FukumeishoA4({training,emp,job,submitDate,body}){
       {(()=>{ const n=estFukuLines(body); return (
         <div style={{position:"relative",border:bd,padding:`${topPad}px 8px 0`}}>
           <div style={{position:"absolute",left:8,right:8,top:topPad}}>
-            {Array.from({length:n}).map((_,i)=><div key={i} style={{height:FUKU_LINE_PX,borderBottom:"1px dotted #888"}}/>)}
+            {Array.from({length:n}).map((_,i)=><div key={i} style={{boxSizing:"border-box",height:FUKU_LINE_PX,borderBottom:"1px dotted #888"}}/>)}
           </div>
-          <div style={{position:"relative",minHeight:n*FUKU_LINE_PX,fontSize:"12pt",lineHeight:`${FUKU_LINE_PX}px`,whiteSpace:"pre-wrap",wordBreak:"break-all"}}>{body||""}</div>
+          <div style={{position:"relative",minHeight:n*FUKU_LINE_PX,fontSize:"11pt",lineHeight:`${FUKU_LINE_PX}px`,whiteSpace:"pre-wrap",wordBreak:"break-all"}}>{body||""}</div>
         </div>
       );})()}
     </div>
@@ -2592,7 +2592,7 @@ function FukumeishoForm({training,emp}){
                     <div style={{fontSize:12,fontWeight:700,color:countColor}}>{charCount}字 <span style={{fontSize:11,color:"#9ca3af",fontWeight:400}}>／ 目安800〜1200字</span></div>
                   </div>
                   {/* 本文欄はWordと同じ 本文幅170mm・11pt・游明朝 にして、改行位置・行数を一致させる */}
-                  <textarea style={{...inp,width:"165mm",maxWidth:"100%",boxSizing:"content-box",flex:1,minHeight:"44vh",resize:"none",fontFamily:"'游明朝','MS Mincho',serif",fontSize:"12pt",lineHeight:"32px",padding:"3px 8px",whiteSpace:"pre-wrap",wordBreak:"break-all"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。文章はそのまま入力すれば自動で折り返します（段落を分けたいときだけ改行してください）。"/>
+                  <textarea style={{...inp,width:"165mm",maxWidth:"100%",boxSizing:"content-box",flex:1,minHeight:"44vh",resize:"none",fontFamily:"'游明朝','MS Mincho',serif",fontSize:"11pt",lineHeight:"32px",padding:"3px 8px",whiteSpace:"pre-wrap",wordBreak:"break-all"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。文章はそのまま入力すれば自動で折り返します（段落を分けたいときだけ改行してください）。"/>
                 </div>
               </div>
               {/* 右パネル：動画／A4印刷プレビュー を切替。広い画面では入力欄が固定なので、余った幅はこちらが広がる */}
