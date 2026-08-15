@@ -94,7 +94,7 @@ const toReiwa = s => { if(!s)return ""; const m=String(s).match(/(\d{4})-(\d{2})
 // 本文の行数を概算（罫線の本数を決めるためだけに使う。実際の本文は自然に折り返す）
 // 1行約38字で見積り、自然折り返し(約41字)より多めに出して罫線が本文に足りなくなるのを防ぐ
 const FUKU_LINE_PX=32;     // 本文の行の高さ(px)。罫線の間隔と一致させる
-const FUKU_MIN_LINES=24;   // フォームとして最低これだけ罫線を敷く
+const FUKU_MIN_LINES=21;   // フォームとして最低これだけ罫線を敷く（余白拡大後も1ページに収まる本数）
 function estFukuLines(text){
   const cw=ch=>{ const c=ch.codePointAt(0); return (c<=0x2FF||(ch>="｡"&&ch<="ﾟ"))?0.5:1; };
   let lines=0;
@@ -106,16 +106,17 @@ function fukumeishoFormHTML({training,emp,job,submitDate,body}){
   const esc=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const jitiji=`${toReiwa(training.date)}${training.date2?`・${toReiwa(training.date2)}`:""}${(training.startTime||training.endTime)?`　${esc(training.startTime||"")}${training.endTime?`〜${esc(training.endTime)}`:""}`:""}`;
   const bd="1px solid #000";
-  const lb=`border:${bd};padding:4px 6px;text-align:center;font-weight:bold;white-space:nowrap;`;
-  const c=`border:${bd};padding:4px 8px;word-break:break-all;`;
-  const sc=`border:${bd};text-align:center;font-size:10.5pt;padding:2px;`;
+  const lb=`border:${bd};padding:11px 6px;text-align:center;font-weight:bold;white-space:nowrap;`;
+  const c=`border:${bd};padding:11px 8px;word-break:break-all;`;
+  const sc=`border:${bd};text-align:center;font-size:10.5pt;padding:3px;`;
   const bodyHtml=esc(body).replace(/\n/g,"<br/>");
   const n=estFukuLines(body);
   const rules=`<div style="height:${FUKU_LINE_PX}px;border-bottom:1px dotted #888;"></div>`.repeat(n);
   const boxH=n*FUKU_LINE_PX;
-  // 罫線の下敷き（全幅の点線）＋その上に本文を自然折り返しで重ねる
-  const bodyBox=`<div style="position:relative;border:${bd};padding:2px 8px 0;">
-    <div style="position:absolute;left:8px;right:8px;top:2px;">${rules}</div>
+  // 罫線の下敷き（全幅の点線）＋その上に本文を自然折り返しで重ねる。上に0.5行分の余白を空けて書き出す
+  const topPad=Math.round(FUKU_LINE_PX/2);
+  const bodyBox=`<div style="position:relative;border:${bd};padding:${topPad}px 8px 0;">
+    <div style="position:absolute;left:8px;right:8px;top:${topPad}px;">${rules}</div>
     <div style="position:relative;min-height:${boxH}px;font-size:12pt;line-height:${FUKU_LINE_PX}px;white-space:pre-wrap;word-break:break-all;">${bodyHtml}</div>
   </div>`;
   return `<table style="border-collapse:collapse;width:100%;">
@@ -123,7 +124,7 @@ function fukumeishoFormHTML({training,emp,job,submitDate,body}){
     <td rowspan="2" style="border:${bd};width:58%;text-align:center;vertical-align:middle;"><span style="font-size:26pt;font-weight:bold;letter-spacing:0.4em;">復　命　書</span></td>
     <td style="${sc}width:14%;">施設長</td><td style="${sc}width:14%;">総務部長</td><td style="${sc}width:14%;">部署責任者</td>
   </tr>
-  <tr><td style="border:${bd};height:48px;">&nbsp;</td><td style="border:${bd};">&nbsp;</td><td style="border:${bd};">&nbsp;</td></tr>
+  <tr><td style="border:${bd};height:80px;">&nbsp;</td><td style="border:${bd};">&nbsp;</td><td style="border:${bd};">&nbsp;</td></tr>
   </table>
   <table style="border-collapse:collapse;width:100%;">
   <tr><td style="${lb}width:13%;">研 修 名</td><td style="${c}width:37%;">${esc(training.title)}</td><td style="${lb}width:13%;">提 出 日</td><td style="${c}width:37%;">${toReiwa(submitDate)}</td></tr>
@@ -138,7 +139,7 @@ function printFukumeisho(data){
   const inner=fukumeishoFormHTML(data);
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>復命書_${data.emp.name||""}_${data.training.title}</title>
 <style>
-@page{size:A4;margin:15mm;}
+@page{size:A4;margin:20mm;}
 html,body{margin:0;padding:0;}
 body{font-family:'游明朝','MS Mincho',serif;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 </style></head><body>${inner}
@@ -2497,19 +2498,20 @@ function ExternalProgress({status}){
 function FukumeishoA4({training,emp,job,submitDate,body}){
   const jitiji=`${toReiwa(training.date)}${training.date2?`・${toReiwa(training.date2)}`:""}${(training.startTime||training.endTime)?`　${training.startTime||""}${training.endTime?`〜${training.endTime}`:""}`:""}`;
   const bd="1px solid #000";
-  const cell={border:bd,padding:"4px 8px",fontSize:"10.5pt",verticalAlign:"middle",wordBreak:"break-all"};
+  const cell={border:bd,padding:"11px 8px",fontSize:"10.5pt",verticalAlign:"middle",wordBreak:"break-all"};
   const lb={...cell,fontWeight:"bold",textAlign:"center",whiteSpace:"nowrap"};
-  const sc={border:bd,textAlign:"center",fontSize:"9.5pt",padding:"2px"};
+  const sc={border:bd,textAlign:"center",fontSize:"9.5pt",padding:"3px"};
+  const topPad=Math.round(FUKU_LINE_PX/2); // 本文は0.5行分あけて書き出す
   return(
     // 210mm×297mm のA4用紙。本文12pt想定で、実際の印刷の文字量・折り返しが体感できる
-    <div style={{width:"210mm",minHeight:"297mm",background:"#fff",padding:"15mm",boxSizing:"border-box",fontFamily:"'游明朝','MS Mincho',serif",color:"#000"}}>
+    <div style={{width:"210mm",minHeight:"297mm",background:"#fff",padding:"20mm",boxSizing:"border-box",fontFamily:"'游明朝','MS Mincho',serif",color:"#000"}}>
       {/* 上部：復命書（大・中央）＋ 決裁印欄（ラベル＋押印枠） */}
       <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
         <tr>
           <td rowSpan={2} style={{border:bd,width:"58%",textAlign:"center",verticalAlign:"middle"}}><span style={{fontSize:"26pt",fontWeight:"bold",letterSpacing:"0.4em"}}>復　命　書</span></td>
           <td style={{...sc,width:"14%"}}>施設長</td><td style={{...sc,width:"14%"}}>総務部長</td><td style={{...sc,width:"14%"}}>部署責任者</td>
         </tr>
-        <tr><td style={{border:bd,height:44}}>&nbsp;</td><td style={{border:bd}}>&nbsp;</td><td style={{border:bd}}>&nbsp;</td></tr>
+        <tr><td style={{border:bd,height:80}}>&nbsp;</td><td style={{border:bd}}>&nbsp;</td><td style={{border:bd}}>&nbsp;</td></tr>
       </tbody></table>
       {/* 中段：2列（研修名｜提出日 / 研修場所｜部署 / 日時｜氏名） */}
       <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
@@ -2519,8 +2521,8 @@ function FukumeishoA4({training,emp,job,submitDate,body}){
       </tbody></table>
       {/* 下部：本文（枠＋点線罫線）。罫線の下敷きの上に本文を自然折り返しで重ねる。印刷HTMLと同じ構造 */}
       {(()=>{ const n=estFukuLines(body); return (
-        <div style={{position:"relative",border:bd,padding:"2px 8px 0"}}>
-          <div style={{position:"absolute",left:8,right:8,top:2}}>
+        <div style={{position:"relative",border:bd,padding:`${topPad}px 8px 0`}}>
+          <div style={{position:"absolute",left:8,right:8,top:topPad}}>
             {Array.from({length:n}).map((_,i)=><div key={i} style={{height:FUKU_LINE_PX,borderBottom:"1px dotted #888"}}/>)}
           </div>
           <div style={{position:"relative",minHeight:n*FUKU_LINE_PX,fontSize:"12pt",lineHeight:`${FUKU_LINE_PX}px`,whiteSpace:"pre-wrap",wordBreak:"break-all"}}>{body||""}</div>
@@ -2579,7 +2581,7 @@ function FukumeishoForm({training,emp}){
             {/* 本体：左＝入力（広め）／右＝A4プレビュー。狭い画面では縦に折り返す */}
             <div style={{flex:1,minHeight:0,display:"flex",flexWrap:"wrap",overflow:"auto"}}>
               {/* 入力エリア：本文幅170mm＝Wordと同じ1行文字数になるよう横幅を固定。広い画面では右パネルが広がる */}
-              <div style={{flex:"0 1 auto",width:"calc(175mm + 52px)",minWidth:300,padding:"14px 18px",display:"flex",flexDirection:"column",gap:10,borderRight:"1px solid #F0D9B0"}}>
+              <div style={{flex:"0 1 auto",width:"calc(165mm + 52px)",minWidth:300,padding:"14px 18px",display:"flex",flexDirection:"column",gap:10,borderRight:"1px solid #F0D9B0"}}>
                 <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
                   <div style={{flex:"1 1 140px"}}><div style={lbl}>部署（自動）</div><div style={{...inp,width:"100%",background:"#F7F1E6",color:"#4A3020",fontWeight:700}}>{dept||"（未設定）"}</div></div>
                   <div style={{flex:"1 1 140px"}}><div style={lbl}>提出日</div><input type="date" style={{...inp,width:"100%"}} value={submitDate} onChange={e=>setSubmitDate(e.target.value)}/></div>
@@ -2590,7 +2592,7 @@ function FukumeishoForm({training,emp}){
                     <div style={{fontSize:12,fontWeight:700,color:countColor}}>{charCount}字 <span style={{fontSize:11,color:"#9ca3af",fontWeight:400}}>／ 目安800〜1200字</span></div>
                   </div>
                   {/* 本文欄はWordと同じ 本文幅170mm・11pt・游明朝 にして、改行位置・行数を一致させる */}
-                  <textarea style={{...inp,width:"175mm",maxWidth:"100%",boxSizing:"content-box",flex:1,minHeight:"44vh",resize:"none",fontFamily:"'游明朝','MS Mincho',serif",fontSize:"12pt",lineHeight:"32px",padding:"3px 8px",whiteSpace:"pre-wrap",wordBreak:"break-all"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。文章はそのまま入力すれば自動で折り返します（段落を分けたいときだけ改行してください）。"/>
+                  <textarea style={{...inp,width:"165mm",maxWidth:"100%",boxSizing:"content-box",flex:1,minHeight:"44vh",resize:"none",fontFamily:"'游明朝','MS Mincho',serif",fontSize:"12pt",lineHeight:"32px",padding:"3px 8px",whiteSpace:"pre-wrap",wordBreak:"break-all"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。文章はそのまま入力すれば自動で折り返します（段落を分けたいときだけ改行してください）。"/>
                 </div>
               </div>
               {/* 右パネル：動画／A4印刷プレビュー を切替。広い画面では入力欄が固定なので、余った幅はこちらが広がる */}
