@@ -2470,34 +2470,104 @@ function ExternalProgress({status}){
 }
 
 // 復命書をアプリ内で記入し、Wordで出力する（試験機能）
+// 復命書のA4印刷イメージ（縮小プレビュー用）。Word出力の様式と同じ見た目
+function FukumeishoA4({training,emp,job,submitDate,body}){
+  const jitiji=`${toReiwa(training.date)}${training.date2?`・${toReiwa(training.date2)}`:""}${(training.startTime||training.endTime)?`　${training.startTime||""}${training.endTime?`〜${training.endTime}`:""}`:""}`;
+  const cell={border:"1px solid #000",padding:"4px 7px",fontSize:"10.5pt",verticalAlign:"middle"};
+  const lb={...cell,background:"#F2E9D8",fontWeight:"bold",textAlign:"center",whiteSpace:"nowrap"};
+  const sc={border:"1px solid #000",textAlign:"center",fontSize:"9pt",height:"46px",verticalAlign:"top",width:"64px",padding:"2px"};
+  return(
+    // 210mm×297mm のA4用紙。fontは11pt想定で、実際の印刷の文字量が体感できる
+    <div style={{width:"210mm",minHeight:"297mm",background:"#fff",padding:"20mm",boxSizing:"border-box",fontFamily:"'游明朝','MS Mincho',serif",color:"#000",lineHeight:1.7}}>
+      <table style={{width:"100%",borderCollapse:"collapse"}}><tbody><tr>
+        <td style={{border:"none",verticalAlign:"middle"}}><span style={{fontSize:"20pt",fontWeight:"bold",letterSpacing:"6px"}}>復　命　書</span></td>
+        <td style={{border:"none",textAlign:"right"}}><table style={{borderCollapse:"collapse",display:"inline-table"}}><tbody><tr><td style={sc}>施設長</td><td style={sc}>総務部長</td><td style={sc}>部署責任者</td></tr></tbody></table></td>
+      </tr></tbody></table>
+      <div style={{height:10}}/>
+      <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
+        <tr><td style={{...lb,width:"15%"}}>研修名</td><td style={cell} colSpan={3}>{training.title}</td></tr>
+        <tr><td style={lb}>提出日</td><td style={{...cell,width:"35%"}}>{toReiwa(submitDate)}</td><td style={{...lb,width:"15%"}}>研修場所</td><td style={cell}>{training.location||""}</td></tr>
+        <tr><td style={lb}>職　種</td><td style={cell}>{job||""}</td><td style={lb}>氏　名</td><td style={cell}>{emp.name||""}</td></tr>
+        <tr><td style={lb}>日　時</td><td style={cell} colSpan={3}>{jitiji}</td></tr>
+      </tbody></table>
+      <div style={{height:16}}/>
+      <div style={{fontSize:"11pt",lineHeight:1.9,textAlign:"justify",whiteSpace:"pre-wrap",wordBreak:"break-all"}}>{body||""}</div>
+    </div>
+  );
+}
 function FukumeishoForm({training,emp}){
   const today=(()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;})();
+  const [open,setOpen]=useState(false);
   const [job,setJob]=useState(emp.dept||"");
   const [submitDate,setSubmitDate]=useState(today);
   const [body,setBody]=useState("");
   const [loaded,setLoaded]=useState(false);
   const [saving,setSaving]=useState(false);
+  const [savedBody,setSavedBody]=useState("");
   const [msg,setMsg]=useState("");
-  useEffect(()=>{ let alive=true; db.getFukumeisho(emp.id,training.id).then(f=>{ if(!alive||!f)return; setJob(f.job||emp.dept||""); if(f.submitDate)setSubmitDate(f.submitDate); setBody(f.body||""); }).finally(()=>{ if(alive)setLoaded(true); }); return ()=>{alive=false;}; },[emp.id,training.id]);// eslint-disable-line
-  const save=async()=>{ setSaving(true); setMsg(""); try{ await db.upsertFukumeisho(emp.id,training.id,{job,submitDate,body}); setMsg("保存しました"); }catch(e){ setMsg("保存に失敗しました："+(e.message||"")); } setSaving(false); };
+  useEffect(()=>{ let alive=true; db.getFukumeisho(emp.id,training.id).then(f=>{ if(!alive||!f)return; setJob(f.job||emp.dept||""); if(f.submitDate)setSubmitDate(f.submitDate); setBody(f.body||""); setSavedBody(f.body||""); }).finally(()=>{ if(alive)setLoaded(true); }); return ()=>{alive=false;}; },[emp.id,training.id]);// eslint-disable-line
+  const save=async()=>{ setSaving(true); setMsg(""); try{ await db.upsertFukumeisho(emp.id,training.id,{job,submitDate,body}); setSavedBody(body); setMsg("保存しました"); }catch(e){ setMsg("保存に失敗しました："+(e.message||"")); } setSaving(false); };
   const dl=async()=>{ try{ await downloadFukumeishoDocx({training,emp,job,submitDate,body}); }catch(e){ setMsg("Word出力に失敗しました："+(e.message||"")); } };
-  const inp={width:"100%",fontSize:14,padding:"8px 10px",border:"1px solid #E8D5B0",borderRadius:8,boxSizing:"border-box",fontFamily:"inherit"};
+  const dirty=body!==savedBody;
+  const closeEditor=()=>{ if(dirty&&!window.confirm("保存していない変更があります。閉じてよろしいですか？")) return; setOpen(false); setMsg(""); };
+  const charCount=[...body.replace(/\n/g,"")].length; // 改行を除いた文字数
+  const countColor=charCount<600?"#9ca3af":charCount<=1400?"#15803d":"#d97706";
+  const inp={fontSize:14,padding:"8px 10px",border:"1px solid #E8D5B0",borderRadius:8,boxSizing:"border-box",fontFamily:"inherit"};
   const lbl={fontSize:12,fontWeight:700,color:"#A07840",marginBottom:4};
+  // 一覧内のミニ表示：現在の状態と「記入・編集する」ボタン
+  const preview=savedBody?savedBody.slice(0,50):"";
   return(
-    <div style={{marginTop:10,padding:"12px 14px",background:"#FFFDF8",border:"1.5px solid #E8D5B0",borderRadius:12}}>
-      <div style={{fontSize:13,fontWeight:800,color:"#4A3020",marginBottom:2}}>📝 復命書を記入</div>
-      <div style={{fontSize:11,color:"#9ca3af",marginBottom:10}}>研修名・日時・場所・氏名は自動で入ります。本文を記入し、保存・Word出力ができます。</div>
-      <div style={{display:"flex",gap:10,marginBottom:10,flexWrap:"wrap"}}>
-        <div style={{flex:"1 1 130px"}}><div style={lbl}>職種</div><input style={inp} value={job} onChange={e=>setJob(e.target.value)} placeholder="例：介護職"/></div>
-        <div style={{flex:"1 1 130px"}}><div style={lbl}>提出日</div><input type="date" style={inp} value={submitDate} onChange={e=>setSubmitDate(e.target.value)}/></div>
+    <div style={{marginTop:10}}>
+      <div style={{padding:"12px 14px",background:"#FFFDF8",border:"1.5px solid #E8D5B0",borderRadius:12}}>
+        <div style={{fontSize:13,fontWeight:800,color:"#4A3020",marginBottom:2}}>📝 復命書</div>
+        <div style={{fontSize:11,color:"#9ca3af",marginBottom:10}}>{savedBody?`記入済み（${[...savedBody.replace(/\n/g,"")].length}字）：${preview}${savedBody.length>50?"…":""}`:"まだ記入されていません。パソコンでの記入がおすすめです。"}</div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <button style={{fontSize:14,fontWeight:700,padding:"10px 18px",borderRadius:10,border:"none",background:"#C89A55",color:"#fff",cursor:"pointer"}} disabled={!loaded} onClick={()=>{ setMsg(""); setOpen(true); }}>{savedBody?"✏️ 記入内容を編集する":"📝 復命書を記入する"}</button>
+          {savedBody&&<button style={{fontSize:14,fontWeight:700,padding:"10px 18px",borderRadius:10,border:"1.5px solid #C89A55",background:"#fff",color:"#A07840",cursor:"pointer"}} onClick={dl}>⬇ Wordでダウンロード</button>}
+        </div>
       </div>
-      <div style={{marginBottom:10}}><div style={lbl}>本文（研修内容・所感）</div>
-        <textarea style={{...inp,minHeight:160,resize:"vertical",lineHeight:1.7}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。改行はそのままWordに反映されます。"/></div>
-      <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-        <button style={{fontSize:14,fontWeight:700,padding:"9px 16px",borderRadius:10,border:"none",background:saving?"#cbb892":"#C89A55",color:"#fff",cursor:saving?"default":"pointer"}} disabled={saving||!loaded} onClick={save}>{saving?"保存中…":"💾 保存する"}</button>
-        <button style={{fontSize:14,fontWeight:700,padding:"9px 16px",borderRadius:10,border:"1.5px solid #C89A55",background:"#fff",color:"#A07840",cursor:"pointer"}} onClick={dl}>⬇ Wordでダウンロード</button>
-        {msg&&<span style={{fontSize:12,fontWeight:700,color:msg.includes("失敗")?"#dc2626":"#15803d"}}>{msg}</span>}
-      </div>
+
+      {open&&(
+        <div style={{...S.overlay,zIndex:2000}} onClick={closeEditor}>
+          <div style={{background:"#fff",borderRadius:14,width:"96vw",maxWidth:1180,height:"92vh",display:"flex",flexDirection:"column",overflow:"hidden"}} onClick={e=>e.stopPropagation()}>
+            {/* ヘッダー */}
+            <div style={{padding:"12px 18px",borderBottom:"1px solid #F0D9B0",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexShrink:0}}>
+              <div style={{fontSize:15,fontWeight:800,color:"#4A3020",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>📝 復命書の記入 ─ {training.title}</div>
+              <button style={S.logoutBtn} onClick={closeEditor}>✕</button>
+            </div>
+            {/* 本体：左＝入力（広め）／右＝A4プレビュー。狭い画面では縦に折り返す */}
+            <div style={{flex:1,minHeight:0,display:"flex",flexWrap:"wrap",overflow:"auto"}}>
+              {/* 入力エリア */}
+              <div style={{flex:"1 1 460px",minWidth:300,padding:"14px 18px",display:"flex",flexDirection:"column",gap:10,borderRight:"1px solid #F0D9B0"}}>
+                <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                  <div style={{flex:"1 1 140px"}}><div style={lbl}>職種</div><input style={{...inp,width:"100%"}} value={job} onChange={e=>setJob(e.target.value)} placeholder="例：介護職"/></div>
+                  <div style={{flex:"1 1 140px"}}><div style={lbl}>提出日</div><input type="date" style={{...inp,width:"100%"}} value={submitDate} onChange={e=>setSubmitDate(e.target.value)}/></div>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
+                    <div style={lbl}>本文（研修内容・所感）</div>
+                    <div style={{fontSize:12,fontWeight:700,color:countColor}}>{charCount}字 <span style={{fontSize:11,color:"#9ca3af",fontWeight:400}}>／ 目安800〜1200字</span></div>
+                  </div>
+                  <textarea style={{...inp,width:"100%",flex:1,minHeight:"48vh",resize:"none",fontSize:15,lineHeight:1.9,padding:"14px 16px"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。改行はそのままWordに反映されます。"/>
+                </div>
+              </div>
+              {/* プレビューエリア */}
+              <div style={{flex:"1 1 360px",minWidth:280,padding:"14px 18px",background:"#F3EFE7",display:"flex",flexDirection:"column",alignItems:"center",gap:8,overflow:"auto"}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#6b7280",alignSelf:"flex-start"}}>🖨️ 印刷イメージ（A4・実際の文字量の目安）</div>
+                <div style={{zoom:0.46,boxShadow:"0 2px 12px rgba(0,0,0,.2)"}}><FukumeishoA4 training={training} emp={emp} job={job} submitDate={submitDate} body={body}/></div>
+              </div>
+            </div>
+            {/* フッター */}
+            <div style={{padding:"12px 18px",borderTop:"1px solid #F0D9B0",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",flexShrink:0}}>
+              <button style={{fontSize:15,fontWeight:700,padding:"11px 22px",borderRadius:10,border:"none",background:saving?"#cbb892":"#C89A55",color:"#fff",cursor:saving?"default":"pointer"}} disabled={saving} onClick={save}>{saving?"保存中…":"💾 保存する"}</button>
+              <button style={{fontSize:15,fontWeight:700,padding:"11px 22px",borderRadius:10,border:"1.5px solid #C89A55",background:"#fff",color:"#A07840",cursor:"pointer"}} onClick={dl}>⬇ Wordでダウンロード</button>
+              {dirty&&<span style={{fontSize:12,color:"#d97706",fontWeight:700}}>未保存の変更があります</span>}
+              {msg&&<span style={{fontSize:13,fontWeight:700,color:msg.includes("失敗")?"#dc2626":"#15803d"}}>{msg}</span>}
+              <button style={{marginLeft:"auto",fontSize:13,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"9px 16px",cursor:"pointer"}} onClick={closeEditor}>閉じる</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
