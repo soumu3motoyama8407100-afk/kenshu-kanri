@@ -112,7 +112,7 @@ table{border-collapse:collapse;} .stamp td{width:70px;}</style></head><body>
 <table style="width:100%;">
   <tr><td style="${lb}width:15%;">研修名</td><td style="${c}" colspan="3">${esc(training.title)}</td></tr>
   <tr><td style="${lb}">提出日</td><td style="${c}width:35%;">${toReiwa(submitDate)}</td><td style="${lb}width:15%;">研修場所</td><td style="${c}">${esc(training.location||"")}</td></tr>
-  <tr><td style="${lb}">職　種</td><td style="${c}">${esc(job||"")}</td><td style="${lb}">氏　名</td><td style="${c}">${esc(emp.name||"")}</td></tr>
+  <tr><td style="${lb}">部　署</td><td style="${c}">${esc(job||"")}</td><td style="${lb}">氏　名</td><td style="${c}">${esc(emp.name||"")}</td></tr>
   <tr><td style="${lb}">日　時</td><td style="${c}" colspan="3">${jitiji}</td></tr>
 </table>
 <div style="height:16px;"></div>
@@ -2487,7 +2487,7 @@ function FukumeishoA4({training,emp,job,submitDate,body}){
       <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
         <tr><td style={{...lb,width:"15%"}}>研修名</td><td style={cell} colSpan={3}>{training.title}</td></tr>
         <tr><td style={lb}>提出日</td><td style={{...cell,width:"35%"}}>{toReiwa(submitDate)}</td><td style={{...lb,width:"15%"}}>研修場所</td><td style={cell}>{training.location||""}</td></tr>
-        <tr><td style={lb}>職　種</td><td style={cell}>{job||""}</td><td style={lb}>氏　名</td><td style={cell}>{emp.name||""}</td></tr>
+        <tr><td style={lb}>部　署</td><td style={cell}>{job||""}</td><td style={lb}>氏　名</td><td style={cell}>{emp.name||""}</td></tr>
         <tr><td style={lb}>日　時</td><td style={cell} colSpan={3}>{jitiji}</td></tr>
       </tbody></table>
       <div style={{height:16}}/>
@@ -2498,16 +2498,19 @@ function FukumeishoA4({training,emp,job,submitDate,body}){
 function FukumeishoForm({training,emp}){
   const today=(()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;})();
   const [open,setOpen]=useState(false);
-  const [job,setJob]=useState(emp.dept||"");
+  const dept=emp.dept||""; // 部署は職員データから自動。手入力はしない
   const [submitDate,setSubmitDate]=useState(today);
   const [body,setBody]=useState("");
   const [loaded,setLoaded]=useState(false);
   const [saving,setSaving]=useState(false);
   const [savedBody,setSavedBody]=useState("");
   const [msg,setMsg]=useState("");
-  useEffect(()=>{ let alive=true; db.getFukumeisho(emp.id,training.id).then(f=>{ if(!alive||!f)return; setJob(f.job||emp.dept||""); if(f.submitDate)setSubmitDate(f.submitDate); setBody(f.body||""); setSavedBody(f.body||""); }).finally(()=>{ if(alive)setLoaded(true); }); return ()=>{alive=false;}; },[emp.id,training.id]);// eslint-disable-line
-  const save=async()=>{ setSaving(true); setMsg(""); try{ await db.upsertFukumeisho(emp.id,training.id,{job,submitDate,body}); setSavedBody(body); setMsg("保存しました"); }catch(e){ setMsg("保存に失敗しました："+(e.message||"")); } setSaving(false); };
-  const dl=async()=>{ try{ await downloadFukumeishoDocx({training,emp,job,submitDate,body}); }catch(e){ setMsg("Word出力に失敗しました："+(e.message||"")); } };
+  const hasVideo=!training.noVideo&&!!training.videoUrl; // 動画があれば横で再生できる
+  const [rightTab,setRightTab]=useState("preview"); // 右パネル：preview / video
+  useEffect(()=>{ if(open&&hasVideo) setRightTab("video"); },[open]);// eslint-disable-line
+  useEffect(()=>{ let alive=true; db.getFukumeisho(emp.id,training.id).then(f=>{ if(!alive||!f)return; if(f.submitDate)setSubmitDate(f.submitDate); setBody(f.body||""); setSavedBody(f.body||""); }).finally(()=>{ if(alive)setLoaded(true); }); return ()=>{alive=false;}; },[emp.id,training.id]);// eslint-disable-line
+  const save=async()=>{ setSaving(true); setMsg(""); try{ await db.upsertFukumeisho(emp.id,training.id,{job:dept,submitDate,body}); setSavedBody(body); setMsg("保存しました"); }catch(e){ setMsg("保存に失敗しました："+(e.message||"")); } setSaving(false); };
+  const dl=async()=>{ try{ await downloadFukumeishoDocx({training,emp,job:dept,submitDate,body}); }catch(e){ setMsg("Word出力に失敗しました："+(e.message||"")); } };
   const dirty=body!==savedBody;
   const closeEditor=()=>{ if(dirty&&!window.confirm("保存していない変更があります。閉じてよろしいですか？")) return; setOpen(false); setMsg(""); };
   const charCount=[...body.replace(/\n/g,"")].length; // 改行を除いた文字数
@@ -2539,8 +2542,8 @@ function FukumeishoForm({training,emp}){
             <div style={{flex:1,minHeight:0,display:"flex",flexWrap:"wrap",overflow:"auto"}}>
               {/* 入力エリア */}
               <div style={{flex:"1 1 460px",minWidth:300,padding:"14px 18px",display:"flex",flexDirection:"column",gap:10,borderRight:"1px solid #F0D9B0"}}>
-                <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                  <div style={{flex:"1 1 140px"}}><div style={lbl}>職種</div><input style={{...inp,width:"100%"}} value={job} onChange={e=>setJob(e.target.value)} placeholder="例：介護職"/></div>
+                <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
+                  <div style={{flex:"1 1 140px"}}><div style={lbl}>部署（自動）</div><div style={{...inp,width:"100%",background:"#F7F1E6",color:"#4A3020",fontWeight:700}}>{dept||"（未設定）"}</div></div>
                   <div style={{flex:"1 1 140px"}}><div style={lbl}>提出日</div><input type="date" style={{...inp,width:"100%"}} value={submitDate} onChange={e=>setSubmitDate(e.target.value)}/></div>
                 </div>
                 <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
@@ -2548,13 +2551,27 @@ function FukumeishoForm({training,emp}){
                     <div style={lbl}>本文（研修内容・所感）</div>
                     <div style={{fontSize:12,fontWeight:700,color:countColor}}>{charCount}字 <span style={{fontSize:11,color:"#9ca3af",fontWeight:400}}>／ 目安800〜1200字</span></div>
                   </div>
-                  <textarea style={{...inp,width:"100%",flex:1,minHeight:"48vh",resize:"none",fontSize:15,lineHeight:1.9,padding:"14px 16px"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。改行はそのままWordに反映されます。"/>
+                  <textarea style={{...inp,width:"100%",flex:1,minHeight:"44vh",resize:"none",fontSize:15,lineHeight:1.9,padding:"14px 16px"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。改行はそのままWordに反映されます。"/>
                 </div>
               </div>
-              {/* プレビューエリア */}
-              <div style={{flex:"1 1 360px",minWidth:280,padding:"14px 18px",background:"#F3EFE7",display:"flex",flexDirection:"column",alignItems:"center",gap:8,overflow:"auto"}}>
-                <div style={{fontSize:12,fontWeight:700,color:"#6b7280",alignSelf:"flex-start"}}>🖨️ 印刷イメージ（A4・実際の文字量の目安）</div>
-                <div style={{zoom:0.46,boxShadow:"0 2px 12px rgba(0,0,0,.2)"}}><FukumeishoA4 training={training} emp={emp} job={job} submitDate={submitDate} body={body}/></div>
+              {/* 右パネル：動画（あれば）／A4印刷プレビュー を切り替え */}
+              <div style={{flex:"1 1 360px",minWidth:280,padding:"14px 18px",background:"#F3EFE7",display:"flex",flexDirection:"column",gap:8,overflow:"auto"}}>
+                <div style={{display:"flex",gap:6}}>
+                  {hasVideo&&<button onClick={()=>setRightTab("video")} style={{fontSize:12,fontWeight:700,padding:"6px 12px",borderRadius:8,border:"1.5px solid #C89A55",cursor:"pointer",background:rightTab==="video"?"#C89A55":"#fff",color:rightTab==="video"?"#fff":"#A07840"}}>▶ 研修動画</button>}
+                  <button onClick={()=>setRightTab("preview")} style={{fontSize:12,fontWeight:700,padding:"6px 12px",borderRadius:8,border:"1.5px solid #C89A55",cursor:"pointer",background:rightTab==="preview"?"#C89A55":"#fff",color:rightTab==="preview"?"#fff":"#A07840"}}>🖨️ 印刷イメージ</button>
+                </div>
+                {rightTab==="video"&&hasVideo?(
+                  <div>
+                    <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>動画を見ながら本文を記入できます。</div>
+                    <AutoVideoPlayer videoUrl={training.videoUrl} title={training.title} watched={false} readonly={true} onWatched={()=>{}}/>
+                    <div style={{fontSize:11,color:"#9ca3af",marginTop:8}}>※ ここでの再生は「視聴済」記録には影響しません。視聴記録は研修カードの動画から行えます。</div>
+                  </div>
+                ):(
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"#6b7280",alignSelf:"flex-start"}}>🖨️ 印刷イメージ（A4・実際の文字量の目安）</div>
+                    <div style={{zoom:0.46,boxShadow:"0 2px 12px rgba(0,0,0,.2)"}}><FukumeishoA4 training={training} emp={emp} job={dept} submitDate={submitDate} body={body}/></div>
+                  </div>
+                )}
               </div>
             </div>
             {/* フッター */}
