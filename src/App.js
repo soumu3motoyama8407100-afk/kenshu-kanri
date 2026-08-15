@@ -91,32 +91,54 @@ const isTargetedFor = (t,e) => ((t.targetEmpIds||[]).length>0 ? t.targetEmpIds.i
 const FUKUMEISHO_TRAINING_IDS = ["TFUKU158"];
 // 西暦(YYYY-MM-DD) → 令和表記
 const toReiwa = s => { if(!s)return ""; const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/); if(!m)return s; const y=+m[1]-2018; return `令和${y}年${+m[2]}月${+m[3]}日`; };
+// 本文を1行あたり maxUnits（全角=1,半角=0.5）で折り返し、行の配列にする。
+// 明示改行(\n)は必ず改行。プレビューとWord出力で共通に使い、両者の行を一致させる。
+const FUKU_MAXUNITS=40; // 本文幅170mm・12ptで約40文字
+const FUKU_MINLINES=25; // 罫線で埋める最小行数（フォーム見た目のため）
+function wrapBody(text,maxUnits=FUKU_MAXUNITS){
+  const cw=ch=>{ const c=ch.codePointAt(0); return (c<=0x2FF||(ch>="｡"&&ch<="ﾟ"))?0.5:1; };
+  const out=[];
+  String(text||"").split("\n").forEach(para=>{
+    if(para===""){ out.push(""); return; }
+    let line="",u=0;
+    for(const ch of para){ const w=cw(ch); if(u+w>maxUnits){ out.push(line); line=ch; u=w; } else { line+=ch; u+=w; } }
+    out.push(line);
+  });
+  return out;
+}
+// 罫線本文を返す（最小行数まで空行の罫線で埋める）
+function fukuBodyLines(text){ const l=wrapBody(text); while(l.length<FUKU_MINLINES) l.push(""); return l; }
 // 復命書をWordで開けるファイル(.doc)として生成しダウンロードする。
 // docxライブラリはCRAのビルドと相性が悪いため、Wordが確実に開けるHTML(.doc)形式で出力する。
 function downloadFukumeishoDocx({training,emp,job,submitDate,body}){
   const esc=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const jitiji=`${toReiwa(training.date)}${training.date2?`・${toReiwa(training.date2)}`:""}${(training.startTime||training.endTime)?`　${esc(training.startTime||"")}${training.endTime?`〜${esc(training.endTime)}`:""}`:""}`;
-  const bodyHtml=esc(body).replace(/\n/g,"<br/>");
-  const lb="border:1px solid #000;padding:5px 8px;background:#F2E9D8;font-weight:bold;text-align:center;white-space:nowrap;";
-  const c="border:1px solid #000;padding:5px 8px;";
-  const sc="border:1px solid #000;padding:2px 6px;text-align:center;font-size:10.5pt;height:52px;vertical-align:top;";
+  const bd="1px solid #000";
+  const lb=`border:${bd};padding:4px 6px;text-align:center;font-weight:bold;white-space:nowrap;`;
+  const c=`border:${bd};padding:4px 8px;word-break:break-all;`;
+  const sc=`border:${bd};text-align:center;font-size:10.5pt;padding:2px;`;
+  const lineRows=fukuBodyLines(body).map(l=>`<div style="border-bottom:1px dotted #000;font-size:12pt;line-height:1.55;padding:2px 2px;white-space:nowrap;overflow:hidden;">${l?esc(l):"&nbsp;"}</div>`).join("");
   const html=`<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>復命書</title>
 <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
-<style>@page{size:A4;margin:20mm;} body{font-family:'游明朝','MS Mincho',serif;font-size:11pt;line-height:1.7;color:#000;}
-table{border-collapse:collapse;} .stamp td{width:70px;}</style></head><body>
-<table style="width:100%;border:none;"><tr>
-  <td style="border:none;vertical-align:middle;"><span style="font-size:20pt;font-weight:bold;letter-spacing:6px;">復　命　書</span></td>
-  <td style="border:none;text-align:right;"><table class="stamp"><tr><td style="${sc}">施設長</td><td style="${sc}">総務部長</td><td style="${sc}">部署責任者</td></tr></table></td>
-</tr></table>
-<div style="height:10px;"></div>
-<table style="width:100%;">
-  <tr><td style="${lb}width:15%;">研修名</td><td style="${c}" colspan="3">${esc(training.title)}</td></tr>
-  <tr><td style="${lb}">提出日</td><td style="${c}width:35%;">${toReiwa(submitDate)}</td><td style="${lb}width:15%;">研修場所</td><td style="${c}">${esc(training.location||"")}</td></tr>
-  <tr><td style="${lb}">部　署</td><td style="${c}">${esc(job||"")}</td><td style="${lb}">氏　名</td><td style="${c}">${esc(emp.name||"")}</td></tr>
-  <tr><td style="${lb}">日　時</td><td style="${c}" colspan="3">${jitiji}</td></tr>
+<style>@page{size:A4;margin:18mm;} body{font-family:'游明朝','MS Mincho',serif;font-size:11pt;color:#000;}
+table{border-collapse:collapse;width:100%;}</style></head><body>
+<table>
+  <tr>
+    <td rowspan="2" style="border:${bd};width:58%;text-align:center;vertical-align:middle;"><span style="font-size:26pt;font-weight:bold;letter-spacing:0.4em;">復　命　書</span></td>
+    <td style="${sc}width:14%;">施設長</td><td style="${sc}width:14%;">総務部長</td><td style="${sc}width:14%;">部署責任者</td>
+  </tr>
+  <tr>
+    <td style="border:${bd};height:48px;">&nbsp;</td><td style="border:${bd};">&nbsp;</td><td style="border:${bd};">&nbsp;</td>
+  </tr>
 </table>
-<div style="height:16px;"></div>
-<div style="font-size:11pt;line-height:1.9;text-align:justify;">${bodyHtml||"&nbsp;"}</div>
+<table>
+  <tr><td style="${lb}width:13%;">研 修 名</td><td style="${c}width:37%;">${esc(training.title)}</td><td style="${lb}width:13%;">提 出 日</td><td style="${c}width:37%;">${toReiwa(submitDate)}</td></tr>
+  <tr><td style="${lb}">研修場所</td><td style="${c}">${esc(training.location||"")}</td><td style="${lb}">部　署</td><td style="${c}">${esc(job||"")}</td></tr>
+  <tr><td style="${lb}">日　時</td><td style="${c}">${jitiji}</td><td style="${lb}">氏　名</td><td style="${c}">${esc(emp.name||"")}</td></tr>
+</table>
+<table>
+  <tr><td style="border:${bd};padding:6px 4px;">${lineRows}</td></tr>
+</table>
 </body></html>`;
   const blob=new Blob(["﻿"+html],{type:"application/msword;charset=utf-8"});
   const url=URL.createObjectURL(blob);
@@ -2473,25 +2495,34 @@ function ExternalProgress({status}){
 // 復命書のA4印刷イメージ（縮小プレビュー用）。Word出力の様式と同じ見た目
 function FukumeishoA4({training,emp,job,submitDate,body}){
   const jitiji=`${toReiwa(training.date)}${training.date2?`・${toReiwa(training.date2)}`:""}${(training.startTime||training.endTime)?`　${training.startTime||""}${training.endTime?`〜${training.endTime}`:""}`:""}`;
-  const cell={border:"1px solid #000",padding:"4px 7px",fontSize:"10.5pt",verticalAlign:"middle"};
-  const lb={...cell,background:"#F2E9D8",fontWeight:"bold",textAlign:"center",whiteSpace:"nowrap"};
-  const sc={border:"1px solid #000",textAlign:"center",fontSize:"9pt",height:"46px",verticalAlign:"top",width:"64px",padding:"2px"};
+  const bd="1px solid #000";
+  const cell={border:bd,padding:"4px 8px",fontSize:"10.5pt",verticalAlign:"middle",wordBreak:"break-all"};
+  const lb={...cell,fontWeight:"bold",textAlign:"center",whiteSpace:"nowrap"};
+  const sc={border:bd,textAlign:"center",fontSize:"9.5pt",padding:"2px"};
+  const lines=fukuBodyLines(body);
   return(
-    // 210mm×297mm のA4用紙。fontは11pt想定で、実際の印刷の文字量が体感できる
-    <div style={{width:"210mm",minHeight:"297mm",background:"#fff",padding:"20mm",boxSizing:"border-box",fontFamily:"'游明朝','MS Mincho',serif",color:"#000",lineHeight:1.7}}>
-      <table style={{width:"100%",borderCollapse:"collapse"}}><tbody><tr>
-        <td style={{border:"none",verticalAlign:"middle"}}><span style={{fontSize:"20pt",fontWeight:"bold",letterSpacing:"6px"}}>復　命　書</span></td>
-        <td style={{border:"none",textAlign:"right"}}><table style={{borderCollapse:"collapse",display:"inline-table"}}><tbody><tr><td style={sc}>施設長</td><td style={sc}>総務部長</td><td style={sc}>部署責任者</td></tr></tbody></table></td>
-      </tr></tbody></table>
-      <div style={{height:10}}/>
+    // 210mm×297mm のA4用紙。本文12pt想定で、実際の印刷の文字量・折り返しが体感できる
+    <div style={{width:"210mm",minHeight:"297mm",background:"#fff",padding:"18mm",boxSizing:"border-box",fontFamily:"'游明朝','MS Mincho',serif",color:"#000"}}>
+      {/* 上部：復命書（大・中央）＋ 決裁印欄（ラベル＋押印枠） */}
       <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
-        <tr><td style={{...lb,width:"15%"}}>研修名</td><td style={cell} colSpan={3}>{training.title}</td></tr>
-        <tr><td style={lb}>提出日</td><td style={{...cell,width:"35%"}}>{toReiwa(submitDate)}</td><td style={{...lb,width:"15%"}}>研修場所</td><td style={cell}>{training.location||""}</td></tr>
-        <tr><td style={lb}>部　署</td><td style={cell}>{job||""}</td><td style={lb}>氏　名</td><td style={cell}>{emp.name||""}</td></tr>
-        <tr><td style={lb}>日　時</td><td style={cell} colSpan={3}>{jitiji}</td></tr>
+        <tr>
+          <td rowSpan={2} style={{border:bd,width:"58%",textAlign:"center",verticalAlign:"middle"}}><span style={{fontSize:"26pt",fontWeight:"bold",letterSpacing:"0.4em"}}>復　命　書</span></td>
+          <td style={{...sc,width:"14%"}}>施設長</td><td style={{...sc,width:"14%"}}>総務部長</td><td style={{...sc,width:"14%"}}>部署責任者</td>
+        </tr>
+        <tr><td style={{border:bd,height:44}}>&nbsp;</td><td style={{border:bd}}>&nbsp;</td><td style={{border:bd}}>&nbsp;</td></tr>
       </tbody></table>
-      <div style={{height:16}}/>
-      <div style={{fontSize:"11pt",lineHeight:1.9,textAlign:"justify",whiteSpace:"pre-wrap",wordBreak:"break-all"}}>{body||""}</div>
+      {/* 中段：2列（研修名｜提出日 / 研修場所｜部署 / 日時｜氏名） */}
+      <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
+        <tr><td style={{...lb,width:"13%"}}>研 修 名</td><td style={{...cell,width:"37%"}}>{training.title}</td><td style={{...lb,width:"13%"}}>提 出 日</td><td style={{...cell,width:"37%"}}>{toReiwa(submitDate)}</td></tr>
+        <tr><td style={lb}>研修場所</td><td style={cell}>{training.location||""}</td><td style={lb}>部　署</td><td style={cell}>{job||""}</td></tr>
+        <tr><td style={lb}>日　時</td><td style={cell}>{jitiji}</td><td style={lb}>氏　名</td><td style={cell}>{emp.name||""}</td></tr>
+      </tbody></table>
+      {/* 下部：本文（枠で囲み・各行に点線罫線・12pt） */}
+      <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
+        <tr><td style={{border:bd,padding:"6px 4px",verticalAlign:"top"}}>
+          {lines.map((l,i)=><div key={i} style={{borderBottom:"1px dotted #000",fontSize:"12pt",lineHeight:1.55,padding:"2px 2px",whiteSpace:"nowrap",overflow:"hidden"}}>{l||" "}</div>)}
+        </td></tr>
+      </tbody></table>
     </div>
   );
 }
@@ -2552,11 +2583,11 @@ function FukumeishoForm({training,emp}){
                 </div>
                 <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
-                    <div style={lbl}>本文（研修内容・所感）<span style={{fontSize:11,color:"#9ca3af",fontWeight:400,marginLeft:6}}>1行 約43字（Wordと同じ）</span></div>
+                    <div style={lbl}>本文（研修内容・所感）<span style={{fontSize:11,color:"#9ca3af",fontWeight:400,marginLeft:6}}>1行 約40字（Wordと同じ）</span></div>
                     <div style={{fontSize:12,fontWeight:700,color:countColor}}>{charCount}字 <span style={{fontSize:11,color:"#9ca3af",fontWeight:400}}>／ 目安800〜1200字</span></div>
                   </div>
                   {/* 本文欄はWordと同じ 本文幅170mm・11pt・游明朝 にして、改行位置・行数を一致させる */}
-                  <textarea style={{...inp,width:"170mm",maxWidth:"100%",boxSizing:"content-box",flex:1,minHeight:"44vh",resize:"none",fontFamily:"'游明朝','MS Mincho',serif",fontSize:"11pt",lineHeight:1.9,padding:"14px 16px",whiteSpace:"pre-wrap",wordBreak:"break-all"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。改行はそのままWordに反映されます。"/>
+                  <textarea style={{...inp,width:"170mm",maxWidth:"100%",boxSizing:"content-box",flex:1,minHeight:"44vh",resize:"none",fontFamily:"'游明朝','MS Mincho',serif",fontSize:"12pt",lineHeight:1.8,padding:"14px 16px",whiteSpace:"pre-wrap",wordBreak:"break-all"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。改行はそのままWordに反映されます。"/>
                 </div>
               </div>
               {/* 右パネル：動画／A4印刷プレビュー を切替。広い画面では入力欄が固定なので、余った幅はこちらが広がる */}
