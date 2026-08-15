@@ -2540,8 +2540,8 @@ function FukumeishoForm({training,emp}){
             </div>
             {/* 本体：左＝入力（広め）／右＝A4プレビュー。狭い画面では縦に折り返す */}
             <div style={{flex:1,minHeight:0,display:"flex",flexWrap:"wrap",overflow:"auto"}}>
-              {/* 入力エリア */}
-              <div style={{flex:"1 1 460px",minWidth:300,padding:"14px 18px",display:"flex",flexDirection:"column",gap:10,borderRight:"1px solid #F0D9B0"}}>
+              {/* 入力エリア：画面幅に応じてここが広がる（プレビューは固定幅） */}
+              <div style={{flex:"1 1 520px",minWidth:300,padding:"14px 18px",display:"flex",flexDirection:"column",gap:10,borderRight:"1px solid #F0D9B0"}}>
                 <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
                   <div style={{flex:"1 1 140px"}}><div style={lbl}>部署（自動）</div><div style={{...inp,width:"100%",background:"#F7F1E6",color:"#4A3020",fontWeight:700}}>{dept||"（未設定）"}</div></div>
                   <div style={{flex:"1 1 140px"}}><div style={lbl}>提出日</div><input type="date" style={{...inp,width:"100%"}} value={submitDate} onChange={e=>setSubmitDate(e.target.value)}/></div>
@@ -2554,8 +2554,8 @@ function FukumeishoForm({training,emp}){
                   <textarea style={{...inp,width:"100%",flex:1,minHeight:"44vh",resize:"none",fontSize:15,lineHeight:1.9,padding:"14px 16px"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。改行はそのままWordに反映されます。"/>
                 </div>
               </div>
-              {/* 右パネル：動画（あれば）／A4印刷プレビュー を切り替え */}
-              <div style={{flex:"1 1 360px",minWidth:280,padding:"14px 18px",background:"#F3EFE7",display:"flex",flexDirection:"column",gap:8,overflow:"auto"}}>
+              {/* 右パネル：動画（あれば）／A4印刷プレビュー を切り替え。横幅は固定して狭めにし、入力欄を広く取る */}
+              <div style={{flex:"0 1 330px",minWidth:270,padding:"14px 12px",background:"#F3EFE7",display:"flex",flexDirection:"column",gap:8,overflow:"auto"}}>
                 <div style={{display:"flex",gap:6}}>
                   {hasVideo&&<button onClick={()=>setRightTab("video")} style={{fontSize:12,fontWeight:700,padding:"6px 12px",borderRadius:8,border:"1.5px solid #C89A55",cursor:"pointer",background:rightTab==="video"?"#C89A55":"#fff",color:rightTab==="video"?"#fff":"#A07840"}}>▶ 研修動画</button>}
                   <button onClick={()=>setRightTab("preview")} style={{fontSize:12,fontWeight:700,padding:"6px 12px",borderRadius:8,border:"1.5px solid #C89A55",cursor:"pointer",background:rightTab==="preview"?"#C89A55":"#fff",color:rightTab==="preview"?"#fff":"#A07840"}}>🖨️ 印刷イメージ</button>
@@ -2569,7 +2569,7 @@ function FukumeishoForm({training,emp}){
                 ):(
                   <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
                     <div style={{fontSize:12,fontWeight:700,color:"#6b7280",alignSelf:"flex-start"}}>🖨️ 印刷イメージ（A4・実際の文字量の目安）</div>
-                    <div style={{zoom:0.46,boxShadow:"0 2px 12px rgba(0,0,0,.2)"}}><FukumeishoA4 training={training} emp={emp} job={dept} submitDate={submitDate} body={body}/></div>
+                    <div style={{zoom:0.38,boxShadow:"0 2px 12px rgba(0,0,0,.2)"}}><FukumeishoA4 training={training} emp={emp} job={dept} submitDate={submitDate} body={body}/></div>
                   </div>
                 )}
               </div>
