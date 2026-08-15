@@ -87,6 +87,44 @@ const seasonalNote = () => [
 ][new Date().getMonth()];
 // 内部研修の表示対象判定：指定なし＝用務・休職中を除く全職員、指定あり＝選択された職員のみ
 const isTargetedFor = (t,e) => ((t.targetEmpIds||[]).length>0 ? t.targetEmpIds.includes(e.id) : ((e.dept||"")!=="用務"&&e.onLeave!==true));
+// ▼ 復命書（アプリ内記入＋Word出力）の試験機能：ここに載せた研修IDだけで有効
+const FUKUMEISHO_TRAINING_IDS = ["TFUKU158"];
+// 西暦(YYYY-MM-DD) → 令和表記
+const toReiwa = s => { if(!s)return ""; const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/); if(!m)return s; const y=+m[1]-2018; return `令和${y}年${+m[2]}月${+m[3]}日`; };
+// 復命書をWordで開けるファイル(.doc)として生成しダウンロードする。
+// docxライブラリはCRAのビルドと相性が悪いため、Wordが確実に開けるHTML(.doc)形式で出力する。
+function downloadFukumeishoDocx({training,emp,job,submitDate,body}){
+  const esc=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const jitiji=`${toReiwa(training.date)}${training.date2?`・${toReiwa(training.date2)}`:""}${(training.startTime||training.endTime)?`　${esc(training.startTime||"")}${training.endTime?`〜${esc(training.endTime)}`:""}`:""}`;
+  const bodyHtml=esc(body).replace(/\n/g,"<br/>");
+  const lb="border:1px solid #000;padding:5px 8px;background:#F2E9D8;font-weight:bold;text-align:center;white-space:nowrap;";
+  const c="border:1px solid #000;padding:5px 8px;";
+  const sc="border:1px solid #000;padding:2px 6px;text-align:center;font-size:10.5pt;height:52px;vertical-align:top;";
+  const html=`<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>復命書</title>
+<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
+<style>@page{size:A4;margin:20mm;} body{font-family:'游明朝','MS Mincho',serif;font-size:11pt;line-height:1.7;color:#000;}
+table{border-collapse:collapse;} .stamp td{width:70px;}</style></head><body>
+<table style="width:100%;border:none;"><tr>
+  <td style="border:none;vertical-align:middle;"><span style="font-size:20pt;font-weight:bold;letter-spacing:6px;">復　命　書</span></td>
+  <td style="border:none;text-align:right;"><table class="stamp"><tr><td style="${sc}">施設長</td><td style="${sc}">総務部長</td><td style="${sc}">部署責任者</td></tr></table></td>
+</tr></table>
+<div style="height:10px;"></div>
+<table style="width:100%;">
+  <tr><td style="${lb}width:15%;">研修名</td><td style="${c}" colspan="3">${esc(training.title)}</td></tr>
+  <tr><td style="${lb}">提出日</td><td style="${c}width:35%;">${toReiwa(submitDate)}</td><td style="${lb}width:15%;">研修場所</td><td style="${c}">${esc(training.location||"")}</td></tr>
+  <tr><td style="${lb}">職　種</td><td style="${c}">${esc(job||"")}</td><td style="${lb}">氏　名</td><td style="${c}">${esc(emp.name||"")}</td></tr>
+  <tr><td style="${lb}">日　時</td><td style="${c}" colspan="3">${jitiji}</td></tr>
+</table>
+<div style="height:16px;"></div>
+<div style="font-size:11pt;line-height:1.9;text-align:justify;">${bodyHtml||"&nbsp;"}</div>
+</body></html>`;
+  const blob=new Blob(["﻿"+html],{type:"application/msword;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download=`復命書_${emp.name||""}_${training.title}.doc`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 // 部署の表示順（この順に並べ、リストにない部署は後ろに付く）
 const DEPT_ORDER = ["ホーム1F","ホーム2F","ホーム3F","ホーム4F","医務","サムフォット","小規模サイタ","D/Sサイタ","相談室","居宅ポム","総務","用務"];
 const sortDepts = ds => [...ds].sort((a,b)=>{ const ia=DEPT_ORDER.indexOf(a),ib=DEPT_ORDER.indexOf(b); return (ia<0?999:ia)-(ib<0?999:ib)||a.localeCompare(b,"ja"); });
@@ -176,6 +214,15 @@ const db = {
     if(error) throw new Error(error.message);
   },
   async deleteInternal(id) { await supabase.from("internals").delete().eq("id",id); },
+  // 復命書（アプリ内で記入・Word出力する試験機能）。1職員×1研修で1件
+  async getFukumeisho(empId,tid) {
+    const { data } = await supabase.from("fukumeisho").select("*").eq("emp_id",empId).eq("training_id",tid).maybeSingle();
+    return data ? {job:data.job||"",submitDate:data.submit_date||"",body:data.body||"",updatedAt:data.updated_at} : null;
+  },
+  async upsertFukumeisho(empId,tid,f) {
+    const { error } = await supabase.from("fukumeisho").upsert({emp_id:empId,training_id:tid,job:f.job||"",submit_date:f.submitDate||"",body:f.body||"",updated_at:new Date().toISOString()},{onConflict:"emp_id,training_id"});
+    if(error) throw error;
+  },
   async getExternals() {
     const data = await selectAll(()=>supabase.from("externals").select("*").order("date"));
     if(!data||data.length===0)return [];
@@ -1894,7 +1941,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                   復命書未提出は赤い印付きで未完了側に残る。※ InternalCardのデータ配線(getIS/setIS)は不変 */}
               {fyInternals.length>0&&(()=>{
                 const intCard=t=>(
-                  <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)} empId={emp.id} readonly={!isCurrentFY}
+                  <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)} empId={emp.id} emp={emp} readonly={!isCurrentFY}
                     focusId={focusTrainingId} onFocused={()=>setFocusTrainingId(null)}
                     onDetailClosed={()=>{ if(returnTab){ switchTab(returnTab); setReturnTab(null); } }}
                     onCancelReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","未提出");showToast("「提出しない」を取り消しました");} }}
@@ -2422,7 +2469,39 @@ function ExternalProgress({status}){
   );
 }
 
-function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVideo,onWatchVideo,onAttendSession,readonly,focusId,onFocused,onDetailClosed}){
+// 復命書をアプリ内で記入し、Wordで出力する（試験機能）
+function FukumeishoForm({training,emp}){
+  const today=(()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;})();
+  const [job,setJob]=useState(emp.dept||"");
+  const [submitDate,setSubmitDate]=useState(today);
+  const [body,setBody]=useState("");
+  const [loaded,setLoaded]=useState(false);
+  const [saving,setSaving]=useState(false);
+  const [msg,setMsg]=useState("");
+  useEffect(()=>{ let alive=true; db.getFukumeisho(emp.id,training.id).then(f=>{ if(!alive||!f)return; setJob(f.job||emp.dept||""); if(f.submitDate)setSubmitDate(f.submitDate); setBody(f.body||""); }).finally(()=>{ if(alive)setLoaded(true); }); return ()=>{alive=false;}; },[emp.id,training.id]);// eslint-disable-line
+  const save=async()=>{ setSaving(true); setMsg(""); try{ await db.upsertFukumeisho(emp.id,training.id,{job,submitDate,body}); setMsg("保存しました"); }catch(e){ setMsg("保存に失敗しました："+(e.message||"")); } setSaving(false); };
+  const dl=async()=>{ try{ await downloadFukumeishoDocx({training,emp,job,submitDate,body}); }catch(e){ setMsg("Word出力に失敗しました："+(e.message||"")); } };
+  const inp={width:"100%",fontSize:14,padding:"8px 10px",border:"1px solid #E8D5B0",borderRadius:8,boxSizing:"border-box",fontFamily:"inherit"};
+  const lbl={fontSize:12,fontWeight:700,color:"#A07840",marginBottom:4};
+  return(
+    <div style={{marginTop:10,padding:"12px 14px",background:"#FFFDF8",border:"1.5px solid #E8D5B0",borderRadius:12}}>
+      <div style={{fontSize:13,fontWeight:800,color:"#4A3020",marginBottom:2}}>📝 復命書を記入</div>
+      <div style={{fontSize:11,color:"#9ca3af",marginBottom:10}}>研修名・日時・場所・氏名は自動で入ります。本文を記入し、保存・Word出力ができます。</div>
+      <div style={{display:"flex",gap:10,marginBottom:10,flexWrap:"wrap"}}>
+        <div style={{flex:"1 1 130px"}}><div style={lbl}>職種</div><input style={inp} value={job} onChange={e=>setJob(e.target.value)} placeholder="例：介護職"/></div>
+        <div style={{flex:"1 1 130px"}}><div style={lbl}>提出日</div><input type="date" style={inp} value={submitDate} onChange={e=>setSubmitDate(e.target.value)}/></div>
+      </div>
+      <div style={{marginBottom:10}}><div style={lbl}>本文（研修内容・所感）</div>
+        <textarea style={{...inp,minHeight:160,resize:"vertical",lineHeight:1.7}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。改行はそのままWordに反映されます。"/></div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <button style={{fontSize:14,fontWeight:700,padding:"9px 16px",borderRadius:10,border:"none",background:saving?"#cbb892":"#C89A55",color:"#fff",cursor:saving?"default":"pointer"}} disabled={saving||!loaded} onClick={save}>{saving?"保存中…":"💾 保存する"}</button>
+        <button style={{fontSize:14,fontWeight:700,padding:"9px 16px",borderRadius:10,border:"1.5px solid #C89A55",background:"#fff",color:"#A07840",cursor:"pointer"}} onClick={dl}>⬇ Wordでダウンロード</button>
+        {msg&&<span style={{fontSize:12,fontWeight:700,color:msg.includes("失敗")?"#dc2626":"#15803d"}}>{msg}</span>}
+      </div>
+    </div>
+  );
+}
+function InternalCard({training,status,empId,emp,onCancelReport,onDeclineReport,onVideo,onWatchVideo,onAttendSession,readonly,focusId,onFocused,onDetailClosed}){
   const [open,setOpen]=useState(false);
   const [playVideo,setPlayVideo]=useState(false);
   const [editSession,setEditSession]=useState(false); // 選んだ参加日を選び直す
@@ -2546,7 +2625,11 @@ function InternalCard({training,status,empId,onCancelReport,onDeclineReport,onVi
           </div>
           {!training.noReport&&<div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書</div>
-            {!canAccessReport
+            {FUKUMEISHO_TRAINING_IDS.includes(training.id)&&emp
+              ? (readonly
+                  ? <SPill color="#6b7280" bg="#f3f4f6" border="#d1d5db">閲覧のみ（過去年度のため記入不可）</SPill>
+                  : <FukumeishoForm training={training} emp={emp}/>)
+              : !canAccessReport
               ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">🔒 {training.noVideo?"参加後に提出できます":"参加または動画視聴後に提出できます"}</SPill>
               : status.reportConfirmed
                 ? <SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 提出済（管理者確認済）</SPill>
