@@ -2646,15 +2646,13 @@ function FukumeishoForm({training,emp}){
             <div style={{flex:1,minHeight:0,display:"flex",flexWrap:"wrap",overflow:"auto"}}>
               {/* 入力エリア：本文幅170mm＝Wordと同じ1行文字数になるよう横幅を固定。広い画面では右パネルが広がる */}
               <div style={{flex:"0 1 auto",width:"calc(162mm + 40px)",minWidth:300,padding:"14px 18px",display:"flex",flexDirection:"column",gap:10,borderRight:"1px solid #F0D9B0"}}>
-                {/* 様式切替：A＝自由記述 / B＝3つの質問 */}
-                <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-                  <span style={{...lbl,marginBottom:0}}>様式</span>
-                  {tabBtn("A","Aタイプ（自由記述）")}
-                  {tabBtn("B","Bタイプ（質問3項目）")}
-                </div>
-                <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
-                  <div style={{flex:"1 1 140px"}}><div style={lbl}>部署（自動）</div><div style={{...inp,width:"100%",background:"#F7F1E6",color:"#4A3020",fontWeight:700}}>{dept||"（未設定）"}</div></div>
-                  <div style={{flex:"1 1 140px"}}><div style={lbl}>提出日</div><input type="date" style={{...inp,width:"100%"}} value={submitDate} onChange={e=>setSubmitDate(e.target.value)}/></div>
+                {/* 様式切替（A/B）と提出日を1行に。部署は職員データから自動なので欄は表示しない */}
+                <div style={{display:"flex",gap:16,flexWrap:"wrap",alignItems:"flex-end"}}>
+                  <div>
+                    <div style={lbl}>様式</div>
+                    <div style={{display:"flex",gap:8}}>{tabBtn("A","Aタイプ（自由記述）")}{tabBtn("B","Bタイプ（質問3項目）")}</div>
+                  </div>
+                  <div><div style={lbl}>提出日</div><input type="date" style={{...inp,width:170}} value={submitDate} onChange={e=>setSubmitDate(e.target.value)}/></div>
                 </div>
                 {format==="A" ? (
                   <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
