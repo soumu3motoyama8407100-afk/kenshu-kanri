@@ -91,17 +91,46 @@ const isTargetedFor = (t,e) => ((t.targetEmpIds||[]).length>0 ? t.targetEmpIds.i
 const FUKUMEISHO_TRAINING_IDS = ["TFUKU158"];
 // 西暦(YYYY-MM-DD) → 令和表記
 const toReiwa = s => { if(!s)return ""; const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/); if(!m)return s; const y=+m[1]-2018; return `令和${y}年${+m[2]}月${+m[3]}日`; };
-// 本文の行数を概算（罫線の本数を決めるためだけに使う。実際の本文は自然に折り返す）
-// 1行約38字で見積り、自然折り返し(約41字)より多めに出して罫線が本文に足りなくなるのを防ぐ
-const FUKU_LINE_PX=26;     // 本文の行の高さ(px)。罫線の間隔と一致
-const FUKU_MIN_LINES=27;   // 最低これだけ罫線を敷く。項目欄を詰めたぶん1ページ最大約29行まで対応
-function estFukuLines(text){
+// 本文を1行あたり FUKU_WRAP_UNITS（全角=1,半角=0.5）で折り返して視覚的な行の配列にする。
+// 明示改行(\n)は必ず改行。プレビュー・印刷で共通に使い両者を完全一致させ、ページ分割も行単位で行う。
+const FUKU_LINE_PX=26;      // 本文の行の高さ(px)。罫線の間隔と一致
+const FUKU_WRAP_UNITS=46;   // 本文1行あたりの文字数（10pt・本文幅の目安）
+const FUKU_P1_LINES=29;     // 1ページ目の本文行数（氏名欄などがある分ひかえめ）
+const FUKU_P2_LINES=36;     // 2ページ目以降の本文行数（氏名欄がないぶん多い）
+function fukuWrap(text){
   const cw=ch=>{ const c=ch.codePointAt(0); return (c<=0x2FF||(ch>="｡"&&ch<="ﾟ"))?0.5:1; };
-  let lines=0;
-  String(text||"").split("\n").forEach(p=>{ if(p===""){ lines+=1; return; } let u=0; for(const ch of p) u+=cw(ch); lines+=Math.max(1,Math.ceil(u/38)); });
-  return Math.max(FUKU_MIN_LINES, lines+1);
+  const out=[];
+  String(text||"").split("\n").forEach(p=>{
+    if(p===""){ out.push(""); return; }
+    let line="",u=0;
+    for(const ch of p){ const w=cw(ch); if(u+w>FUKU_WRAP_UNITS){ out.push(line); line=ch; u=w; } else { line+=ch; u+=w; } }
+    out.push(line);
+  });
+  return out;
 }
-// 復命書フォームのHTML（印刷用ウィンドウとプレビューで共通の見た目にする）
+// 本文を各ページへ割り付ける。各ページは行数ぶんの枠を必ず持つ（短くても罫線で埋める＝フォームの見た目）
+function fukuPaginate(text){
+  const lines=fukuWrap(text);
+  const pages=[]; let idx=0, first=true;
+  do {
+    const cap=first?FUKU_P1_LINES:FUKU_P2_LINES;
+    const rows=lines.slice(idx,idx+cap);
+    while(rows.length<cap) rows.push("");
+    pages.push({first,rows});
+    idx+=cap; first=false;
+  } while(idx<lines.length);
+  return pages;
+}
+// 本文の枠（実線で囲む）。行の間は点線罫線。最終行の下は枠の実線が仕切りになるため点線なし
+function fukuBodyBoxHTML(rows,bd){
+  const esc=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const inner=rows.map((l,i)=>{
+    const last=i===rows.length-1;
+    return `<div style="box-sizing:border-box;height:${FUKU_LINE_PX}px;line-height:${FUKU_LINE_PX}px;font-size:10pt;padding:0 2px;white-space:nowrap;overflow:hidden;${last?"":"border-bottom:1px dotted #888;"}">${l?esc(l):"&nbsp;"}</div>`;
+  }).join("");
+  return `<div style="border:${bd};padding:13px 8px 0;">${inner}</div>`;
+}
+// 復命書フォームのHTML（印刷用ウィンドウとプレビューで共通の見た目）。長い本文はページ分割し、2ページ目以降は氏名欄なし
 function fukumeishoFormHTML({training,emp,job,submitDate,body}){
   const esc=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const jitiji=`${toReiwa(training.date)}${training.date2?`・${toReiwa(training.date2)}`:""}${(training.startTime||training.endTime)?`　${esc(training.startTime||"")}${training.endTime?`〜${esc(training.endTime)}`:""}`:""}`;
@@ -109,17 +138,7 @@ function fukumeishoFormHTML({training,emp,job,submitDate,body}){
   const lb=`border:${bd};padding:5px 6px;text-align:center;font-weight:bold;white-space:nowrap;font-size:11pt;`;
   const c=`border:${bd};padding:5px 8px;word-break:break-all;font-size:11pt;`;
   const sc=`border:${bd};text-align:center;font-size:10.5pt;padding:3px;`;
-  const bodyHtml=esc(body).replace(/\n/g,"<br/>");
-  const n=estFukuLines(body);
-  const rules=`<div style="box-sizing:border-box;height:${FUKU_LINE_PX}px;border-bottom:1px dotted #888;"></div>`.repeat(n);
-  const boxH=n*FUKU_LINE_PX;
-  // 罫線の下敷き（全幅の点線）＋その上に本文を自然折り返しで重ねる。上に0.5行分の余白を空けて書き出す
-  const topPad=Math.round(FUKU_LINE_PX/2);
-  const bodyBox=`<div style="position:relative;border:${bd};padding:${topPad}px 8px 0;">
-    <div style="position:absolute;left:8px;right:8px;top:${topPad}px;">${rules}</div>
-    <div style="position:relative;min-height:${boxH}px;font-size:10pt;line-height:${FUKU_LINE_PX}px;white-space:pre-wrap;word-break:break-all;">${bodyHtml}</div>
-  </div>`;
-  return `<table style="border-collapse:collapse;width:100%;">
+  const headerInfo=`<table style="border-collapse:collapse;width:100%;">
   <tr>
     <td rowspan="2" style="border:${bd};width:58%;text-align:center;vertical-align:middle;"><span style="font-size:26pt;font-weight:bold;letter-spacing:0.4em;">復　命　書</span></td>
     <td style="${sc}width:14%;">施設長</td><td style="${sc}width:14%;">総務部長</td><td style="${sc}width:14%;">部署責任者</td>
@@ -130,8 +149,12 @@ function fukumeishoFormHTML({training,emp,job,submitDate,body}){
   <tr><td style="${lb}width:12%;">研 修 名</td><td style="${c}width:42%;">${esc(training.title)}</td><td style="${lb}width:12%;">提 出 日</td><td style="${c}width:34%;">${toReiwa(submitDate)}</td></tr>
   <tr><td style="${lb}">研修場所</td><td style="${c}">${esc(training.location||"")}</td><td style="${lb}">部　署</td><td style="${c}">${esc(job||"")}</td></tr>
   <tr><td style="${lb}">日　時</td><td style="${c}">${jitiji}</td><td style="${lb}">氏　名</td><td style="${c}">${esc(emp.name||"")}</td></tr>
-  </table>
-  ${bodyBox}`;
+  </table>`;
+  const pages=fukuPaginate(body);
+  return pages.map((pg,pi)=>{
+    const brk=pi>0?"page-break-before:always;":"";
+    return `<div style="${brk}">${pg.first?headerInfo:""}${fukuBodyBoxHTML(pg.rows,bd)}</div>`;
+  }).join("");
 }
 // 復命書を印刷/PDF保存する。プレビューと同じHTMLを別ウィンドウで開き、ブラウザの印刷機能を呼ぶ。
 // （Wordはレイアウトを作り直して崩れるため廃止。ブラウザ印刷ならプレビューと完全一致・罫線も確実）
@@ -2493,41 +2516,49 @@ function ExternalProgress({status}){
   );
 }
 
-// 復命書をアプリ内で記入し、Wordで出力する（試験機能）
-// 復命書のA4印刷イメージ（縮小プレビュー用）。Word出力の様式と同じ見た目
+// 本文の枠（プレビュー用）。実線枠＋行間の点線罫線。最終行の下は枠の実線が仕切り＝点線なし
+function FukuBodyBox({rows,bd}){
+  return(
+    <div style={{border:bd,padding:"13px 8px 0"}}>
+      {rows.map((l,i)=>{ const last=i===rows.length-1; return (
+        <div key={i} style={{boxSizing:"border-box",height:FUKU_LINE_PX,lineHeight:`${FUKU_LINE_PX}px`,fontSize:"10pt",padding:"0 2px",whiteSpace:"nowrap",overflow:"hidden",borderBottom:last?"none":"1px dotted #888"}}>{l||" "}</div>
+      );})}
+    </div>
+  );
+}
+// 復命書をアプリ内で記入し、印刷/PDF出力する（試験機能）
+// A4印刷イメージ（縮小プレビュー用）。印刷HTMLと同じ様式・同じページ分割で表示する
 function FukumeishoA4({training,emp,job,submitDate,body}){
   const jitiji=`${toReiwa(training.date)}${training.date2?`・${toReiwa(training.date2)}`:""}${(training.startTime||training.endTime)?`　${training.startTime||""}${training.endTime?`〜${training.endTime}`:""}`:""}`;
   const bd="1px solid #000";
   const cell={border:bd,padding:"5px 8px",fontSize:"11pt",verticalAlign:"middle",wordBreak:"break-all"};
   const lb={...cell,fontWeight:"bold",textAlign:"center",whiteSpace:"nowrap"};
   const sc={border:bd,textAlign:"center",fontSize:"9.5pt",padding:"3px"};
-  const topPad=Math.round(FUKU_LINE_PX/2); // 本文は0.5行分あけて書き出す
+  const header=(<>
+    {/* 上部：復命書（大・中央）＋ 決裁印欄（ラベル＋押印枠） */}
+    <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
+      <tr>
+        <td rowSpan={2} style={{border:bd,width:"58%",textAlign:"center",verticalAlign:"middle"}}><span style={{fontSize:"26pt",fontWeight:"bold",letterSpacing:"0.4em"}}>復　命　書</span></td>
+        <td style={{...sc,width:"14%"}}>施設長</td><td style={{...sc,width:"14%"}}>総務部長</td><td style={{...sc,width:"14%"}}>部署責任者</td>
+      </tr>
+      <tr><td style={{border:bd,height:64}}>&nbsp;</td><td style={{border:bd}}>&nbsp;</td><td style={{border:bd}}>&nbsp;</td></tr>
+    </tbody></table>
+    {/* 中段：2列（研修名｜提出日 / 研修場所｜部署 / 日時｜氏名） */}
+    <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
+      <tr><td style={{...lb,width:"12%"}}>研 修 名</td><td style={{...cell,width:"42%"}}>{training.title}</td><td style={{...lb,width:"12%"}}>提 出 日</td><td style={{...cell,width:"34%"}}>{toReiwa(submitDate)}</td></tr>
+      <tr><td style={lb}>研修場所</td><td style={cell}>{training.location||""}</td><td style={lb}>部　署</td><td style={cell}>{job||""}</td></tr>
+      <tr><td style={lb}>日　時</td><td style={cell}>{jitiji}</td><td style={lb}>氏　名</td><td style={cell}>{emp.name||""}</td></tr>
+    </tbody></table>
+  </>);
+  const pages=fukuPaginate(body);
   return(
-    // 210mm×297mm のA4用紙。本文12pt想定で、実際の印刷の文字量・折り返しが体感できる
-    <div style={{width:"210mm",minHeight:"297mm",background:"#fff",padding:"20mm",boxSizing:"border-box",fontFamily:"'游明朝','MS Mincho',serif",color:"#000"}}>
-      {/* 上部：復命書（大・中央）＋ 決裁印欄（ラベル＋押印枠） */}
-      <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
-        <tr>
-          <td rowSpan={2} style={{border:bd,width:"58%",textAlign:"center",verticalAlign:"middle"}}><span style={{fontSize:"26pt",fontWeight:"bold",letterSpacing:"0.4em"}}>復　命　書</span></td>
-          <td style={{...sc,width:"14%"}}>施設長</td><td style={{...sc,width:"14%"}}>総務部長</td><td style={{...sc,width:"14%"}}>部署責任者</td>
-        </tr>
-        <tr><td style={{border:bd,height:64}}>&nbsp;</td><td style={{border:bd}}>&nbsp;</td><td style={{border:bd}}>&nbsp;</td></tr>
-      </tbody></table>
-      {/* 中段：2列（研修名｜提出日 / 研修場所｜部署 / 日時｜氏名） */}
-      <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
-        <tr><td style={{...lb,width:"12%"}}>研 修 名</td><td style={{...cell,width:"42%"}}>{training.title}</td><td style={{...lb,width:"12%"}}>提 出 日</td><td style={{...cell,width:"34%"}}>{toReiwa(submitDate)}</td></tr>
-        <tr><td style={lb}>研修場所</td><td style={cell}>{training.location||""}</td><td style={lb}>部　署</td><td style={cell}>{job||""}</td></tr>
-        <tr><td style={lb}>日　時</td><td style={cell}>{jitiji}</td><td style={lb}>氏　名</td><td style={cell}>{emp.name||""}</td></tr>
-      </tbody></table>
-      {/* 下部：本文（枠＋点線罫線）。罫線の下敷きの上に本文を自然折り返しで重ねる。印刷HTMLと同じ構造 */}
-      {(()=>{ const n=estFukuLines(body); return (
-        <div style={{position:"relative",border:bd,padding:`${topPad}px 8px 0`}}>
-          <div style={{position:"absolute",left:8,right:8,top:topPad}}>
-            {Array.from({length:n}).map((_,i)=><div key={i} style={{boxSizing:"border-box",height:FUKU_LINE_PX,borderBottom:"1px dotted #888"}}/>)}
-          </div>
-          <div style={{position:"relative",minHeight:n*FUKU_LINE_PX,fontSize:"10pt",lineHeight:`${FUKU_LINE_PX}px`,whiteSpace:"pre-wrap",wordBreak:"break-all"}}>{body||""}</div>
+    <div>
+      {pages.map((pg,pi)=>(
+        <div key={pi} style={{width:"210mm",minHeight:"297mm",background:"#fff",padding:"20mm",boxSizing:"border-box",fontFamily:"'游明朝','MS Mincho',serif",color:"#000",marginTop:pi>0?14:0}}>
+          {pg.first&&header}
+          <FukuBodyBox rows={pg.rows} bd={bd}/>
         </div>
-      );})()}
+      ))}
     </div>
   );
 }
@@ -2581,7 +2612,7 @@ function FukumeishoForm({training,emp}){
             {/* 本体：左＝入力（広め）／右＝A4プレビュー。狭い画面では縦に折り返す */}
             <div style={{flex:1,minHeight:0,display:"flex",flexWrap:"wrap",overflow:"auto"}}>
               {/* 入力エリア：本文幅170mm＝Wordと同じ1行文字数になるよう横幅を固定。広い画面では右パネルが広がる */}
-              <div style={{flex:"0 1 auto",width:"calc(165mm + 52px)",minWidth:300,padding:"14px 18px",display:"flex",flexDirection:"column",gap:10,borderRight:"1px solid #F0D9B0"}}>
+              <div style={{flex:"0 1 auto",width:"calc(162mm + 40px)",minWidth:300,padding:"14px 18px",display:"flex",flexDirection:"column",gap:10,borderRight:"1px solid #F0D9B0"}}>
                 <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
                   <div style={{flex:"1 1 140px"}}><div style={lbl}>部署（自動）</div><div style={{...inp,width:"100%",background:"#F7F1E6",color:"#4A3020",fontWeight:700}}>{dept||"（未設定）"}</div></div>
                   <div style={{flex:"1 1 140px"}}><div style={lbl}>提出日</div><input type="date" style={{...inp,width:"100%"}} value={submitDate} onChange={e=>setSubmitDate(e.target.value)}/></div>
@@ -2592,7 +2623,7 @@ function FukumeishoForm({training,emp}){
                     <div style={{fontSize:12,fontWeight:700,color:countColor}}>{charCount}字 <span style={{fontSize:11,color:"#9ca3af",fontWeight:400}}>／ 目安800〜1200字</span></div>
                   </div>
                   {/* 本文欄はWordと同じ 本文幅170mm・11pt・游明朝 にして、改行位置・行数を一致させる */}
-                  <textarea style={{...inp,width:"165mm",maxWidth:"100%",boxSizing:"content-box",flex:1,minHeight:"44vh",resize:"none",fontFamily:"'游明朝','MS Mincho',serif",fontSize:"10pt",lineHeight:"26px",padding:"3px 8px",whiteSpace:"pre-wrap",wordBreak:"break-all"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。文章はそのまま入力すれば自動で折り返します（段落を分けたいときだけ改行してください）。"/>
+                  <textarea style={{...inp,width:"162mm",maxWidth:"100%",boxSizing:"content-box",flex:1,minHeight:"44vh",resize:"none",fontFamily:"'游明朝','MS Mincho',serif",fontSize:"10pt",lineHeight:"26px",padding:"0 2px",whiteSpace:"pre-wrap",wordBreak:"break-all"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。文章はそのまま入力すれば自動で折り返します（段落を分けたいときだけ改行してください）。"/>
                 </div>
               </div>
               {/* 右パネル：動画／A4印刷プレビュー を切替。広い画面では入力欄が固定なので、余った幅はこちらが広がる */}
