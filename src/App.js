@@ -168,9 +168,12 @@ function fukumeishoFormHTML({training,emp,job,submitDate,lines}){
   <tr><td style="${lb}">日　時</td><td style="${c}">${jitiji}</td><td style="${lb}">氏　名</td><td style="${c}">${esc(emp.name||"")}</td></tr>
   </table>`;
   const pages=fukuPaginate(lines);
+  const total=pages.length;
   return pages.map((pg,pi)=>{
     const brk=pi>0?"page-break-before:always;":"";
-    return `<div style="${brk}">${pg.first?headerInfo:""}${fukuBodyBoxHTML(pg.rows,bd,pg.first)}</div>`;
+    // @page余白0＋各ページ内側20mm余白。ブラウザのヘッダー/フッター（日付・about:blank等）を消すため
+    const pageNum=`<div style="position:absolute;left:0;right:0;bottom:8mm;text-align:center;font-size:9pt;">${pi+1} ／ ${total}</div>`;
+    return `<div style="${brk}position:relative;box-sizing:border-box;min-height:297mm;padding:20mm;">${pg.first?headerInfo:""}${fukuBodyBoxHTML(pg.rows,bd,pg.first)}${pageNum}</div>`;
   }).join("");
 }
 // 復命書を印刷/PDF保存する。プレビューと同じHTMLを別ウィンドウで開き、ブラウザの印刷機能を呼ぶ。
@@ -179,7 +182,7 @@ function printFukumeisho(data){
   const inner=fukumeishoFormHTML(data);
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>復命書_${data.emp.name||""}_${data.training.title}</title>
 <style>
-@page{size:A4;margin:20mm;}
+@page{size:A4;margin:0;}
 html,body{margin:0;padding:0;}
 body{font-family:'游明朝','MS Mincho',serif;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 </style></head><body>${inner}
@@ -2584,9 +2587,10 @@ function FukumeishoA4({training,emp,job,submitDate,lines}){
   return(
     <div>
       {pages.map((pg,pi)=>(
-        <div key={pi} style={{width:"210mm",minHeight:"297mm",background:"#fff",padding:"20mm",boxSizing:"border-box",fontFamily:"'游明朝','MS Mincho',serif",color:"#000",marginTop:pi>0?14:0}}>
+        <div key={pi} style={{position:"relative",width:"210mm",minHeight:"297mm",background:"#fff",padding:"20mm",boxSizing:"border-box",fontFamily:"'游明朝','MS Mincho',serif",color:"#000",marginTop:pi>0?14:0}}>
           {pg.first&&header}
           <FukuBodyBox rows={pg.rows} bd={bd} connectTop={pg.first}/>
+          <div style={{position:"absolute",left:0,right:0,bottom:"8mm",textAlign:"center",fontSize:"9pt"}}>{pi+1} ／ {pages.length}</div>
         </div>
       ))}
     </div>
