@@ -1988,7 +1988,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                   ※ カードのデータ配線(getXS/setXS)は一切変えていない＝既存の受講・復命書は影響なし */}
               {fyExternals.length>0&&(()=>{
                 const extCard=x=>(
-                  <ExternalCard key={x.id} ext={x} empId={emp.id} status={getXS(emp.id,x.id)} readonly={!isCurrentFY}
+                  <ExternalCard key={x.id} ext={x} empId={emp.id} emp={emp} status={getXS(emp.id,x.id)} readonly={!isCurrentFY}
                     onAttend={v=>{ if(isCurrentFY){setXS(emp.id,x.id,{attended:v});showToast(v?"受講済にしました":"「受講済」を取り消しました");} }}
                     onViewPdf={type=>setPdfExt({...x,_pdfType:type})}/>
                 );
@@ -2055,7 +2055,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
               })()}
               {fyInternals.length===0&&fyExternals.length===0&&<div style={S.empty}>{viewFY}年度の研修はありません</div>}
               {/* 自己学習の記録（管理者は関与しない・参考記録） */}
-              <SelfTrainingSection items={selfTrainings} onAdd={addSelfTraining} onToggleReport={toggleSelfReport} onDelete={deleteSelfTraining}/>
+              <SelfTrainingSection items={selfTrainings} onAdd={addSelfTraining} onToggleReport={toggleSelfReport} onDelete={deleteSelfTraining} emp={emp}/>
             </div>
           )}
           {tab==="seminar"&&(
@@ -2597,7 +2597,8 @@ function fukuParseSaved(raw){
   try{ const o=JSON.parse(raw); if(o&&o.fmt==="B"){ const q=o.q||[]; return {format:"B",body:"",answers:[q[0]||"",q[1]||"",q[2]||""]}; } }catch(_){/* 通常テキスト */}
   return {format:"A",body:raw,answers:["","",""]};
 }
-function FukumeishoForm({training,emp}){
+function FukumeishoForm({training,emp,docKey}){
+  const key=docKey||training.id; // 保存キー（内部=研修ID, 外部="X"+ID, 自己学習="S"+ID で衝突回避）
   const today=(()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;})();
   const [open,setOpen]=useState(false);
   const dept=emp.dept||""; // 部署は職員データから自動。手入力はしない
@@ -2616,10 +2617,10 @@ function FukumeishoForm({training,emp}){
   const previewColRef=useRef(null);
   const [pscale,setPscale]=useState(0.5);
   useEffect(()=>{ if(!open)return; const el=previewColRef.current; if(!el||typeof ResizeObserver==="undefined")return; const calc=()=>{ const w=el.clientWidth-24; if(w>0)setPscale(Math.max(0.32,Math.min(0.92,w/794))); }; calc(); const ro=new ResizeObserver(calc); ro.observe(el); return ()=>ro.disconnect(); },[open,rightTab]);// eslint-disable-line
-  useEffect(()=>{ let alive=true; db.getFukumeisho(emp.id,training.id).then(f=>{ if(!alive||!f)return; if(f.submitDate)setSubmitDate(f.submitDate); const p=fukuParseSaved(f.body||""); setFormat(p.format); setBody(p.body); setAnswers(p.answers); setSavedRaw(f.body||""); }).finally(()=>{ if(alive)setLoaded(true); }); return ()=>{alive=false;}; },[emp.id,training.id]);// eslint-disable-line
+  useEffect(()=>{ let alive=true; db.getFukumeisho(emp.id,key).then(f=>{ if(!alive||!f)return; if(f.submitDate)setSubmitDate(f.submitDate); const p=fukuParseSaved(f.body||""); setFormat(p.format); setBody(p.body); setAnswers(p.answers); setSavedRaw(f.body||""); }).finally(()=>{ if(alive)setLoaded(true); }); return ()=>{alive=false;}; },[emp.id,key]);// eslint-disable-line
   const serialize=()=> format==="B" ? JSON.stringify({fmt:"B",q:answers}) : body;
   const lines = format==="B" ? fukuLinesB(answers) : fukuLinesA(body);
-  const save=async()=>{ setSaving(true); setMsg(""); try{ const raw=serialize(); await db.upsertFukumeisho(emp.id,training.id,{job:dept,submitDate,body:raw}); setSavedRaw(raw); setMsg("保存しました"); }catch(e){ setMsg("保存に失敗しました："+(e.message||"")); } setSaving(false); };
+  const save=async()=>{ setSaving(true); setMsg(""); try{ const raw=serialize(); await db.upsertFukumeisho(emp.id,key,{job:dept,submitDate,body:raw}); setSavedRaw(raw); setMsg("保存しました"); }catch(e){ setMsg("保存に失敗しました："+(e.message||"")); } setSaving(false); };
   const dl=()=>{ try{ printFukumeisho({training,emp,job:dept,submitDate,lines}); }catch(e){ setMsg("印刷の準備に失敗しました："+(e.message||"")); } };
   const dirty=serialize()!==savedRaw;
   const closeEditor=()=>{ if(dirty&&!window.confirm("保存していない変更があります。閉じてよろしいですか？")) return; setOpen(false); setMsg(""); };
@@ -2862,7 +2863,7 @@ function InternalCard({training,status,empId,emp,onCancelReport,onDeclineReport,
   );
 }
 
-function ExternalCard({ext,empId,status,onAttend,onViewPdf,readonly}){
+function ExternalCard({ext,empId,emp,status,onAttend,onViewPdf,readonly}){
   const [open,setOpen]=useState(false);
   const {attended,reportSubmitted,reportConfirmed}=status;
   // 復命書が必須か：管理者が任意で指定した人 OR 受講済みの人
@@ -2923,12 +2924,18 @@ function ExternalCard({ext,empId,status,onAttend,onViewPdf,readonly}){
               :<button style={S.actionBtn}
                  onClick={()=>{ if(window.confirm(`「${ext.title}」を受講済にします。よろしいですか？\n\n※受講済にすると復命書の提出が必要になります。`)) onAttend(true); }}>受講済にする</button>}
           </div>
-          {attended&&<div style={S.sBlock}>
+          <div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書</div>
-            {reportConfirmed
-              ?<SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 提出済（管理者確認済）</SPill>
-              :<SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">未提出（所属長に提出してください）</SPill>}
-          </div>}
+            {readonly
+              ? <SPill color="#6b7280" bg="#f3f4f6" border="#d1d5db">閲覧のみ（過去年度のため記入不可）</SPill>
+              : !emp
+              ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">読み込み中…</SPill>
+              : <>
+                  {reportConfirmed&&<div style={{marginBottom:8}}><SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 管理者確認済</SPill></div>}
+                  <FukumeishoForm training={ext} emp={emp} docKey={"X"+ext.id}/>
+                </>
+            }
+          </div>
           </div>
         </div>
         </div>
@@ -2938,7 +2945,7 @@ function ExternalCard({ext,empId,status,onAttend,onViewPdf,readonly}){
 }
 
 // 職員の自己学習記録（管理者は関与しない。参考記録・人事考課ポイント対象外）
-function SelfTrainingSection({items,onAdd,onToggleReport,onDelete}){
+function SelfTrainingSection({items,onAdd,onToggleReport,onDelete,emp}){
   const [showForm,setShowForm]=useState(false);
   const [form,setForm]=useState({title:"",date:"",time:"",location:""});
   const submit=()=>{
@@ -2973,15 +2980,17 @@ function SelfTrainingSection({items,onAdd,onToggleReport,onDelete}){
       )}
       {items.length===0&&!showForm&&<div style={{fontSize:12,color:"#9ca3af",padding:"12px",textAlign:"center"}}>まだ記録がありません</div>}
       {items.map(t=>(
-        <div key={t.id} style={{...S.card,padding:"12px 14px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={S.cardTitle}>{t.title}</div>
-            <div style={S.cardDate}>📅 {formatDate(t.date)}{t.time&&` 🕐 ${t.time}`}{t.location&&` 📍 ${t.location}`}</div>
+        <div key={t.id} style={{...S.card,padding:"12px 14px",marginBottom:8}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={S.cardTitle}>{t.title}</div>
+              <div style={S.cardDate}>📅 {formatDate(t.date)}{t.time&&` 🕐 ${t.time}`}{t.location&&` 📍 ${t.location}`}</div>
+            </div>
+            <div style={{display:"flex",gap:6,flexShrink:0,alignItems:"center"}}>
+              <button onClick={()=>{if(window.confirm("削除しますか？"))onDelete(t.id);}} style={{fontSize:11,color:"#dc2626",background:"none",border:"1px solid #fca5a5",borderRadius:8,padding:"5px 8px",cursor:"pointer"}}>削除</button>
+            </div>
           </div>
-          <div style={{display:"flex",gap:6,flexShrink:0,alignItems:"center"}}>
-            <button onClick={()=>onToggleReport(t.id)} style={{fontSize:11,fontWeight:700,padding:"6px 10px",borderRadius:20,border:`1.5px solid ${t.reportSubmitted?"#16a34a":"#e5e7eb"}`,background:t.reportSubmitted?"#dcfce7":"#fff",color:t.reportSubmitted?"#16a34a":"#9ca3af",cursor:"pointer",whiteSpace:"nowrap"}}>{t.reportSubmitted?"✓ 復命書提出済":"復命書未提出"}</button>
-            <button onClick={()=>{if(window.confirm("削除しますか？"))onDelete(t.id);}} style={{fontSize:11,color:"#dc2626",background:"none",border:"1px solid #fca5a5",borderRadius:8,padding:"5px 8px",cursor:"pointer"}}>削除</button>
-          </div>
+          {emp&&<FukumeishoForm training={{id:t.id,title:t.title,date:t.date,location:t.location||"",startTime:t.time||"",endTime:""}} emp={emp} docKey={"S"+t.id}/>}
         </div>
       ))}
     </div>
