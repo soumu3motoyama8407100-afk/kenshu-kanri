@@ -87,8 +87,6 @@ const seasonalNote = () => [
 ][new Date().getMonth()];
 // 内部研修の表示対象判定：指定なし＝用務・休職中を除く全職員、指定あり＝選択された職員のみ
 const isTargetedFor = (t,e) => ((t.targetEmpIds||[]).length>0 ? t.targetEmpIds.includes(e.id) : ((e.dept||"")!=="用務"&&e.onLeave!==true));
-// ▼ 復命書（アプリ内記入＋Word出力）の試験機能：ここに載せた研修IDだけで有効
-const FUKUMEISHO_TRAINING_IDS = ["TFUKU158"];
 // 西暦(YYYY-MM-DD) → 令和表記
 const toReiwa = s => { if(!s)return ""; const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/); if(!m)return s; const y=+m[1]-2018; return `令和${y}年${+m[2]}月${+m[3]}日`; };
 // 本文を1行あたり FUKU_WRAP_UNITS（全角=1,半角=0.5）で折り返して視覚的な行の配列にする。
@@ -959,6 +957,18 @@ function TutorialModal({onClose}){
 }
 // 🆕 更新情報（新しい順に上から追加していく。日付は "YYYY-MM-DD"）
 const RELEASE_NOTES=[
+  {id:"r20260816",date:"2026-08-16",title:"復命書がアプリで書けて印刷できるようになりました（全研修対応）",sections:[
+    {h:"復命書をアプリで作成・印刷できます",items:[
+      "各研修の詳細を開き「復命書」欄から、アプリ上で復命書を記入できるようになりました。",
+      "書いた内容は「🖨 印刷 / PDF保存」からそのまま印刷、またはPDFとして保存できます。プレビューと同じ形で出力されます。",
+      "様式は「Aタイプ（自由記述）」と「Bタイプ（質問3項目）」を切り替えて選べます。",
+      "動画のある研修は、右側で動画を見ながら記入できます。",
+    ]},
+    {h:"個人でのファイル保存・フォルダ管理は不要です",items:[
+      "記入した復命書は自動でアプリに保存され、いつでも見返したり印刷し直すことができます。",
+      "これまでのように、個人で復命書のデータをフォルダ管理する必要はありません。",
+    ]},
+  ]},
   {id:"r20260728b",date:"2026-07-28",title:"研修報告書がアプリで作れるようになりました",sections:[
     {h:"研修報告書が簡単に書けるようになりました",items:[
       "研修報告書を、アプリで必要事項を入力するだけで作成し、Wordでダウンロードできるようになりました。",
@@ -1233,6 +1243,7 @@ function KirokuNoteCard(){
   return(
     <div className="login-desktop-view" style={{width:"100%",maxWidth:1200,margin:"12px 0 28px",boxSizing:"border-box",background:"#fcfdf8",borderRadius:16,padding:"16px 18px",boxShadow:"0 8px 24px rgba(76,110,78,.15)",border:"1px solid #9dc2a0"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+        <span style={{fontSize:11,fontWeight:800,color:"#92400e",background:"#fef3c7",border:"1px solid #fcd34d",borderRadius:20,padding:"3px 10px",whiteSpace:"nowrap"}}>準備中（順次公開予定）</span>
         <span style={{fontSize:26}}>📝</span>
         <div>
           <div style={{fontSize:15,fontWeight:800,color:"#3c5a3f"}}>記録ノート</div>
@@ -2832,23 +2843,14 @@ function InternalCard({training,status,empId,emp,onCancelReport,onDeclineReport,
           </div>
           {!training.noReport&&<div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書</div>
-            {FUKUMEISHO_TRAINING_IDS.includes(training.id)&&emp
-              ? (readonly
-                  ? <SPill color="#6b7280" bg="#f3f4f6" border="#d1d5db">閲覧のみ（過去年度のため記入不可）</SPill>
-                  : <FukumeishoForm training={training} emp={emp}/>)
-              : !canAccessReport
-              ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">🔒 {training.noVideo?"参加後に提出できます":"参加または動画視聴後に提出できます"}</SPill>
-              : status.reportConfirmed
-                ? <SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 提出済（管理者確認済）</SPill>
-                : status.report==="提出しない"
-                  ? <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                      <SPill color="#6b7280" bg="#f3f4f6" border="#d1d5db">― 提出しない（復命書なし）</SPill>
-                      {!readonly&&<button style={{fontSize:12,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:8,padding:"3px 10px",cursor:"pointer"}} onClick={()=>onCancelReport&&onCancelReport()}>やっぱり出す</button>}
-                    </div>
-                  : <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                      <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">未提出（所属長に提出してください）</SPill>
-                      {!readonly&&!reportRequired&&<button style={{fontSize:12,color:"#9ca3af",background:"none",border:"1px solid #e5e7eb",borderRadius:10,padding:"8px 12px",cursor:"pointer"}} onClick={()=>{ if(window.confirm("この研修の復命書は提出しない、でよろしいですか？（任意研修のため提出は必須ではありません）")) onDeclineReport(); }}>この研修は提出しない</button>}
-                    </div>
+            {readonly
+              ? <SPill color="#6b7280" bg="#f3f4f6" border="#d1d5db">閲覧のみ（過去年度のため記入不可）</SPill>
+              : !emp
+              ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">読み込み中…</SPill>
+              : <>
+                  {status.reportConfirmed&&<div style={{marginBottom:8}}><SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 管理者確認済</SPill></div>}
+                  <FukumeishoForm training={training} emp={emp}/>
+                </>
             }
           </div>}
           {training.noReport&&<div style={{fontSize:12,color:"#15803d",background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"8px 12px"}}>📋 この研修は復命書の提出は不要です（参加記録のみ）</div>}
