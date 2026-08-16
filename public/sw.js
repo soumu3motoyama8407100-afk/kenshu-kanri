@@ -2,7 +2,7 @@
    - 画面遷移(index.html)はネットワーク優先＝常に最新を表示。オフライン時のみキャッシュにフォールバック
    - ハッシュ付きの静的ファイル(JS/CSS/画像)はキャッシュ優先＝高速。ファイル名にハッシュが付くため古いままにならない
    これにより「開き直すだけで最新版」になり、通信不良時も最低限動く。 */
-const CACHE = "kenshu-cache-v3";
+const CACHE = "kenshu-cache-v4";
 
 self.addEventListener("install", (e) => {
   e.waitUntil((async () => {
