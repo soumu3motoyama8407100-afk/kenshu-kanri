@@ -138,13 +138,14 @@ function fukuPaginate(lines){
   return pages;
 }
 // 本文の枠（実線で囲む）。行の間は点線罫線。最終行の下は枠の実線が仕切りになるため点線なし。見出し行は太字
-function fukuBodyBoxHTML(rows,bd){
+function fukuBodyBoxHTML(rows,bd,connectTop){
   const esc=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const inner=rows.map((r,i)=>{
     const last=i===rows.length-1;
     return `<div style="box-sizing:border-box;height:${FUKU_LINE_PX}px;line-height:${FUKU_LINE_PX}px;font-size:10pt;padding:0 2px;white-space:nowrap;overflow:hidden;font-weight:${r.h?"bold":"normal"};${last?"":"border-bottom:1px dotted #888;"}">${r.t?esc(r.t):"&nbsp;"}</div>`;
   }).join("");
-  return `<div style="border:${bd};padding:13px 8px 0;">${inner}</div>`;
+  // connectTop：直前の項目表と枠線を重ねて二重線を防ぐ（margin-top:-1px）
+  return `<div style="border:${bd};padding:13px 8px 0;${connectTop?"margin-top:-1px;":""}">${inner}</div>`;
 }
 // 復命書フォームのHTML（印刷用ウィンドウとプレビューで共通の見た目）。長い本文はページ分割し、2ページ目以降は氏名欄なし
 function fukumeishoFormHTML({training,emp,job,submitDate,lines}){
@@ -161,7 +162,7 @@ function fukumeishoFormHTML({training,emp,job,submitDate,lines}){
   </tr>
   <tr><td style="border:${bd};height:64px;">&nbsp;</td><td style="border:${bd};">&nbsp;</td><td style="border:${bd};">&nbsp;</td></tr>
   </table>
-  <table style="border-collapse:collapse;width:100%;">
+  <table style="border-collapse:collapse;width:100%;margin-top:-1px;">
   <tr><td style="${lb}width:12%;">研 修 名</td><td style="${c}width:42%;">${esc(training.title)}</td><td style="${lb}width:12%;">提 出 日</td><td style="${c}width:34%;">${toReiwa(submitDate)}</td></tr>
   <tr><td style="${lb}">研修場所</td><td style="${c}">${esc(training.location||"")}</td><td style="${lb}">部　署</td><td style="${c}">${esc(job||"")}</td></tr>
   <tr><td style="${lb}">日　時</td><td style="${c}">${jitiji}</td><td style="${lb}">氏　名</td><td style="${c}">${esc(emp.name||"")}</td></tr>
@@ -169,7 +170,7 @@ function fukumeishoFormHTML({training,emp,job,submitDate,lines}){
   const pages=fukuPaginate(lines);
   return pages.map((pg,pi)=>{
     const brk=pi>0?"page-break-before:always;":"";
-    return `<div style="${brk}">${pg.first?headerInfo:""}${fukuBodyBoxHTML(pg.rows,bd)}</div>`;
+    return `<div style="${brk}">${pg.first?headerInfo:""}${fukuBodyBoxHTML(pg.rows,bd,pg.first)}</div>`;
   }).join("");
 }
 // 復命書を印刷/PDF保存する。プレビューと同じHTMLを別ウィンドウで開き、ブラウザの印刷機能を呼ぶ。
@@ -2546,9 +2547,9 @@ function ExternalProgress({status}){
 }
 
 // 本文の枠（プレビュー用）。実線枠＋行間の点線罫線。最終行の下は枠の実線が仕切り＝点線なし
-function FukuBodyBox({rows,bd}){
+function FukuBodyBox({rows,bd,connectTop}){
   return(
-    <div style={{border:bd,padding:"13px 8px 0"}}>
+    <div style={{border:bd,padding:"13px 8px 0",marginTop:connectTop?-1:0}}>
       {rows.map((r,i)=>{ const last=i===rows.length-1; return (
         <div key={i} style={{boxSizing:"border-box",height:FUKU_LINE_PX,lineHeight:`${FUKU_LINE_PX}px`,fontSize:"10pt",padding:"0 2px",whiteSpace:"nowrap",overflow:"hidden",fontWeight:r.h?"bold":"normal",borderBottom:last?"none":"1px dotted #888"}}>{r.t||" "}</div>
       );})}
@@ -2572,8 +2573,8 @@ function FukumeishoA4({training,emp,job,submitDate,lines}){
       </tr>
       <tr><td style={{border:bd,height:64}}>&nbsp;</td><td style={{border:bd}}>&nbsp;</td><td style={{border:bd}}>&nbsp;</td></tr>
     </tbody></table>
-    {/* 中段：2列（研修名｜提出日 / 研修場所｜部署 / 日時｜氏名） */}
-    <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
+    {/* 中段：2列（研修名｜提出日 / 研修場所｜部署 / 日時｜氏名）。上の表と枠線を重ねて二重線を防ぐ */}
+    <table style={{width:"100%",borderCollapse:"collapse",marginTop:-1}}><tbody>
       <tr><td style={{...lb,width:"12%"}}>研 修 名</td><td style={{...cell,width:"42%"}}>{training.title}</td><td style={{...lb,width:"12%"}}>提 出 日</td><td style={{...cell,width:"34%"}}>{toReiwa(submitDate)}</td></tr>
       <tr><td style={lb}>研修場所</td><td style={cell}>{training.location||""}</td><td style={lb}>部　署</td><td style={cell}>{job||""}</td></tr>
       <tr><td style={lb}>日　時</td><td style={cell}>{jitiji}</td><td style={lb}>氏　名</td><td style={cell}>{emp.name||""}</td></tr>
@@ -2585,7 +2586,7 @@ function FukumeishoA4({training,emp,job,submitDate,lines}){
       {pages.map((pg,pi)=>(
         <div key={pi} style={{width:"210mm",minHeight:"297mm",background:"#fff",padding:"20mm",boxSizing:"border-box",fontFamily:"'游明朝','MS Mincho',serif",color:"#000",marginTop:pi>0?14:0}}>
           {pg.first&&header}
-          <FukuBodyBox rows={pg.rows} bd={bd}/>
+          <FukuBodyBox rows={pg.rows} bd={bd} connectTop={pg.first}/>
         </div>
       ))}
     </div>
@@ -2849,7 +2850,9 @@ function InternalCard({training,status,empId,emp,onCancelReport,onDeclineReport,
               : !emp
               ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">読み込み中…</SPill>
               : <>
-                  {status.reportConfirmed&&<div style={{marginBottom:8}}><SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 管理者確認済</SPill></div>}
+                  <div style={{marginBottom:8}}>{status.reportConfirmed
+                    ? <SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 提出済（管理者確認済）</SPill>
+                    : <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">⬜ 未提出（提出後、管理者が確認します）</SPill>}</div>
                   <FukumeishoForm training={training} emp={emp}/>
                 </>
             }
@@ -2931,7 +2934,9 @@ function ExternalCard({ext,empId,emp,status,onAttend,onViewPdf,readonly}){
               : !emp
               ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">読み込み中…</SPill>
               : <>
-                  {reportConfirmed&&<div style={{marginBottom:8}}><SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 管理者確認済</SPill></div>}
+                  <div style={{marginBottom:8}}>{reportConfirmed
+                    ? <SPill color="#15803d" bg="#f0fdf4" border="#86efac">✅ 提出済（管理者確認済）</SPill>
+                    : <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">⬜ 未提出（提出後、管理者が確認します）</SPill>}</div>
                   <FukumeishoForm training={ext} emp={emp} docKey={"X"+ext.id}/>
                 </>
             }
@@ -2947,6 +2952,7 @@ function ExternalCard({ext,empId,emp,status,onAttend,onViewPdf,readonly}){
 // 職員の自己学習記録（管理者は関与しない。参考記録・人事考課ポイント対象外）
 function SelfTrainingSection({items,onAdd,onToggleReport,onDelete,emp}){
   const [showForm,setShowForm]=useState(false);
+  const [showDone,setShowDone]=useState(false); // 提出済（完了）を折りたたむ
   const [form,setForm]=useState({title:"",date:"",time:"",location:""});
   const submit=()=>{
     if(!form.title||!form.date){alert("研修名と実施日は必須です。");return;}
@@ -2979,20 +2985,34 @@ function SelfTrainingSection({items,onAdd,onToggleReport,onDelete,emp}){
         </div>
       )}
       {items.length===0&&!showForm&&<div style={{fontSize:12,color:"#9ca3af",padding:"12px",textAlign:"center"}}>まだ記録がありません</div>}
-      {items.map(t=>(
-        <div key={t.id} style={{...S.card,padding:"12px 14px",marginBottom:8}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={S.cardTitle}>{t.title}</div>
-              <div style={S.cardDate}>📅 {formatDate(t.date)}{t.time&&` 🕐 ${t.time}`}{t.location&&` 📍 ${t.location}`}</div>
+      {(()=>{
+        const renderItem=(t)=>(
+          <div key={t.id} style={{...S.card,padding:"12px 14px",marginBottom:8}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={S.cardTitle}>{t.title}</div>
+                <div style={S.cardDate}>📅 {formatDate(t.date)}{t.time&&` 🕐 ${t.time}`}{t.location&&` 📍 ${t.location}`}</div>
+              </div>
+              <div style={{display:"flex",gap:6,flexShrink:0,alignItems:"center"}}>
+                <button onClick={()=>onToggleReport(t.id)} style={{fontSize:11,fontWeight:700,padding:"6px 10px",borderRadius:20,border:`1.5px solid ${t.reportSubmitted?"#16a34a":"#e5e7eb"}`,background:t.reportSubmitted?"#dcfce7":"#fff",color:t.reportSubmitted?"#16a34a":"#9ca3af",cursor:"pointer",whiteSpace:"nowrap"}}>{t.reportSubmitted?"✓ 復命書提出済":"復命書未提出"}</button>
+                <button onClick={()=>{if(window.confirm("削除しますか？"))onDelete(t.id);}} style={{fontSize:11,color:"#dc2626",background:"none",border:"1px solid #fca5a5",borderRadius:8,padding:"5px 8px",cursor:"pointer"}}>削除</button>
+              </div>
             </div>
-            <div style={{display:"flex",gap:6,flexShrink:0,alignItems:"center"}}>
-              <button onClick={()=>{if(window.confirm("削除しますか？"))onDelete(t.id);}} style={{fontSize:11,color:"#dc2626",background:"none",border:"1px solid #fca5a5",borderRadius:8,padding:"5px 8px",cursor:"pointer"}}>削除</button>
-            </div>
+            {emp&&<FukumeishoForm training={{id:t.id,title:t.title,date:t.date,location:t.location||"",startTime:t.time||"",endTime:""}} emp={emp} docKey={"S"+t.id}/>}
           </div>
-          {emp&&<FukumeishoForm training={{id:t.id,title:t.title,date:t.date,location:t.location||"",startTime:t.time||"",endTime:""}} emp={emp} docKey={"S"+t.id}/>}
-        </div>
-      ))}
+        );
+        const pending=items.filter(t=>!t.reportSubmitted);
+        const done=items.filter(t=>t.reportSubmitted);
+        return(<>
+          {pending.map(renderItem)}
+          {done.length>0&&(<>
+            <button onClick={()=>setShowDone(v=>!v)} style={{width:"100%",fontSize:12,fontWeight:700,color:"#6b7280",background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px",cursor:"pointer",marginBottom:8}}>
+              {showDone?"▲ 提出済を隠す":`▼ 復命書提出済 ${done.length}件を表示`}
+            </button>
+            {showDone&&done.map(renderItem)}
+          </>)}
+        </>);
+      })()}
     </div>
   );
 }
