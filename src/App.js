@@ -2668,7 +2668,7 @@ function FukumeishoForm({training,emp}){
                     {FUKU_B_QUESTIONS.map((q,i)=>(
                       <div key={i} style={{display:"flex",flexDirection:"column"}}>
                         <div style={lbl}>（{i+1}）{q}</div>
-                        <textarea style={{...bodyInp,minHeight:"15vh"}} value={answers[i]} onChange={e=>setAns(i,e.target.value)} placeholder="ここに回答を記入…"/>
+                        <textarea style={{...bodyInp,height:6*FUKU_LINE_PX,overflowY:"auto"}} value={answers[i]} onChange={e=>setAns(i,e.target.value)} placeholder="ここに回答を記入…（6行を超えるとスクロールします）"/>
                       </div>
                     ))}
                   </div>
