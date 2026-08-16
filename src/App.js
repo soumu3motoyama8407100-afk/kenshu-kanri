@@ -2642,10 +2642,10 @@ function FukumeishoForm({training,emp}){
               <div style={{fontSize:15,fontWeight:800,color:"#4A3020",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>📝 復命書の記入 ─ {training.title}</div>
               <button style={S.logoutBtn} onClick={closeEditor}>✕</button>
             </div>
-            {/* 本体：左＝入力（広め）／右＝A4プレビュー。狭い画面では縦に折り返す */}
+            {/* 本体：左＝入力／右＝プレビュー・動画。右パネルは上部に貼り付け(sticky)し、左をスクロールしても動画が常に見える */}
             <div style={{flex:1,minHeight:0,display:"flex",flexWrap:"wrap",overflow:"auto"}}>
               {/* 入力エリア：本文幅170mm＝Wordと同じ1行文字数になるよう横幅を固定。広い画面では右パネルが広がる */}
-              <div style={{flex:"0 1 auto",width:"calc(162mm + 40px)",minWidth:300,padding:"14px 18px",display:"flex",flexDirection:"column",gap:10,borderRight:"1px solid #F0D9B0"}}>
+              <div style={{flex:"0 1 auto",width:"calc(162mm + 40px)",minWidth:300,minHeight:0,padding:"14px 18px",display:"flex",flexDirection:"column",gap:10,borderRight:"1px solid #F0D9B0"}}>
                 {/* 様式切替（A/B）と提出日を1行に。部署は職員データから自動なので欄は表示しない */}
                 <div style={{display:"flex",gap:16,flexWrap:"wrap",alignItems:"flex-end"}}>
                   <div>
@@ -2675,7 +2675,7 @@ function FukumeishoForm({training,emp}){
                 )}
               </div>
               {/* 右パネル：動画／A4印刷プレビュー を切替。広い画面では入力欄が固定なので、余った幅はこちらが広がる */}
-              <div ref={previewColRef} style={{flex:"1 1 340px",minWidth:260,padding:"14px 12px",background:"#F3EFE7",display:"flex",flexDirection:"column",gap:8,overflow:"auto"}}>
+              <div ref={previewColRef} style={{flex:"1 1 340px",minWidth:260,padding:"14px 12px",background:"#F3EFE7",display:"flex",flexDirection:"column",gap:8,overflow:"auto",position:"sticky",top:0,alignSelf:"flex-start",maxHeight:"100%"}}>
                 <div style={{display:"flex",gap:6}}>
                   {hasVideo&&<button onClick={()=>setRightTab("video")} style={{fontSize:12,fontWeight:700,padding:"6px 12px",borderRadius:8,border:"1.5px solid #C89A55",cursor:"pointer",background:rightTab==="video"?"#C89A55":"#fff",color:rightTab==="video"?"#fff":"#A07840"}}>▶ 研修動画</button>}
                   <button onClick={()=>setRightTab("preview")} style={{fontSize:12,fontWeight:700,padding:"6px 12px",borderRadius:8,border:"1.5px solid #C89A55",cursor:"pointer",background:rightTab==="preview"?"#C89A55":"#fff",color:rightTab==="preview"?"#fff":"#A07840"}}>🖨️ 印刷イメージ</button>
