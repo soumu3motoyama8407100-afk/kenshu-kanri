@@ -108,30 +108,48 @@ function fukuWrap(text){
   });
   return out;
 }
-// 本文を各ページへ割り付ける。各ページは行数ぶんの枠を必ず持つ（短くても罫線で埋める＝フォームの見た目）
-function fukuPaginate(text){
-  const lines=fukuWrap(text);
+// 様式Bの3つの質問
+const FUKU_B_QUESTIONS=[
+  "この研修に参加して何を学んだか",
+  "この研修に参加して感じた自分の意見または所感",
+  "自分の業務で応用できると思う事項",
+];
+// 本文を行オブジェクト {t:文字列, h:見出しか} の配列にする。
+// Aタイプ：本文をそのまま折り返し。Bタイプ：各質問の見出し＋回答＋1行空け。
+function fukuLinesA(body){ return fukuWrap(body).map(t=>({t})); }
+function fukuLinesB(answers){
+  const out=[];
+  FUKU_B_QUESTIONS.forEach((q,i)=>{
+    out.push({t:`（${i+1}）${q}`,h:true});
+    fukuWrap((answers&&answers[i])||"").forEach(t=>out.push({t}));
+    if(i<FUKU_B_QUESTIONS.length-1) out.push({t:""}); // 質問の間は1行空ける
+  });
+  return out;
+}
+// 行オブジェクト配列を各ページへ割り付ける。各ページは行数ぶんの枠を必ず持つ（短くても罫線で埋める）
+function fukuPaginate(lines){
+  lines=lines||[];
   const pages=[]; let idx=0, first=true;
   do {
     const cap=first?FUKU_P1_LINES:FUKU_P2_LINES;
     const rows=lines.slice(idx,idx+cap);
-    while(rows.length<cap) rows.push("");
+    while(rows.length<cap) rows.push({t:""});
     pages.push({first,rows});
     idx+=cap; first=false;
   } while(idx<lines.length);
   return pages;
 }
-// 本文の枠（実線で囲む）。行の間は点線罫線。最終行の下は枠の実線が仕切りになるため点線なし
+// 本文の枠（実線で囲む）。行の間は点線罫線。最終行の下は枠の実線が仕切りになるため点線なし。見出し行は太字
 function fukuBodyBoxHTML(rows,bd){
   const esc=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  const inner=rows.map((l,i)=>{
+  const inner=rows.map((r,i)=>{
     const last=i===rows.length-1;
-    return `<div style="box-sizing:border-box;height:${FUKU_LINE_PX}px;line-height:${FUKU_LINE_PX}px;font-size:10pt;padding:0 2px;white-space:nowrap;overflow:hidden;${last?"":"border-bottom:1px dotted #888;"}">${l?esc(l):"&nbsp;"}</div>`;
+    return `<div style="box-sizing:border-box;height:${FUKU_LINE_PX}px;line-height:${FUKU_LINE_PX}px;font-size:10pt;padding:0 2px;white-space:nowrap;overflow:hidden;font-weight:${r.h?"bold":"normal"};${last?"":"border-bottom:1px dotted #888;"}">${r.t?esc(r.t):"&nbsp;"}</div>`;
   }).join("");
   return `<div style="border:${bd};padding:13px 8px 0;">${inner}</div>`;
 }
 // 復命書フォームのHTML（印刷用ウィンドウとプレビューで共通の見た目）。長い本文はページ分割し、2ページ目以降は氏名欄なし
-function fukumeishoFormHTML({training,emp,job,submitDate,body}){
+function fukumeishoFormHTML({training,emp,job,submitDate,lines}){
   const esc=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const jitiji=`${toReiwa(training.date)}${training.date2?`・${toReiwa(training.date2)}`:""}${(training.startTime||training.endTime)?`　${esc(training.startTime||"")}${training.endTime?`〜${esc(training.endTime)}`:""}`:""}`;
   const bd="1px solid #000";
@@ -150,7 +168,7 @@ function fukumeishoFormHTML({training,emp,job,submitDate,body}){
   <tr><td style="${lb}">研修場所</td><td style="${c}">${esc(training.location||"")}</td><td style="${lb}">部　署</td><td style="${c}">${esc(job||"")}</td></tr>
   <tr><td style="${lb}">日　時</td><td style="${c}">${jitiji}</td><td style="${lb}">氏　名</td><td style="${c}">${esc(emp.name||"")}</td></tr>
   </table>`;
-  const pages=fukuPaginate(body);
+  const pages=fukuPaginate(lines);
   return pages.map((pg,pi)=>{
     const brk=pi>0?"page-break-before:always;":"";
     return `<div style="${brk}">${pg.first?headerInfo:""}${fukuBodyBoxHTML(pg.rows,bd)}</div>`;
@@ -2520,15 +2538,15 @@ function ExternalProgress({status}){
 function FukuBodyBox({rows,bd}){
   return(
     <div style={{border:bd,padding:"13px 8px 0"}}>
-      {rows.map((l,i)=>{ const last=i===rows.length-1; return (
-        <div key={i} style={{boxSizing:"border-box",height:FUKU_LINE_PX,lineHeight:`${FUKU_LINE_PX}px`,fontSize:"10pt",padding:"0 2px",whiteSpace:"nowrap",overflow:"hidden",borderBottom:last?"none":"1px dotted #888"}}>{l||" "}</div>
+      {rows.map((r,i)=>{ const last=i===rows.length-1; return (
+        <div key={i} style={{boxSizing:"border-box",height:FUKU_LINE_PX,lineHeight:`${FUKU_LINE_PX}px`,fontSize:"10pt",padding:"0 2px",whiteSpace:"nowrap",overflow:"hidden",fontWeight:r.h?"bold":"normal",borderBottom:last?"none":"1px dotted #888"}}>{r.t||" "}</div>
       );})}
     </div>
   );
 }
 // 復命書をアプリ内で記入し、印刷/PDF出力する（試験機能）
 // A4印刷イメージ（縮小プレビュー用）。印刷HTMLと同じ様式・同じページ分割で表示する
-function FukumeishoA4({training,emp,job,submitDate,body}){
+function FukumeishoA4({training,emp,job,submitDate,lines}){
   const jitiji=`${toReiwa(training.date)}${training.date2?`・${toReiwa(training.date2)}`:""}${(training.startTime||training.endTime)?`　${training.startTime||""}${training.endTime?`〜${training.endTime}`:""}`:""}`;
   const bd="1px solid #000";
   const cell={border:bd,padding:"5px 8px",fontSize:"11pt",verticalAlign:"middle",wordBreak:"break-all"};
@@ -2550,7 +2568,7 @@ function FukumeishoA4({training,emp,job,submitDate,body}){
       <tr><td style={lb}>日　時</td><td style={cell}>{jitiji}</td><td style={lb}>氏　名</td><td style={cell}>{emp.name||""}</td></tr>
     </tbody></table>
   </>);
-  const pages=fukuPaginate(body);
+  const pages=fukuPaginate(lines);
   return(
     <div>
       {pages.map((pg,pi)=>(
@@ -2562,15 +2580,23 @@ function FukumeishoA4({training,emp,job,submitDate,body}){
     </div>
   );
 }
+// 保存文字列の解釈：BタイプはJSON、AタイプはただのテキストとしてUIの状態へ
+function fukuParseSaved(raw){
+  if(!raw) return {format:"A",body:"",answers:["","",""]};
+  try{ const o=JSON.parse(raw); if(o&&o.fmt==="B"){ const q=o.q||[]; return {format:"B",body:"",answers:[q[0]||"",q[1]||"",q[2]||""]}; } }catch(_){/* 通常テキスト */}
+  return {format:"A",body:raw,answers:["","",""]};
+}
 function FukumeishoForm({training,emp}){
   const today=(()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;})();
   const [open,setOpen]=useState(false);
   const dept=emp.dept||""; // 部署は職員データから自動。手入力はしない
   const [submitDate,setSubmitDate]=useState(today);
-  const [body,setBody]=useState("");
+  const [format,setFormat]=useState("A");     // A：自由記述 / B：3つの質問
+  const [body,setBody]=useState("");           // Aタイプの本文
+  const [answers,setAnswers]=useState(["","",""]); // Bタイプの3回答
   const [loaded,setLoaded]=useState(false);
   const [saving,setSaving]=useState(false);
-  const [savedBody,setSavedBody]=useState("");
+  const [savedRaw,setSavedRaw]=useState("");   // 保存済みの生データ（Aはテキスト, BはJSON）
   const [msg,setMsg]=useState("");
   const hasVideo=!training.noVideo&&!!training.videoUrl; // 動画があれば横で再生できる
   const [rightTab,setRightTab]=useState("preview"); // 右パネル：preview / video
@@ -2579,25 +2605,32 @@ function FukumeishoForm({training,emp}){
   const previewColRef=useRef(null);
   const [pscale,setPscale]=useState(0.5);
   useEffect(()=>{ if(!open)return; const el=previewColRef.current; if(!el||typeof ResizeObserver==="undefined")return; const calc=()=>{ const w=el.clientWidth-24; if(w>0)setPscale(Math.max(0.32,Math.min(0.92,w/794))); }; calc(); const ro=new ResizeObserver(calc); ro.observe(el); return ()=>ro.disconnect(); },[open,rightTab]);// eslint-disable-line
-  useEffect(()=>{ let alive=true; db.getFukumeisho(emp.id,training.id).then(f=>{ if(!alive||!f)return; if(f.submitDate)setSubmitDate(f.submitDate); setBody(f.body||""); setSavedBody(f.body||""); }).finally(()=>{ if(alive)setLoaded(true); }); return ()=>{alive=false;}; },[emp.id,training.id]);// eslint-disable-line
-  const save=async()=>{ setSaving(true); setMsg(""); try{ await db.upsertFukumeisho(emp.id,training.id,{job:dept,submitDate,body}); setSavedBody(body); setMsg("保存しました"); }catch(e){ setMsg("保存に失敗しました："+(e.message||"")); } setSaving(false); };
-  const dl=()=>{ try{ printFukumeisho({training,emp,job:dept,submitDate,body}); }catch(e){ setMsg("印刷の準備に失敗しました："+(e.message||"")); } };
-  const dirty=body!==savedBody;
+  useEffect(()=>{ let alive=true; db.getFukumeisho(emp.id,training.id).then(f=>{ if(!alive||!f)return; if(f.submitDate)setSubmitDate(f.submitDate); const p=fukuParseSaved(f.body||""); setFormat(p.format); setBody(p.body); setAnswers(p.answers); setSavedRaw(f.body||""); }).finally(()=>{ if(alive)setLoaded(true); }); return ()=>{alive=false;}; },[emp.id,training.id]);// eslint-disable-line
+  const serialize=()=> format==="B" ? JSON.stringify({fmt:"B",q:answers}) : body;
+  const lines = format==="B" ? fukuLinesB(answers) : fukuLinesA(body);
+  const save=async()=>{ setSaving(true); setMsg(""); try{ const raw=serialize(); await db.upsertFukumeisho(emp.id,training.id,{job:dept,submitDate,body:raw}); setSavedRaw(raw); setMsg("保存しました"); }catch(e){ setMsg("保存に失敗しました："+(e.message||"")); } setSaving(false); };
+  const dl=()=>{ try{ printFukumeisho({training,emp,job:dept,submitDate,lines}); }catch(e){ setMsg("印刷の準備に失敗しました："+(e.message||"")); } };
+  const dirty=serialize()!==savedRaw;
   const closeEditor=()=>{ if(dirty&&!window.confirm("保存していない変更があります。閉じてよろしいですか？")) return; setOpen(false); setMsg(""); };
-  const charCount=[...body.replace(/\n/g,"")].length; // 改行を除いた文字数
+  const setAns=(i,v)=>setAnswers(a=>a.map((x,j)=>j===i?v:x));
+  const charCount=[...body.replace(/\n/g,"")].length; // 改行を除いた文字数（Aタイプ）
   const countColor=charCount<600?"#9ca3af":charCount<=1400?"#15803d":"#d97706";
   const inp={fontSize:14,padding:"8px 10px",border:"1px solid #E8D5B0",borderRadius:8,boxSizing:"border-box",fontFamily:"inherit"};
+  const bodyInp={...inp,width:"162mm",maxWidth:"100%",boxSizing:"content-box",resize:"none",fontFamily:"'游明朝','MS Mincho',serif",fontSize:"10pt",lineHeight:"26px",padding:"0 2px",whiteSpace:"pre-wrap",wordBreak:"break-all"};
   const lbl={fontSize:12,fontWeight:700,color:"#A07840",marginBottom:4};
-  // 一覧内のミニ表示：現在の状態と「記入・編集する」ボタン
-  const preview=savedBody?savedBody.slice(0,50):"";
+  const tabBtn=(v,label)=>(<button onClick={()=>setFormat(v)} style={{fontSize:13,fontWeight:700,padding:"7px 16px",borderRadius:8,border:"1.5px solid #C89A55",cursor:"pointer",background:format===v?"#C89A55":"#fff",color:format===v?"#fff":"#A07840"}}>{label}</button>);
+  // 一覧内のミニ表示
+  const sp=fukuParseSaved(savedRaw);
+  const savedFilled = sp.format==="A" ? sp.body.trim()!=="" : sp.answers.some(a=>a.trim()!=="");
+  const hasSaved = savedRaw!=="";
   return(
     <div style={{marginTop:10}}>
       <div style={{padding:"12px 14px",background:"#FFFDF8",border:"1.5px solid #E8D5B0",borderRadius:12}}>
         <div style={{fontSize:13,fontWeight:800,color:"#4A3020",marginBottom:2}}>📝 復命書</div>
-        <div style={{fontSize:11,color:"#9ca3af",marginBottom:10}}>{savedBody?`記入済み（${[...savedBody.replace(/\n/g,"")].length}字）：${preview}${savedBody.length>50?"…":""}`:"まだ記入されていません。パソコンでの記入がおすすめです。"}</div>
+        <div style={{fontSize:11,color:"#9ca3af",marginBottom:10}}>{savedFilled?`記入済み（${sp.format==="B"?"Bタイプ・3項目":"Aタイプ"}）`:"まだ記入されていません。パソコンでの記入がおすすめです。"}</div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          <button style={{fontSize:14,fontWeight:700,padding:"10px 18px",borderRadius:10,border:"none",background:"#C89A55",color:"#fff",cursor:"pointer"}} disabled={!loaded} onClick={()=>{ setMsg(""); setOpen(true); }}>{savedBody?"✏️ 記入内容を編集する":"📝 復命書を記入する"}</button>
-          {savedBody&&<button style={{fontSize:14,fontWeight:700,padding:"10px 18px",borderRadius:10,border:"1.5px solid #C89A55",background:"#fff",color:"#A07840",cursor:"pointer"}} onClick={dl}>🖨 印刷 / PDF保存</button>}
+          <button style={{fontSize:14,fontWeight:700,padding:"10px 18px",borderRadius:10,border:"none",background:"#C89A55",color:"#fff",cursor:"pointer"}} disabled={!loaded} onClick={()=>{ setMsg(""); setOpen(true); }}>{hasSaved?"✏️ 記入内容を編集する":"📝 復命書を記入する"}</button>
+          {savedFilled&&<button style={{fontSize:14,fontWeight:700,padding:"10px 18px",borderRadius:10,border:"1.5px solid #C89A55",background:"#fff",color:"#A07840",cursor:"pointer"}} onClick={dl}>🖨 印刷 / PDF保存</button>}
         </div>
       </div>
 
@@ -2613,18 +2646,35 @@ function FukumeishoForm({training,emp}){
             <div style={{flex:1,minHeight:0,display:"flex",flexWrap:"wrap",overflow:"auto"}}>
               {/* 入力エリア：本文幅170mm＝Wordと同じ1行文字数になるよう横幅を固定。広い画面では右パネルが広がる */}
               <div style={{flex:"0 1 auto",width:"calc(162mm + 40px)",minWidth:300,padding:"14px 18px",display:"flex",flexDirection:"column",gap:10,borderRight:"1px solid #F0D9B0"}}>
+                {/* 様式切替：A＝自由記述 / B＝3つの質問 */}
+                <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                  <span style={{...lbl,marginBottom:0}}>様式</span>
+                  {tabBtn("A","Aタイプ（自由記述）")}
+                  {tabBtn("B","Bタイプ（質問3項目）")}
+                </div>
                 <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
                   <div style={{flex:"1 1 140px"}}><div style={lbl}>部署（自動）</div><div style={{...inp,width:"100%",background:"#F7F1E6",color:"#4A3020",fontWeight:700}}>{dept||"（未設定）"}</div></div>
                   <div style={{flex:"1 1 140px"}}><div style={lbl}>提出日</div><input type="date" style={{...inp,width:"100%"}} value={submitDate} onChange={e=>setSubmitDate(e.target.value)}/></div>
                 </div>
-                <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
-                    <div style={lbl}>本文（研修内容・所感）<span style={{fontSize:11,color:"#9ca3af",fontWeight:400,marginLeft:6}}>改行せず入力（自動で折り返し・右のプレビュー＝印刷と同じ形）</span></div>
-                    <div style={{fontSize:12,fontWeight:700,color:countColor}}>{charCount}字 <span style={{fontSize:11,color:"#9ca3af",fontWeight:400}}>／ 目安800〜1200字</span></div>
+                {format==="A" ? (
+                  <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
+                      <div style={lbl}>本文（研修内容・所感）<span style={{fontSize:11,color:"#9ca3af",fontWeight:400,marginLeft:6}}>改行せず入力（自動で折り返し・右のプレビュー＝印刷と同じ形）</span></div>
+                      <div style={{fontSize:12,fontWeight:700,color:countColor}}>{charCount}字</div>
+                    </div>
+                    <textarea style={{...bodyInp,flex:1,minHeight:"44vh"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。文章はそのまま入力すれば自動で折り返します（段落を分けたいときだけ改行してください）。"/>
                   </div>
-                  {/* 本文欄はWordと同じ 本文幅170mm・11pt・游明朝 にして、改行位置・行数を一致させる */}
-                  <textarea style={{...inp,width:"162mm",maxWidth:"100%",boxSizing:"content-box",flex:1,minHeight:"44vh",resize:"none",fontFamily:"'游明朝','MS Mincho',serif",fontSize:"10pt",lineHeight:"26px",padding:"0 2px",whiteSpace:"pre-wrap",wordBreak:"break-all"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。文章はそのまま入力すれば自動で折り返します（段落を分けたいときだけ改行してください）。"/>
-                </div>
+                ) : (
+                  <div style={{display:"flex",flexDirection:"column",gap:12,flex:1,minHeight:0,overflow:"auto"}}>
+                    <div style={{fontSize:11,color:"#9ca3af"}}>3つの質問にそれぞれ記入してください。印刷では各質問の見出しの下に回答が入り、質問の間は1行あきます。</div>
+                    {FUKU_B_QUESTIONS.map((q,i)=>(
+                      <div key={i} style={{display:"flex",flexDirection:"column"}}>
+                        <div style={lbl}>（{i+1}）{q}</div>
+                        <textarea style={{...bodyInp,minHeight:"15vh"}} value={answers[i]} onChange={e=>setAns(i,e.target.value)} placeholder="ここに回答を記入…"/>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               {/* 右パネル：動画／A4印刷プレビュー を切替。広い画面では入力欄が固定なので、余った幅はこちらが広がる */}
               <div ref={previewColRef} style={{flex:"1 1 340px",minWidth:260,padding:"14px 12px",background:"#F3EFE7",display:"flex",flexDirection:"column",gap:8,overflow:"auto"}}>
@@ -2641,7 +2691,7 @@ function FukumeishoForm({training,emp}){
                 ):(
                   <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
                     <div style={{fontSize:12,fontWeight:700,color:"#6b7280",alignSelf:"flex-start"}}>🖨️ 印刷イメージ（A4・実際の文字量の目安）</div>
-                    <div style={{zoom:pscale,boxShadow:"0 2px 12px rgba(0,0,0,.2)"}}><FukumeishoA4 training={training} emp={emp} job={dept} submitDate={submitDate} body={body}/></div>
+                    <div style={{zoom:pscale,boxShadow:"0 2px 12px rgba(0,0,0,.2)"}}><FukumeishoA4 training={training} emp={emp} job={dept} submitDate={submitDate} lines={lines}/></div>
                   </div>
                 )}
               </div>
