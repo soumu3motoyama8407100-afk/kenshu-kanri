@@ -3498,8 +3498,8 @@ function PdfModal({ext,onClose}){
   );
 }
 
-// 復命書バックアップ（監査用）：年度ごとに一括ダウンロード。データは削除しない
-function FukumeishoBackupTab({employees,internals,externals,fiscalYear}){
+// 出力・バックアップ管理：各種出力（研修履歴/参加名簿）＋ 復命書バックアップ（年度削除も）
+function FukumeishoBackupTab({employees,internals,externals,fiscalYear,getIS,getXS}){
   const [fy,setFy]=useState(fiscalYear);
   const [loading,setLoading]=useState(false);
   const [docs,setDocs]=useState(null);
@@ -3565,17 +3565,35 @@ function FukumeishoBackupTab({employees,internals,externals,fiscalYear}){
   };
   return(
     <div style={{padding:16}}>
-      <div style={{fontSize:15,fontWeight:800,color:"#4A3020",marginBottom:8}}>💾 復命書バックアップ（監査用）</div>
-      <div style={{fontSize:12,color:"#6b7280",lineHeight:1.8,marginBottom:14}}>
-        年度を選んで「読み込む」を押すと、その年度の復命書をまとめてダウンロードできます。<b>データは削除されません</b>（アプリにも残ります）。<br/>
-        ・<b>印刷用（HTML）</b>：ブラウザで開くと復命書が1枚ずつ並び、そのまま印刷・PDF保存できます。<br/>
-        ・<b>データ（JSON）</b>：全データの控えです（再表示・確認用）。
-      </div>
-      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:12}}>
+      <div style={{fontSize:15,fontWeight:800,color:"#4A3020",marginBottom:4}}>📤 出力・バックアップ管理</div>
+      <div style={{fontSize:12,color:"#6b7280",marginBottom:12}}>年度を選んで、各種の出力や復命書のバックアップができます。</div>
+      {/* 年度（このタブ全体で共通） */}
+      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:16}}>
+        <span style={{fontSize:13,fontWeight:700,color:"#A07840"}}>対象年度</span>
         <select value={fy} onChange={e=>{setFy(Number(e.target.value)); setDocs(null); setMsg(""); setBackedUp(false);}} style={{padding:"7px 10px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:14}}>
           {Array.from({length:12},(_,i)=>currentFY()-i).map(y=><option key={y} value={y}>{y}年度</option>)}
         </select>
-        <button onClick={()=>load(fy)} disabled={loading} style={{fontSize:14,fontWeight:700,padding:"8px 16px",borderRadius:10,border:"none",background:"#C89A55",color:"#fff",cursor:loading?"default":"pointer"}}>{loading?"読み込み中…":"🔍 読み込む"}</button>
+      </div>
+
+      {/* ── 各種出力 ── */}
+      <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+        <div style={{fontSize:14,fontWeight:800,color:"#4A3020",marginBottom:4}}>📊 各種出力（{fy}年度）</div>
+        <div style={{fontSize:12,color:"#6b7280",marginBottom:10}}>内部研修などの一覧・名簿を出力します。</div>
+        <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+          <button onClick={()=>exportTrainingHistory({employees,internals,externals,getIS,getXS,fiscalYear:fy})} style={{padding:"9px 18px",borderRadius:10,border:"1.5px solid #7c3aed",background:"#f5f3ff",color:"#7c3aed",fontWeight:700,fontSize:13,cursor:"pointer"}}>📊 職員研修履歴を出力（HTML・印刷用）</button>
+          <button onClick={()=>exportAttendanceExcel({employees,internals,fiscalYear:fy,getIS})} style={{padding:"9px 18px",borderRadius:10,border:"1.5px solid #16a34a",background:"#f0fdf4",color:"#15803d",fontWeight:700,fontSize:13,cursor:"pointer"}}>📥 参加名簿をExcel出力（研修ごとにシート分け）</button>
+        </div>
+      </div>
+
+      {/* ── 復命書バックアップ ── */}
+      <div style={{fontSize:14,fontWeight:800,color:"#4A3020",marginBottom:6}}>💾 復命書バックアップ（監査用）</div>
+      <div style={{fontSize:12,color:"#6b7280",lineHeight:1.8,marginBottom:12}}>
+        「読み込む」を押すと、選んだ年度の復命書をまとめてダウンロードできます。<b>データは削除されません</b>（アプリにも残ります）。<br/>
+        ・<b>印刷用（HTML）</b>：ブラウザで開くと復命書が1枚ずつ並び、そのまま印刷・PDF保存できます。<br/>
+        ・<b>データ（JSON）</b>：全データの控えです（再表示・確認用）。
+      </div>
+      <div style={{marginBottom:12}}>
+        <button onClick={()=>load(fy)} disabled={loading} style={{fontSize:14,fontWeight:700,padding:"8px 16px",borderRadius:10,border:"none",background:"#C89A55",color:"#fff",cursor:loading?"default":"pointer"}}>{loading?"読み込み中…":`🔍 ${fy}年度の復命書を読み込む`}</button>
       </div>
       {msg&&<div style={{fontSize:13,color:"#dc2626",marginBottom:10}}>{msg}</div>}
       {docs&&docs.length>0&&(
@@ -3611,7 +3629,7 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
   const [tab,setTab]=useState("ranking");
   const [qrT,setQrT]=useState(null);
   const [sideOpen,setSideOpen]=useState(false); // スマホの左メニュー開閉
-  const ADMIN_TABS=[["ranking","🏅 ランキング"],["adminNotices","📢 お知らせ"],["iProgress","📊 内部研修"],["iManage","📚 内部研修登録"],["xProgress","🌐 外部研修"],["xManage","✏️ 外部研修登録"],["semManage","📺 セミナー"],["empManage","👥 職員管理"],["committeeManage","🏛 委員会管理"],["fukuBackup","💾 復命書バックアップ"]];
+  const ADMIN_TABS=[["ranking","🏅 ランキング"],["adminNotices","📢 お知らせ"],["iProgress","📊 内部研修"],["iManage","📚 内部研修登録"],["xProgress","🌐 外部研修"],["xManage","✏️ 外部研修登録"],["semManage","📺 セミナー"],["empManage","👥 職員管理"],["committeeManage","🏛 委員会管理"],["fukuBackup","📤 出力・バックアップ管理"]];
   return(
     <div className="rsp-page" style={S.page}>
       {qrT&&<QRModal training={qrT} onClose={()=>setQrT(null)}/>}
@@ -3656,7 +3674,7 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
           {tab==="semManage" &&<SeminarManageTab seminars={seminars} upsertSeminar={upsertSeminar} deleteSeminar={deleteSeminar} employees={employees} getSMV={getSMV} fiscalYear={fiscalYear}/>}
           {tab==="empManage" &&<EmployeeManageTab employees={employees} setEmployees={setEmployees} internals={internals} getIS={getIS} getXS={getXS} externals={externals} fiscalYear={fiscalYear} setFiscalYear={setFiscalYear} committees={committeeProps?.committees||[]} committeeMembers={committeeProps?.committeeMembers||{}} setMembersFor={committeeProps?.setMembersFor}/>}
           {tab==="committeeManage"&&committeeProps&&<CommitteeManageTab {...committeeProps}/>}
-          {tab==="fukuBackup"&&<FukumeishoBackupTab employees={employees} internals={internals} externals={externals} fiscalYear={fiscalYear}/>}
+          {tab==="fukuBackup"&&<FukumeishoBackupTab employees={employees} internals={internals} externals={externals} fiscalYear={fiscalYear} getIS={getIS} getXS={getXS}/>}
         </div>
           </div>
         </div>
@@ -4092,6 +4110,39 @@ function exportTrainingHistory({employees,internals,externals,getIS,getXS,fiscal
   URL.revokeObjectURL(url);
 }
 
+// 参加名簿Excel出力（研修ごとにシートを分ける）：当日参加した職員のみ
+function exportAttendanceExcel({employees,internals,fiscalYear,getIS}){
+  const fyInternals=internals.filter(t=>inFiscalYear(t.date,fiscalYear)).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const targetEmps=t=>employees.filter(e=>isTargetedFor(t,e));
+  const esc=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  const cell=(v,t="String")=>`<Cell><Data ss:Type="${t}">${esc(v)}</Data></Cell>`;
+  const mkRow=cells=>`<Row>${cells.join("")}</Row>`;
+  const used=new Set();
+  const safeName=t=>{ let n=String(t).replace(/[\\/?*[\]:：]/g," ").slice(0,25).trim()||"研修"; const base=n; let i=2; while(used.has(n)){n=`${base}${i++}`;} used.add(n); return n; };
+  const deptIdx2=d=>{const i=DEPT_ORDER.indexOf(d);return i<0?999:i;};
+  const sortEmps=arr=>[...arr].sort((a,b)=>deptIdx2(a.dept)-deptIdx2(b.dept)||roleRank(a)-roleRank(b)||String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
+  const sheets=[];
+  fyInternals.forEach(t=>{
+    const attendees=sortEmps(targetEmps(t).filter(e=>getIS(e.id,t.id).attendance==="参加済"));
+    const timeStr=(t.startTime||t.endTime)?`${t.startTime||""}${t.endTime?`〜${t.endTime}`:""}`:"—";
+    const dateStr=formatDate(t.date)+(t.date2?` / ${formatDate(t.date2)}`:"");
+    const rs=[
+      mkRow([cell(t.title)]),
+      mkRow([cell(`日程：${dateStr}`),cell(`時間：${timeStr}`)]),
+      mkRow([cell(`参加者 ${attendees.length}名（当日参加）`)]),
+      mkRow([cell("")]),
+      mkRow([cell("No."),cell("名前"),cell("部署")]),
+    ];
+    attendees.forEach((e,i)=>{ rs.push(mkRow([cell(i+1,"Number"),cell(e.name),cell(e.dept)])); });
+    sheets.push(`<Worksheet ss:Name="${esc(safeName(t.title))}"><Table>${rs.join("")}</Table></Worksheet>`);
+  });
+  const xml=`<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">${sheets.join("")}</Workbook>`;
+  const blob=new Blob(["﻿"+xml],{type:"application/vnd.ms-excel"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download=`参加名簿_${fiscalYear}年度.xls`;a.click();
+  URL.revokeObjectURL(url);
+}
+
 function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,onQR,fiscalYear}){
   const fyInternals=internals.filter(t=>inFiscalYear(t.date,fiscalYear)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const [selT,setSelT]=useState(null);
@@ -4116,41 +4167,6 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
   const avatarColor=i=>[["#E6F1FB","#185FA5"],["#EAF3DE","#3B6D11"],["#FAEEDA","#854F0B"],["#FCEBEB","#A32D2D"],["#F1EFE8","#5F5E5A"]][i%5];
   const initials=name=>name?name.charAt(0):"?";
 
-  // 研修実績Excel出力（研修ごとにシートを分ける）
-  // 各研修の「参加名簿」をExcel出力：当日参加した職員のみ、氏名・部署を並べ、右端に通し番号
-  const exportExcel=()=>{
-    const esc=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-    const cell=(v,t="String")=>`<Cell><Data ss:Type="${t}">${esc(v)}</Data></Cell>`;
-    const mkRow=cells=>`<Row>${cells.join("")}</Row>`;
-    const used=new Set();
-    const safeName=t=>{ let n=String(t).replace(/[\\/?*[\]:：]/g," ").slice(0,25).trim()||"研修"; const base=n; let i=2; while(used.has(n)){n=`${base}${i++}`;} used.add(n); return n; };
-    const deptIdx2=d=>{const i=DEPT_ORDER.indexOf(d);return i<0?999:i;};
-    const sortEmps=arr=>[...arr].sort((a,b)=>deptIdx2(a.dept)-deptIdx2(b.dept)||roleRank(a)-roleRank(b)||String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
-    const sheets=[];
-    fyInternals.forEach(t=>{
-      // 当日参加した職員のみ（動画視聴のみ・欠席は含めない）
-      const attendees=sortEmps(targetEmps(t).filter(e=>getIS(e.id,t.id).attendance==="参加済"));
-      const timeStr=(t.startTime||t.endTime)?`${t.startTime||""}${t.endTime?`〜${t.endTime}`:""}`:"—";
-      const dateStr=formatDate(t.date)+(t.date2?` / ${formatDate(t.date2)}`:"");
-      const rs=[
-        mkRow([cell(t.title)]),
-        mkRow([cell(`日程：${dateStr}`),cell(`時間：${timeStr}`)]),
-        mkRow([cell(`参加者 ${attendees.length}名（当日参加）`)]),
-        mkRow([cell("")]),
-        mkRow([cell("No."),cell("名前"),cell("部署")]),
-      ];
-      attendees.forEach((e,i)=>{
-        rs.push(mkRow([cell(i+1,"Number"),cell(e.name),cell(e.dept)]));
-      });
-      sheets.push(`<Worksheet ss:Name="${esc(safeName(t.title))}"><Table>${rs.join("")}</Table></Worksheet>`);
-    });
-    const xml=`<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">${sheets.join("")}</Workbook>`;
-    const blob=new Blob(["﻿"+xml],{type:"application/vnd.ms-excel"});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement("a");a.href=url;a.download=`参加名簿_${fiscalYear}年度.xls`;a.click();
-    URL.revokeObjectURL(url);
-  };
-
   const curTargets=curT?targetEmps(curT):[];
   const reqCount=curT?curTargets.filter(e=>isReportRequired(e,curT)).length:0;
   const unreported=curT?curTargets.filter(e=>isReportRequired(e,curT)&&!getIS(e.id,curT.id).reportConfirmed).length:0;
@@ -4164,16 +4180,7 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
 
   return(
     <div>
-      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-        {fyInternals.length>0&&(
-          <button onClick={exportExcel} style={{padding:"8px 18px",borderRadius:20,border:"1.5px solid #16a34a",background:"#f0fdf4",color:"#15803d",fontWeight:700,fontSize:13,cursor:"pointer"}}>
-            📥 参加名簿をExcel出力（研修ごとにシート分け）
-          </button>
-        )}
-        <button onClick={()=>exportTrainingHistory({employees,internals,externals,getIS,getXS,fiscalYear})} style={{padding:"8px 18px",borderRadius:20,border:"1.5px solid #7c3aed",background:"#f5f3ff",color:"#7c3aed",fontWeight:700,fontSize:13,cursor:"pointer"}}>
-          📊 研修履歴出力
-        </button>
-      </div>
+      <div style={{fontSize:12,color:"#6b7280",padding:"2px 0 8px"}}>※ 参加名簿Excel・研修履歴などの出力は「📤 出力・バックアップ管理」にまとめました。</div>
       {fyInternals.length===0&&<div style={S.empty}>{fiscalYear}年度の内部研修はありません</div>}
 
       {/* ① 研修一覧（未選択時）：横に折り返さず縦1列なので、研修が増えても探しやすい */}
