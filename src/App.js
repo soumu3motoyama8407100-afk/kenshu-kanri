@@ -300,6 +300,16 @@ const db = {
     const data = await selectAll(()=>supabase.from("self_trainings").select("*"));
     return (data||[]).map(r=>({id:r.id,empId:r.emp_id,title:r.title,date:r.date,time:r.time||"",location:r.location||""}));
   },
+  // 指定した研修IDの復命書をまとめて削除（年度削除用）。研修IDは1研修=1年度なので年度をまたがない
+  async deleteFukumeishoByTrainingIds(trainingIds) {
+    if(!trainingIds||!trainingIds.length) return;
+    // 大量でも安全なように分割して削除
+    for(let i=0;i<trainingIds.length;i+=100){
+      const chunk=trainingIds.slice(i,i+100);
+      const { error } = await supabase.from("fukumeisho").delete().in("training_id",chunk);
+      if(error) throw error;
+    }
+  },
   async getExternals() {
     const data = await selectAll(()=>supabase.from("externals").select("*").order("date"));
     if(!data||data.length===0)return [];
@@ -3482,8 +3492,10 @@ function FukumeishoBackupTab({employees,internals,externals,fiscalYear}){
   const [loading,setLoading]=useState(false);
   const [docs,setDocs]=useState(null);
   const [msg,setMsg]=useState("");
+  const [backedUp,setBackedUp]=useState(false); // このセッションでバックアップを取得したか（削除の前提）
+  const [deleting,setDeleting]=useState(false);
   const load=async(y)=>{
-    setLoading(true); setMsg(""); setDocs(null);
+    setLoading(true); setMsg(""); setDocs(null); setBackedUp(false);
     try{
       const [all,selfs]=await Promise.all([db.getAllFukumeisho(),db.getAllSelfTrainings()]);
       const selfById=new Map(selfs.map(s=>[s.id,s]));
@@ -3498,7 +3510,7 @@ function FukumeishoBackupTab({employees,internals,externals,fiscalYear}){
         else { const t=intById.get(k); if(t){tr={title:t.title,date:t.date,date2:t.date2||"",location:t.location||"",startTime:t.startTime||"",endTime:t.endTime||""};kind="内部";} }
         if(!tr||!tr.date||!inFiscalYear(tr.date,y)) continue;
         const emp=empById.get(r.empId)||{id:r.empId,name:r.empId,dept:""};
-        out.push({kind,training:tr,emp,job:r.job||emp.dept||"",submitDate:r.submitDate,body:r.body,updatedAt:r.updatedAt});
+        out.push({tid:r.trainingId,kind,training:tr,emp,job:r.job||emp.dept||"",submitDate:r.submitDate,body:r.body,updatedAt:r.updatedAt});
       }
       out.sort((a,b)=>(a.training.date<b.training.date?-1:a.training.date>b.training.date?1:0)||(a.emp.dept||"").localeCompare(b.emp.dept||"","ja")||(a.emp.name||"").localeCompare(b.emp.name||"","ja"));
       setDocs(out);
@@ -3516,11 +3528,28 @@ function FukumeishoBackupTab({employees,internals,externals,fiscalYear}){
     }).join("");
     const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>復命書バックアップ_${fy}年度</title><style>@page{size:A4;margin:0;} html,body{margin:0;padding:0;} body{font-family:'游明朝','MS Mincho',serif;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact;}</style></head><body>${inner}</body></html>`;
     dl(`復命書バックアップ_${fy}年度.html`, new Blob(["﻿"+html],{type:"text/html;charset=utf-8"}));
+    setBackedUp(true);
   };
   const downloadJSON=()=>{
     if(!docs||!docs.length) return;
     const records=docs.map(d=>({empId:d.emp.id,氏名:d.emp.name,部署:d.emp.dept,種別:d.kind,研修名:d.training.title,研修日:d.training.date,提出日:d.submitDate,本文データ:d.body,更新日時:d.updatedAt}));
     dl(`復命書バックアップ_${fy}年度.json`, new Blob([JSON.stringify({年度:fy,出力日時:new Date().toISOString(),件数:records.length,records},null,2)],{type:"application/json;charset=utf-8"}));
+    setBackedUp(true);
+  };
+  const delYear=async()=>{
+    if(!docs||!docs.length) return;
+    if(!backedUp){ alert("先にバックアップ（印刷用HTML または データJSON）をダウンロードしてください。"); return; }
+    const ans=window.prompt(`⚠️ ${fy}年度の復命書 ${docs.length}件 をアプリから完全に削除します。\nこの操作は元に戻せません（ダウンロード済みのバックアップが唯一の控えになります）。\n\n削除する場合は、確認のため「${fy}」と入力してください。`);
+    if(ans===null) return;
+    if(ans.trim()!==String(fy)){ alert("入力が一致しないため中止しました。"); return; }
+    setDeleting(true); setMsg("");
+    try{
+      const tids=[...new Set(docs.map(d=>d.tid))];
+      await db.deleteFukumeishoByTrainingIds(tids);
+      setMsg(`${fy}年度の復命書 ${docs.length}件を削除しました。容量が戻ります。`);
+      setDocs([]); setBackedUp(false);
+    }catch(e){ setMsg("削除に失敗しました："+(e.message||"")); }
+    setDeleting(false);
   };
   return(
     <div style={{padding:16}}>
@@ -3531,7 +3560,7 @@ function FukumeishoBackupTab({employees,internals,externals,fiscalYear}){
         ・<b>データ（JSON）</b>：全データの控えです（再表示・確認用）。
       </div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:12}}>
-        <select value={fy} onChange={e=>{setFy(Number(e.target.value)); setDocs(null); setMsg("");}} style={{padding:"7px 10px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:14}}>
+        <select value={fy} onChange={e=>{setFy(Number(e.target.value)); setDocs(null); setMsg(""); setBackedUp(false);}} style={{padding:"7px 10px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:14}}>
           {Array.from({length:12},(_,i)=>currentFY()-i).map(y=><option key={y} value={y}>{y}年度</option>)}
         </select>
         <button onClick={()=>load(fy)} disabled={loading} style={{fontSize:14,fontWeight:700,padding:"8px 16px",borderRadius:10,border:"none",background:"#C89A55",color:"#fff",cursor:loading?"default":"pointer"}}>{loading?"読み込み中…":"🔍 読み込む"}</button>
@@ -3546,6 +3575,20 @@ function FukumeishoBackupTab({employees,internals,externals,fiscalYear}){
           </div>
           <div style={{marginTop:12,maxHeight:260,overflowY:"auto",fontSize:12,color:"#4A3020"}}>
             {docs.map((d,i)=>(<div key={i} style={{padding:"4px 0",borderBottom:"1px solid #F0E4CC"}}>{formatDate(d.training.date)}｜{d.kind}｜{d.emp.dept} {d.emp.name}｜{d.training.title}</div>))}
+          </div>
+          {/* 年度削除（必ずバックアップ取得後のみ）。容量を戻したいとき用 */}
+          <div style={{marginTop:16,paddingTop:14,borderTop:"1px dashed #E8D5B0"}}>
+            <div style={{fontSize:13,fontWeight:700,color:"#b91c1c",marginBottom:6}}>🗑 この年度の復命書を削除（容量を戻す）</div>
+            <div style={{fontSize:12,color:"#6b7280",lineHeight:1.7,marginBottom:8}}>
+              削除は元に戻せません。<b>必ず先に上のバックアップ（HTMLまたはJSON）をダウンロード</b>してください。<br/>
+              {backedUp
+                ? <span style={{color:"#15803d",fontWeight:700}}>✅ バックアップ取得済み。削除できます。</span>
+                : <span style={{color:"#b45309",fontWeight:700}}>⚠️ まだバックアップを取得していません（先にダウンロードしてください）。</span>}
+            </div>
+            <button onClick={delYear} disabled={!backedUp||deleting}
+              style={{fontSize:14,fontWeight:700,padding:"10px 18px",borderRadius:10,border:"none",background:(!backedUp||deleting)?"#e5b3b0":"#dc2626",color:"#fff",cursor:(!backedUp||deleting)?"not-allowed":"pointer"}}>
+              {deleting?"削除中…":`🗑 ${fy}年度の復命書を削除する`}
+            </button>
           </div>
         </div>
       )}
