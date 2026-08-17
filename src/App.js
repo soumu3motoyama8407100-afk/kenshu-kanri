@@ -87,6 +87,9 @@ const seasonalNote = () => [
 ][new Date().getMonth()];
 // 内部研修の表示対象判定：指定なし＝用務・休職中を除く全職員、指定あり＝選択された職員のみ
 const isTargetedFor = (t,e) => ((t.targetEmpIds||[]).length>0 ? t.targetEmpIds.includes(e.id) : ((e.dept||"")!=="用務"&&e.onLeave!==true));
+// LINE配信・お知らせの既定の対象外（この人たちには既定で送らない）：休職中・退職済み・犬丸理事(999)
+const NOTIFY_EXCLUDE_IDS = ["999"];
+const canReceiveNotice = e => !!e && e.isActive!==false && e.onLeave!==true && !(e.retireDate && new Date(e.retireDate)<=new Date()) && !NOTIFY_EXCLUDE_IDS.includes(e.id);
 // 西暦(YYYY-MM-DD) → 令和表記
 const toReiwa = s => { if(!s)return ""; const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/); if(!m)return s; const y=+m[1]-2018; return `令和${y}年${+m[2]}月${+m[3]}日`; };
 // 本文を1行あたり FUKU_WRAP_UNITS（全角=1,半角=0.5）で折り返して視覚的な行の配列にする。
@@ -809,7 +812,7 @@ export default function App() {
         try {
           const committee = committees.find(c=>c.id===m.committeeId);
           const memberIds = committeeMembers[m.committeeId]||[];
-          const targets = employees.filter(e=>memberIds.includes(e.id)&&e.lineUserId&&e.onLeave!==true);
+          const targets = employees.filter(e=>memberIds.includes(e.id)&&e.lineUserId&&canReceiveNotice(e));
           if(targets.length>0&&committee){
             const msg = `📅 【${committee.name}】開催のお知らせ\n\n日時：${formatDate(m.scheduledDate)}${m.startTime?` ${m.startTime}〜`:""}${m.endTime?`${m.endTime}`:""}\n${m.location?`場所：${m.location}\n`:""}${m.agenda?`議題：${m.agenda}\n`:""}\n詳細は研修管理システムの委員会タブをご確認ください。`;
             await fetch("https://nncousuugjntzovtmkvt.supabase.co/functions/v1/line-notify",{
@@ -5321,8 +5324,8 @@ function AdminNoticesTab({committees,committeeNotices,upsertNotice,deleteNotice,
   const [toast,setToast]=useState(null);
   const showToast=(msg,isError)=>{setToast({msg,isError});setTimeout(()=>setToast(null),5000);};
 
-  // 休職中はお知らせ・LINE配信の対象外
-  const activeEmps=(employees||[]).filter(e=>e.isActive!==false&&e.onLeave!==true);
+  // お知らせ・LINE配信の既定対象：休職中・退職済み・犬丸理事(999)は既定で除外
+  const activeEmps=(employees||[]).filter(canReceiveNotice);
   const lineEmps=activeEmps.filter(e=>e.lineUserId); // LINE連携済み（お試し送信先候補）
   // お試し送信先：総務を先頭に、以降は通常の部署順で並べる
   const testDeptRank=d=>{ if(d==="総務") return -1; const i=DEPT_ORDER.indexOf(d); return i<0?999:i; };
