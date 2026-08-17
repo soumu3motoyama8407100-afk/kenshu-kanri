@@ -290,6 +290,16 @@ const db = {
     const { error } = await supabase.from("fukumeisho").upsert({emp_id:empId,training_id:tid,job:f.job||"",submit_date:f.submitDate||"",body:f.body||"",updated_at:new Date().toISOString()},{onConflict:"emp_id,training_id"});
     if(error) throw error;
   },
+  // 監査用バックアップ：全職員・全研修の復命書を取得
+  async getAllFukumeisho() {
+    const data = await selectAll(()=>supabase.from("fukumeisho").select("*"));
+    return (data||[]).map(r=>({empId:r.emp_id,trainingId:r.training_id,job:r.job||"",submitDate:r.submit_date||"",body:r.body||"",updatedAt:r.updated_at}));
+  },
+  // 全職員の自己学習（バックアップの研修名・日付の照合に使う）
+  async getAllSelfTrainings() {
+    const data = await selectAll(()=>supabase.from("self_trainings").select("*"));
+    return (data||[]).map(r=>({id:r.id,empId:r.emp_id,title:r.title,date:r.date,time:r.time||"",location:r.location||""}));
+  },
   async getExternals() {
     const data = await selectAll(()=>supabase.from("externals").select("*").order("date"));
     if(!data||data.length===0)return [];
@@ -3466,6 +3476,82 @@ function PdfModal({ext,onClose}){
   );
 }
 
+// 復命書バックアップ（監査用）：年度ごとに一括ダウンロード。データは削除しない
+function FukumeishoBackupTab({employees,internals,externals,fiscalYear}){
+  const [fy,setFy]=useState(fiscalYear);
+  const [loading,setLoading]=useState(false);
+  const [docs,setDocs]=useState(null);
+  const [msg,setMsg]=useState("");
+  const load=async(y)=>{
+    setLoading(true); setMsg(""); setDocs(null);
+    try{
+      const [all,selfs]=await Promise.all([db.getAllFukumeisho(),db.getAllSelfTrainings()]);
+      const selfById=new Map(selfs.map(s=>[s.id,s]));
+      const intById=new Map(internals.map(t=>[t.id,t]));
+      const extById=new Map(externals.map(x=>[x.id,x]));
+      const empById=new Map(employees.map(e=>[e.id,e]));
+      const out=[];
+      for(const r of all){
+        let tr=null, kind=""; const k=r.trainingId||"";
+        if(k.startsWith("X")){ const x=extById.get(k.slice(1)); if(x){tr={title:x.title,date:x.date,location:x.location||"",startTime:x.startTime||"",endTime:x.endTime||""};kind="外部";} }
+        else if(k.startsWith("S")){ const s=selfById.get(k.slice(1)); if(s){tr={title:s.title,date:s.date,location:s.location||"",startTime:s.time||"",endTime:""};kind="自己学習";} }
+        else { const t=intById.get(k); if(t){tr={title:t.title,date:t.date,date2:t.date2||"",location:t.location||"",startTime:t.startTime||"",endTime:t.endTime||""};kind="内部";} }
+        if(!tr||!tr.date||!inFiscalYear(tr.date,y)) continue;
+        const emp=empById.get(r.empId)||{id:r.empId,name:r.empId,dept:""};
+        out.push({kind,training:tr,emp,job:r.job||emp.dept||"",submitDate:r.submitDate,body:r.body,updatedAt:r.updatedAt});
+      }
+      out.sort((a,b)=>(a.training.date<b.training.date?-1:a.training.date>b.training.date?1:0)||(a.emp.dept||"").localeCompare(b.emp.dept||"","ja")||(a.emp.name||"").localeCompare(b.emp.name||"","ja"));
+      setDocs(out);
+      if(out.length===0) setMsg(`${y}年度の復命書データはありません。`);
+    }catch(e){ setMsg("読み込みに失敗しました："+(e.message||"")); }
+    setLoading(false);
+  };
+  const dl=(name,blob)=>{ const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); };
+  const downloadHTML=()=>{
+    if(!docs||!docs.length) return;
+    const inner=docs.map((d,i)=>{
+      const p=fukuParseSaved(d.body);
+      const lines=p.format==="B"?fukuLinesB(p.answers):fukuLinesA(p.body);
+      return (i>0?'<div style="page-break-before:always;"></div>':'')+fukumeishoFormHTML({training:d.training,emp:d.emp,job:d.job,submitDate:d.submitDate,lines});
+    }).join("");
+    const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>復命書バックアップ_${fy}年度</title><style>@page{size:A4;margin:0;} html,body{margin:0;padding:0;} body{font-family:'游明朝','MS Mincho',serif;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact;}</style></head><body>${inner}</body></html>`;
+    dl(`復命書バックアップ_${fy}年度.html`, new Blob(["﻿"+html],{type:"text/html;charset=utf-8"}));
+  };
+  const downloadJSON=()=>{
+    if(!docs||!docs.length) return;
+    const records=docs.map(d=>({empId:d.emp.id,氏名:d.emp.name,部署:d.emp.dept,種別:d.kind,研修名:d.training.title,研修日:d.training.date,提出日:d.submitDate,本文データ:d.body,更新日時:d.updatedAt}));
+    dl(`復命書バックアップ_${fy}年度.json`, new Blob([JSON.stringify({年度:fy,出力日時:new Date().toISOString(),件数:records.length,records},null,2)],{type:"application/json;charset=utf-8"}));
+  };
+  return(
+    <div style={{padding:16}}>
+      <div style={{fontSize:15,fontWeight:800,color:"#4A3020",marginBottom:8}}>💾 復命書バックアップ（監査用）</div>
+      <div style={{fontSize:12,color:"#6b7280",lineHeight:1.8,marginBottom:14}}>
+        年度を選んで「読み込む」を押すと、その年度の復命書をまとめてダウンロードできます。<b>データは削除されません</b>（アプリにも残ります）。<br/>
+        ・<b>印刷用（HTML）</b>：ブラウザで開くと復命書が1枚ずつ並び、そのまま印刷・PDF保存できます。<br/>
+        ・<b>データ（JSON）</b>：全データの控えです（再表示・確認用）。
+      </div>
+      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:12}}>
+        <select value={fy} onChange={e=>{setFy(Number(e.target.value)); setDocs(null); setMsg("");}} style={{padding:"7px 10px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:14}}>
+          {Array.from({length:12},(_,i)=>currentFY()-i).map(y=><option key={y} value={y}>{y}年度</option>)}
+        </select>
+        <button onClick={()=>load(fy)} disabled={loading} style={{fontSize:14,fontWeight:700,padding:"8px 16px",borderRadius:10,border:"none",background:"#C89A55",color:"#fff",cursor:loading?"default":"pointer"}}>{loading?"読み込み中…":"🔍 読み込む"}</button>
+      </div>
+      {msg&&<div style={{fontSize:13,color:"#dc2626",marginBottom:10}}>{msg}</div>}
+      {docs&&docs.length>0&&(
+        <div style={{background:"#FDF6EC",border:"1px solid #E8D5B0",borderRadius:12,padding:"14px 16px"}}>
+          <div style={{fontSize:14,fontWeight:700,color:"#4A3020",marginBottom:10}}>{fy}年度の復命書：{docs.length}件</div>
+          <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+            <button onClick={downloadHTML} style={{fontSize:14,fontWeight:700,padding:"10px 18px",borderRadius:10,border:"none",background:"#0e7490",color:"#fff",cursor:"pointer"}}>📄 印刷用（HTML）をダウンロード</button>
+            <button onClick={downloadJSON} style={{fontSize:14,fontWeight:700,padding:"10px 18px",borderRadius:10,border:"1.5px solid #C89A55",background:"#fff",color:"#A07840",cursor:"pointer"}}>💾 データ（JSON）をダウンロード</button>
+          </div>
+          <div style={{marginTop:12,maxHeight:260,overflowY:"auto",fontSize:12,color:"#4A3020"}}>
+            {docs.map((d,i)=>(<div key={i} style={{padding:"4px 0",borderBottom:"1px solid #F0E4CC"}}>{formatDate(d.training.date)}｜{d.kind}｜{d.emp.dept} {d.emp.name}｜{d.training.title}</div>))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 function AdminScreen({employees,setEmployees,internals,setInternals,externals,setExternals,deleteInternal,deleteExternal,seminars,upsertSeminar,deleteSeminar,getSMV,getIS,setIS,getXS,setXS,fiscalYear,setFiscalYear,getCount,onLogout,onRefresh,refreshing,committeeProps,onSwitchToEmployee}){
   const [tab,setTab]=useState("ranking");
   const [qrT,setQrT]=useState(null);
@@ -3493,7 +3579,7 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
           </div>
         </div>
         <div style={{...S.tabBar,overflowX:"auto"}}>
-          {[["ranking","🏅 ランキング"],["adminNotices","📢 お知らせ"],["iProgress","📊 内部研修"],["iManage","📚 内部研修登録"],["xProgress","🌐 外部研修"],["xManage","✏️ 外部研修登録"],["semManage","📺 セミナー"],["empManage","👥 職員管理"],["committeeManage","🏛 委員会管理"]].map(([k,l])=>(
+          {[["ranking","🏅 ランキング"],["adminNotices","📢 お知らせ"],["iProgress","📊 内部研修"],["iManage","📚 内部研修登録"],["xProgress","🌐 外部研修"],["xManage","✏️ 外部研修登録"],["semManage","📺 セミナー"],["empManage","👥 職員管理"],["committeeManage","🏛 委員会管理"],["fukuBackup","💾 復命書バックアップ"]].map(([k,l])=>(
             <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{}),fontSize:11,padding:"10px 6px",whiteSpace:"nowrap"}} onClick={()=>setTab(k)}>{l}</button>
           ))}
         </div>
@@ -3507,6 +3593,7 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
           {tab==="semManage" &&<SeminarManageTab seminars={seminars} upsertSeminar={upsertSeminar} deleteSeminar={deleteSeminar} employees={employees} getSMV={getSMV} fiscalYear={fiscalYear}/>}
           {tab==="empManage" &&<EmployeeManageTab employees={employees} setEmployees={setEmployees} internals={internals} getIS={getIS} getXS={getXS} externals={externals} fiscalYear={fiscalYear} setFiscalYear={setFiscalYear} committees={committeeProps?.committees||[]} committeeMembers={committeeProps?.committeeMembers||{}} setMembersFor={committeeProps?.setMembersFor}/>}
           {tab==="committeeManage"&&committeeProps&&<CommitteeManageTab {...committeeProps}/>}
+          {tab==="fukuBackup"&&<FukumeishoBackupTab employees={employees} internals={internals} externals={externals} fiscalYear={fiscalYear}/>}
         </div>
       </div>
     </div>
