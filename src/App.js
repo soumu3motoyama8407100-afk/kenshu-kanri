@@ -504,6 +504,18 @@ export default function App() {
         /* ログイン画面：スマホはLINEログインのみ前面に出す */
         .login-desktop-view{display:none !important;}
       }
+      /* 管理画面の左サイドメニュー（PCは常時表示・スマホは☰で開閉） */
+      .admin-shell{display:flex;align-items:stretch;}
+      .admin-side{flex:0 0 208px;background:#FBF6EC;border-right:1px solid #E8D5B0;overflow-y:auto;}
+      .admin-main{flex:1;min-width:0;}
+      .admin-hamb{display:none;}
+      .admin-side-bd{display:none;}
+      @media(max-width:768px){
+        .admin-side{position:fixed;top:0;left:-260px;bottom:0;width:250px;z-index:4000;transition:left .22s ease;box-shadow:4px 0 20px rgba(0,0,0,.25);}
+        .admin-side.open{left:0;}
+        .admin-side-bd.open{display:block;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:3999;}
+        .admin-hamb{display:inline-flex;}
+      }
       /* PC（769px以上） */
       @media(min-width:769px){
         .rsp-page{padding:24px 32px !important;align-items:flex-start;}
@@ -3598,13 +3610,16 @@ function FukumeishoBackupTab({employees,internals,externals,fiscalYear}){
 function AdminScreen({employees,setEmployees,internals,setInternals,externals,setExternals,deleteInternal,deleteExternal,seminars,upsertSeminar,deleteSeminar,getSMV,getIS,setIS,getXS,setXS,fiscalYear,setFiscalYear,getCount,onLogout,onRefresh,refreshing,committeeProps,onSwitchToEmployee}){
   const [tab,setTab]=useState("ranking");
   const [qrT,setQrT]=useState(null);
+  const [sideOpen,setSideOpen]=useState(false); // スマホの左メニュー開閉
+  const ADMIN_TABS=[["ranking","🏅 ランキング"],["adminNotices","📢 お知らせ"],["iProgress","📊 内部研修"],["iManage","📚 内部研修登録"],["xProgress","🌐 外部研修"],["xManage","✏️ 外部研修登録"],["semManage","📺 セミナー"],["empManage","👥 職員管理"],["committeeManage","🏛 委員会管理"],["fukuBackup","💾 復命書バックアップ"]];
   return(
     <div className="rsp-page" style={S.page}>
       {qrT&&<QRModal training={qrT} onClose={()=>setQrT(null)}/>}
       <div style={{...S.appWrap,maxWidth:1200}}>
         <div style={{background:"#C89A55",color:"#fff",padding:"10px 16px",display:"block",boxSizing:"border-box"}}>
-          {/* 上段：タイトル＋ログアウト */}
+          {/* 上段：☰（スマホ）＋タイトル＋ログアウト */}
           <div style={{display:"flex",flexDirection:"row",alignItems:"center",gap:8,width:"100%"}}>
+            <button className="admin-hamb" onClick={()=>setSideOpen(true)} aria-label="メニュー" style={{flexShrink:0,alignItems:"center",justifyContent:"center",width:38,height:38,borderRadius:8,border:"1px solid rgba(255,255,255,.5)",background:"rgba(255,255,255,.15)",color:"#fff",cursor:"pointer",fontSize:18}}>☰</button>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:16,fontWeight:800,color:"#fff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>🛡 管理者ダッシュボード</div>
               <div style={{fontSize:11,color:"rgba(255,255,255,.8)",marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{ORG_NAME}</div>
@@ -3621,11 +3636,16 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
             <button style={{flexShrink:0,padding:"5px 10px",borderRadius:8,border:"1px solid rgba(255,255,255,.5)",background:"rgba(255,255,255,.15)",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:600,whiteSpace:"nowrap",marginLeft:"auto"}} onClick={()=>window.print()}>🖨 印刷</button>
           </div>
         </div>
-        <div style={{...S.tabBar,overflowX:"auto"}}>
-          {[["ranking","🏅 ランキング"],["adminNotices","📢 お知らせ"],["iProgress","📊 内部研修"],["iManage","📚 内部研修登録"],["xProgress","🌐 外部研修"],["xManage","✏️ 外部研修登録"],["semManage","📺 セミナー"],["empManage","👥 職員管理"],["committeeManage","🏛 委員会管理"],["fukuBackup","💾 復命書バックアップ"]].map(([k,l])=>(
-            <button key={k} style={{...S.tab,...(tab===k?S.tabOn:{}),fontSize:11,padding:"10px 6px",whiteSpace:"nowrap"}} onClick={()=>setTab(k)}>{l}</button>
-          ))}
-        </div>
+        <div className="admin-shell">
+          <div className={"admin-side"+(sideOpen?" open":"")}>
+            <div style={{padding:"10px 14px",fontSize:11,fontWeight:800,color:"#A07840",borderBottom:"1px solid #E8D5B0"}}>メニュー</div>
+            {ADMIN_TABS.map(([k,l])=>(
+              <button key={k} onClick={()=>{setTab(k);setSideOpen(false);}}
+                style={{display:"block",width:"100%",textAlign:"left",padding:"12px 14px",border:"none",borderLeft:tab===k?"4px solid #C89A55":"4px solid transparent",background:tab===k?"#fff":"transparent",color:tab===k?"#4A3020":"#6b5a44",fontSize:13,fontWeight:tab===k?800:600,cursor:"pointer",whiteSpace:"nowrap"}}>{l}</button>
+            ))}
+          </div>
+          <div className={"admin-side-bd"+(sideOpen?" open":"")} onClick={()=>setSideOpen(false)}/>
+          <div className="admin-main">
         <div style={{...S.scroll,maxHeight:"calc(100vh - 185px)"}}>
           {tab==="ranking"   &&<RankingTab employees={employees} fiscalYear={fiscalYear} getCount={getCount}/>}
           {tab==="adminNotices"&&committeeProps&&<AdminNoticesTab {...committeeProps}/>}
@@ -3637,6 +3657,8 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
           {tab==="empManage" &&<EmployeeManageTab employees={employees} setEmployees={setEmployees} internals={internals} getIS={getIS} getXS={getXS} externals={externals} fiscalYear={fiscalYear} setFiscalYear={setFiscalYear} committees={committeeProps?.committees||[]} committeeMembers={committeeProps?.committeeMembers||{}} setMembersFor={committeeProps?.setMembersFor}/>}
           {tab==="committeeManage"&&committeeProps&&<CommitteeManageTab {...committeeProps}/>}
           {tab==="fukuBackup"&&<FukumeishoBackupTab employees={employees} internals={internals} externals={externals} fiscalYear={fiscalYear}/>}
+        </div>
+          </div>
         </div>
       </div>
     </div>
