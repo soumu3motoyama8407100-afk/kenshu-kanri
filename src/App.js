@@ -2658,6 +2658,19 @@ function FukumeishoForm({training,emp,docKey}){
   const [pscale,setPscale]=useState(0.5);
   useEffect(()=>{ if(!open)return; const el=previewColRef.current; if(!el||typeof ResizeObserver==="undefined")return; const calc=()=>{ const w=el.clientWidth-24; if(w>0)setPscale(Math.max(0.32,Math.min(0.92,w/794))); }; calc(); const ro=new ResizeObserver(calc); ro.observe(el); return ()=>ro.disconnect(); },[open,rightTab]);// eslint-disable-line
   useEffect(()=>{ let alive=true; db.getFukumeisho(emp.id,key).then(f=>{ if(!alive||!f)return; if(f.submitDate)setSubmitDate(f.submitDate); const p=fukuParseSaved(f.body||""); setFormat(p.format); setBody(p.body); setAnswers(p.answers); setSavedRaw(f.body||""); }).finally(()=>{ if(alive)setLoaded(true); }); return ()=>{alive=false;}; },[emp.id,key]);// eslint-disable-line
+  // ── 元に戻す(Undo)／やり直す(Redo)：一定間隔で本文のスナップショットを記録し、少し前に戻せる ──
+  const histRef=useRef([]); const idxRef=useRef(-1); const skipRef=useRef(false);
+  const [canUndo,setCanUndo]=useState(false); const [canRedo,setCanRedo]=useState(false);
+  const snapEq=(a,b)=> a&&b && a.body===b.body && a.answers[0]===b.answers[0] && a.answers[1]===b.answers[1] && a.answers[2]===b.answers[2];
+  const record=(st)=>{ const h=histRef.current; if(idxRef.current>=0 && snapEq(h[idxRef.current],st)) return; const trimmed=h.slice(0,idxRef.current+1); trimmed.push(st); if(trimmed.length>150) trimmed.shift(); histRef.current=trimmed; idxRef.current=trimmed.length-1; setCanUndo(idxRef.current>0); setCanRedo(false); };
+  // 編集画面を開いたら履歴をリセット
+  useEffect(()=>{ if(open){ histRef.current=[]; idxRef.current=-1; setCanUndo(false); setCanRedo(false); } },[open]);
+  // 入力が変わるたび、少し待ってからスナップショットを記録（undo/redo由来の変更は記録しない）
+  useEffect(()=>{ if(!open){ return; } if(skipRef.current){ skipRef.current=false; return; } const t=setTimeout(()=>record({body,answers:[...answers]}), 450); return ()=>clearTimeout(t); },[body,answers,open]);// eslint-disable-line
+  const applySnap=(s)=>{ skipRef.current=true; setBody(s.body); setAnswers([...s.answers]); };
+  const undo=()=>{ if(idxRef.current<=0) return; idxRef.current--; applySnap(histRef.current[idxRef.current]); setCanUndo(idxRef.current>0); setCanRedo(true); };
+  const redo=()=>{ if(idxRef.current>=histRef.current.length-1) return; idxRef.current++; applySnap(histRef.current[idxRef.current]); setCanUndo(true); setCanRedo(idxRef.current<histRef.current.length-1); };
+  const onKeyUndo=(e)=>{ if((e.ctrlKey||e.metaKey)&&(e.key==="z"||e.key==="Z")){ e.preventDefault(); if(e.shiftKey) redo(); else undo(); } else if((e.ctrlKey||e.metaKey)&&(e.key==="y"||e.key==="Y")){ e.preventDefault(); redo(); } };
   const serialize=()=> format==="B" ? JSON.stringify({fmt:"B",q:answers}) : body;
   const lines = format==="B" ? fukuLinesB(answers) : fukuLinesA(body);
   const save=async()=>{ setSaving(true); setMsg(""); try{ const raw=serialize(); await db.upsertFukumeisho(emp.id,key,{job:dept,submitDate,body:raw}); setSavedRaw(raw); setMsg("保存しました"); }catch(e){ setMsg("保存に失敗しました："+(e.message||"")); } setSaving(false); };
@@ -2706,13 +2719,19 @@ function FukumeishoForm({training,emp,docKey}){
                   </div>
                   <div><div style={lbl}>提出日</div><input type="date" style={{...inp,width:170}} value={submitDate} onChange={e=>setSubmitDate(e.target.value)}/></div>
                 </div>
+                {/* 元に戻す／やり直す（Wordのような一つ前に戻る操作） */}
+                <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                  <button onClick={undo} disabled={!canUndo} title="Ctrl+Z" style={{fontSize:12,fontWeight:700,padding:"6px 12px",borderRadius:8,border:"1px solid #E8D5B0",background:canUndo?"#fff":"#f3f4f6",color:canUndo?"#A07840":"#c7c0b3",cursor:canUndo?"pointer":"not-allowed"}}>↩ 戻る</button>
+                  <button onClick={redo} disabled={!canRedo} title="Ctrl+Y" style={{fontSize:12,fontWeight:700,padding:"6px 12px",borderRadius:8,border:"1px solid #E8D5B0",background:canRedo?"#fff":"#f3f4f6",color:canRedo?"#A07840":"#c7c0b3",cursor:canRedo?"pointer":"not-allowed"}}>↪ やり直す</button>
+                  <span style={{fontSize:11,color:"#9ca3af"}}>Ctrl+Z / Ctrl+Y でも操作できます</span>
+                </div>
                 {format==="A" ? (
                   <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
                       <div style={lbl}>本文（研修内容・所感）<span style={{fontSize:11,color:"#9ca3af",fontWeight:400,marginLeft:6}}>改行せず入力（自動で折り返し・右のプレビュー＝印刷と同じ形）</span></div>
                       <div style={{fontSize:12,fontWeight:700,color:countColor}}>{charCount}字</div>
                     </div>
-                    <textarea style={{...bodyInp,flex:1,minHeight:"44vh"}} value={body} onChange={e=>setBody(e.target.value)} placeholder="研修の内容や所感を記入してください。文章はそのまま入力すれば自動で折り返します（段落を分けたいときだけ改行してください）。"/>
+                    <textarea style={{...bodyInp,flex:1,minHeight:"44vh"}} value={body} onChange={e=>setBody(e.target.value)} onKeyDown={onKeyUndo} placeholder="研修の内容や所感を記入してください。文章はそのまま入力すれば自動で折り返します（段落を分けたいときだけ改行してください）。"/>
                   </div>
                 ) : (
                   <div style={{display:"flex",flexDirection:"column",gap:12,flex:1,minHeight:0,overflow:"auto"}}>
@@ -2720,7 +2739,7 @@ function FukumeishoForm({training,emp,docKey}){
                     {FUKU_B_QUESTIONS.map((q,i)=>(
                       <div key={i} style={{display:"flex",flexDirection:"column"}}>
                         <div style={lbl}>（{i+1}）{q}</div>
-                        <textarea style={{...bodyInp,height:6*FUKU_LINE_PX,overflowY:"auto"}} value={answers[i]} onChange={e=>setAns(i,e.target.value)} placeholder="ここに回答を記入…（6行を超えるとスクロールします）"/>
+                        <textarea style={{...bodyInp,height:6*FUKU_LINE_PX,overflowY:"auto"}} value={answers[i]} onChange={e=>setAns(i,e.target.value)} onKeyDown={onKeyUndo} placeholder="ここに回答を記入…（6行を超えるとスクロールします）"/>
                       </div>
                     ))}
                   </div>
