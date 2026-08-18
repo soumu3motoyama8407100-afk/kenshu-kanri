@@ -87,6 +87,8 @@ const seasonalNote = () => [
 ][new Date().getMonth()];
 // 内部研修の表示対象判定：指定なし＝用務・休職中を除く全職員、指定あり＝選択された職員のみ
 const isTargetedFor = (t,e) => ((t.targetEmpIds||[]).length>0 ? t.targetEmpIds.includes(e.id) : ((e.dept||"")!=="用務"&&e.onLeave!==true));
+// 研修動画は改行区切りで複数URLを持てる。1本の研修は改行が無いので従来どおり[URL]の1件（後方互換）
+const videoList = s => String(s||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
 // 【今だけ】前年度の復命書も記入できるようにする（不要になったら false に戻す）
 const FUKU_ALLOW_LAST_FY = true;
 // LINE配信・お知らせの既定の対象外（この人たちには既定で送らない）：休職中・退職済み・犬丸理事(999)
@@ -282,7 +284,7 @@ const db = {
     return (data||[]).map(r=>({id:r.id,title:r.title,date:r.date,date2:r.date2||"",required:r.required,requiredEmpIds:r.required_emp_ids||[],targetEmpIds:r.target_emp_ids||[],videoUrl:r.video_url,description:r.description,location:r.location||"",startTime:r.start_time||"",endTime:r.end_time||"",noReport:r.no_report===true,noVideo:r.no_video===true,lecturer:r.lecturer||"",createdAt:r.created_at}));
   },
   async upsertInternal(t) {
-    const {error} = await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,date2:t.date2||"",required:t.required===true,required_emp_ids:t.requiredEmpIds||[],target_emp_ids:t.targetEmpIds||[],video_url:toEmbedUrl(t.videoUrl)||"",description:t.description||"",location:t.location||"",start_time:t.startTime||"",end_time:t.endTime||"",no_report:t.noReport===true,no_video:t.noVideo===true,lecturer:t.lecturer||""},{onConflict:"id"});
+    const {error} = await supabase.from("internals").upsert({id:t.id,title:t.title,date:t.date,date2:t.date2||"",required:t.required===true,required_emp_ids:t.requiredEmpIds||[],target_emp_ids:t.targetEmpIds||[],video_url:videoList(t.videoUrl).map(toEmbedUrl).join("\n"),description:t.description||"",location:t.location||"",start_time:t.startTime||"",end_time:t.endTime||"",no_report:t.noReport===true,no_video:t.noVideo===true,lecturer:t.lecturer||""},{onConflict:"id"});
     if(error) throw new Error(error.message);
   },
   async deleteInternal(id) { await supabase.from("internals").delete().eq("id",id); },
@@ -2758,9 +2760,14 @@ function FukumeishoForm({training,emp,docKey}){
                 {/* 動画は常にマウントしたまま表示だけ切り替える（タブを行き来しても再生が止まらない） */}
                 {hasVideo&&(
                   <div style={{display:rightTab==="video"?"block":"none"}}>
-                    <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>動画を見ながら本文を記入できます。印刷イメージに切り替えても再生は続きます。</div>
-                    <AutoVideoPlayer videoUrl={training.videoUrl} title={training.title} watched={false} readonly={true} onWatched={()=>{}}/>
-                    <div style={{fontSize:11,color:"#9ca3af",marginTop:8}}>※ ここでの再生は「視聴済」記録には影響しません。視聴記録は研修カードの動画から行えます。</div>
+                    <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>動画を見ながら本文を記入できます。印刷イメージに切り替えても再生は続きます。{videoList(training.videoUrl).length>1?`（動画 ${videoList(training.videoUrl).length}本）`:""}</div>
+                    {videoList(training.videoUrl).map((u,i)=>(
+                      <div key={u} style={{marginBottom:12}}>
+                        {videoList(training.videoUrl).length>1&&<div style={{fontSize:11,fontWeight:700,color:"#A07840",marginBottom:4}}>動画 {i+1}</div>}
+                        <AutoVideoPlayer videoUrl={u} title={training.title} watched={false} readonly={true} onWatched={()=>{}}/>
+                      </div>
+                    ))}
+                    <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>※ ここでの再生は「視聴済」記録には影響しません。視聴記録は研修カードの動画から行えます。</div>
                   </div>
                 )}
                 <div style={{display:(rightTab==="video"&&hasVideo)?"none":"flex",flexDirection:"column",alignItems:"center",gap:8}}>
@@ -2806,6 +2813,7 @@ function InternalCard({training,status,empId,emp,onCancelReport,onDeclineReport,
   // 動画が貼り付けられている研修は、視聴済/未視聴ボタンを全員・常時表示する
   // （別PCなどアプリ外で動画を見る人がいるため。開催前/当日/参加済/視聴済でも常に押せる）
   const hasVideo=!training.noVideo&&!!training.videoUrl;
+  const vids=videoList(training.videoUrl); const multiVid=vids.length>1; // 複数動画対応
   // 復命書にアクセスできる条件：参加済み OR 動画視聴済み（動画なし研修は参加のみ）
   const canAccessReport=attended||(!training.noVideo&&status.video==="視聴済");
   // 復命書が必須か：管理者が任意で指定した人 OR 当日QR参加した人（時間外が発生するため）。動画視聴のみは必須にしない
@@ -2897,11 +2905,16 @@ function InternalCard({training,status,empId,emp,onCancelReport,onDeclineReport,
                   {["視聴済","未視聴"].map(v=><ToggleChip key={v} label={v} active={status.video===v} color={v==="視聴済"?"#16a34a":"#6b7280"}
                     onClick={()=>{ if(v==="未視聴"&&status.video==="視聴済"&&!window.confirm("「視聴済」を取り消して、未視聴に戻しますか？")) return; onVideo(v); }}/>)}
                 </div>
-                {!playVideo&&<button style={{...S.watchBtn,marginTop:8}} onClick={()=>setPlayVideo(true)}>▶ 動画を視聴する</button>}
+                {!playVideo&&<button style={{...S.watchBtn,marginTop:8}} onClick={()=>setPlayVideo(true)}>▶ 動画を視聴する{multiVid?`（全${vids.length}本）`:""}</button>}
                 {playVideo&&(
                   <div style={{marginTop:10}}>
-                    <AutoVideoPlayer videoUrl={training.videoUrl} title={training.title} watched={status.video==="視聴済"} readonly={readonly} onWatched={()=>onVideo("視聴済")}/>
-                    <div style={{fontSize:11,color:"#6b7280",textAlign:"center",marginTop:6}}>▶ 9割ほど再生すると自動で「視聴済」になります</div>
+                    {vids.map((u,i)=>(
+                      <div key={u} style={{marginBottom:12}}>
+                        {multiVid&&<div style={{fontSize:12,fontWeight:700,color:"#A07840",marginBottom:4}}>動画 {i+1} / {vids.length}</div>}
+                        <AutoVideoPlayer videoUrl={u} title={training.title} watched={status.video==="視聴済"} readonly={readonly||multiVid} onWatched={()=>onVideo("視聴済")}/>
+                      </div>
+                    ))}
+                    <div style={{fontSize:11,color:"#6b7280",textAlign:"center",marginTop:6}}>{multiVid?`▶ 全${vids.length}本あります。すべて視聴したら上の「視聴済」ボタンを押してください`:"▶ 9割ほど再生すると自動で「視聴済」になります"}</div>
                   </div>
                 )}
               </div>
@@ -3129,6 +3142,7 @@ function AutoVideoPlayer({videoUrl,title,watched,readonly,onWatched}){
 function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus,readonly}){
   const cur=selected||trainings[0]; const s=cur?getStatus(cur):null;
   const alreadyWatched=s?.video==="視聴済";
+  const curVids=cur?videoList(cur.videoUrl):[]; const curMulti=curVids.length>1; // 複数動画対応
   return(
     <div>
       {(!trainings||trainings.length===0)&&<div style={S.empty}>この年度に動画付きの研修はありません</div>}
@@ -3141,8 +3155,13 @@ function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus,readonly}
         })}
       </div>
       {cur?.videoUrl&&<>
-        <div style={{fontWeight:700,color:"#4A3020",marginBottom:8}}>{cur.title}</div>
-        <AutoVideoPlayer videoUrl={cur.videoUrl} title={cur.title} watched={alreadyWatched} readonly={readonly} onWatched={()=>onMarkWatched(cur,"視聴済")}/>
+        <div style={{fontWeight:700,color:"#4A3020",marginBottom:8}}>{cur.title}{curMulti?`（動画 ${curVids.length}本）`:""}</div>
+        {curVids.map((u,i)=>(
+          <div key={u} style={{marginBottom:12}}>
+            {curMulti&&<div style={{fontSize:12,fontWeight:700,color:"#A07840",marginBottom:4}}>動画 {i+1} / {curVids.length}</div>}
+            <AutoVideoPlayer videoUrl={u} title={cur.title} watched={alreadyWatched} readonly={readonly||curMulti} onWatched={()=>onMarkWatched(cur,"視聴済")}/>
+          </div>
+        ))}
         {alreadyWatched?(
           <div style={{marginTop:12,padding:"10px 14px",background:"#f0fdf4",borderRadius:10,color:"#15803d",fontSize:13,fontWeight:600,textAlign:"center"}}>
             ✅ 視聴済み
@@ -3154,7 +3173,7 @@ function VideoTab({trainings,selected,onSelect,onMarkWatched,getStatus,readonly}
           </div>
         ):!readonly&&(
           <div style={{marginTop:12}}>
-            <div style={{fontSize:12,color:"#6b7280",textAlign:"center",marginBottom:8}}>▶ 9割ほど再生すると自動で「視聴済」になります</div>
+            <div style={{fontSize:12,color:"#6b7280",textAlign:"center",marginBottom:8}}>{curMulti?`▶ 全${curVids.length}本あります。すべて視聴したら下のボタンを押してください`:"▶ 9割ほど再生すると自動で「視聴済」になります"}</div>
             <button style={{...S.actionBtn,background:"#16a34a"}} onClick={()=>onMarkWatched(cur,"視聴済")}>見終わったので「視聴済」にする</button>
           </div>
         )}
@@ -4432,13 +4451,13 @@ function InternalTrainingForm({data,onChange,onSave,onCancel,title,allEmployees}
           ▶ 動画なし（視聴・未視聴を職員に表示しない）
         </label>
       </div>
-      {!data.noVideo&&[{key:"videoUrl",label:"動画URL（後から追加可）",placeholder:"https://www.youtube.com/embed/..."}]
-        .map(f=>(
-          <div key={f.key} style={{marginBottom:10}}>
-            <label style={S.label}>{f.label}</label>
-            <input type={f.type||"text"} style={S.input} placeholder={f.placeholder||""} value={data[f.key]||""} onChange={e=>onChange(p=>({...p,[f.key]:e.target.value}))}/>
-          </div>
-        ))}
+      {!data.noVideo&&(
+        <div style={{marginBottom:10}}>
+          <label style={S.label}>動画URL（後から追加可・複数可）</label>
+          <textarea style={{...S.input,minHeight:72,resize:"vertical",fontFamily:"inherit"}} placeholder={"https://www.youtube.com/embed/...\n複数ある場合は1行に1つずつ貼ってください（例：入浴研修の3本）"} value={data.videoUrl||""} onChange={e=>onChange(p=>({...p,videoUrl:e.target.value}))}/>
+          <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>複数の動画を貼ると、視聴画面に全部並びます（1行につき1URL）。</div>
+        </div>
+      )}
       <div style={{marginBottom:10}}>
         <label style={S.label}>説明</label>
         <input type="text" style={S.input} placeholder="研修の概要" value={data.description||""} onChange={e=>onChange(p=>({...p,description:e.target.value}))}/>
