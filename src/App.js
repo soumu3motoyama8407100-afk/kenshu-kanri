@@ -50,6 +50,8 @@ const INIT_COMMITTEES = [
 
 const inFiscalYear = (dateStr,fy) => { if(!dateStr)return false; const d=new Date(dateStr),s=new Date(fy,3,1),e=new Date(fy+1,2,31,23,59,59); return d>=s&&d<=e; };
 const currentFY = () => { const n=new Date(); return n.getMonth()>=3?n.getFullYear():n.getFullYear()-1; };
+// 西暦年度→令和年度表記（令和1=2019）。例：2025→令和7年度、2026→令和8年度
+const reiwa = y => { const r=Number(y)-2018; return r<=0?`${reiwa(y)}`:`令和${r===1?"元":r}年度`; };
 const calcPoints = c => c>=10?2:c>=5?1:0;
 const BADGES = [
   {id:"b1",min:1, max:4, icon:"🌱",label:"5件まで",  color:"#6b7280",bg:"#f9fafb"},
@@ -1506,7 +1508,7 @@ function PointCard({count,fiscalYear}){
     <div style={{background:"linear-gradient(135deg,#C89A55,#A07840)",borderRadius:18,padding:"20px 22px",color:"#fff",position:"relative",overflow:"hidden"}}>
       <div style={{position:"absolute",right:-20,top:-20,width:100,height:100,borderRadius:"50%",background:"rgba(255,255,255,.08)"}}/>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10,position:"relative"}}>
-        <div><div style={{fontSize:11,color:"rgba(255,255,255,.8)",marginBottom:2}}>{fiscalYear}年度 復命書提出実績</div>
+        <div><div style={{fontSize:11,color:"rgba(255,255,255,.8)",marginBottom:2}}>{reiwa(fiscalYear)} 復命書提出実績</div>
           <div style={{fontSize:36,fontWeight:800,lineHeight:1}}>{count}<span style={{fontSize:14,fontWeight:400,marginLeft:4}}>件</span></div></div>
         <div style={{textAlign:"center"}}>
           <div style={{fontSize:34}}>{points>0?(points===2?"🏆":"⭐"):"🌱"}</div>
@@ -1934,12 +1936,12 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14,padding:"6px 10px",background:"#FDF6EC",borderRadius:8,border:"1px solid #E8D5B0"}}>
               <span style={{fontSize:12,color:"#A07840",fontWeight:600}}>📅</span>
               <select value={viewFY} onChange={e=>setViewFY(Number(e.target.value))} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:13,fontWeight:600,color:"#4A3020",cursor:"pointer",background:"#fff"}}>
-                {[fiscalYear-2,fiscalYear-1,fiscalYear].map(y=><option key={y} value={y}>{y}年度</option>)}
+                {[fiscalYear-2,fiscalYear-1,fiscalYear].map(y=><option key={y} value={y}>{reiwa(y)}</option>)}
               </select>
             </div>
             <PointCard count={count} fiscalYear={viewFY}/>
             <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,padding:16,marginTop:14}}>
-              <div style={{fontWeight:700,fontSize:13,color:"#4A3020",marginBottom:10}}>📊 月別復命書提出状況（{viewFY}年度）</div>
+              <div style={{fontWeight:700,fontSize:13,color:"#4A3020",marginBottom:10}}>📊 月別復命書提出状況（{reiwa(viewFY)}）</div>
               <div style={{display:"flex",gap:4,alignItems:"flex-end",height:72}}>
                 {monthCounts.map((m,i)=>(
                   <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
@@ -1996,7 +1998,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
         {/* 年度バー */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"8px 16px",background:"#FDF6EC",borderBottom:"1px solid #E8D5B0"}}>
           <select value={viewFY} onChange={e=>setViewFY(Number(e.target.value))} style={{padding:"4px 12px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:13,fontWeight:600,color:"#4A3020",cursor:"pointer",background:"#fff"}}>
-            {[fiscalYear-2,fiscalYear-1,fiscalYear].map(y=><option key={y} value={y}>{y}年度</option>)}
+            {[fiscalYear-2,fiscalYear-1,fiscalYear].map(y=><option key={y} value={y}>{reiwa(y)}</option>)}
           </select>
           {!isCurrentFY&&<span style={{fontSize:11,color:"#d97706",fontWeight:600,background:"#fef3c7",padding:"2px 8px",borderRadius:20}}>過去年度閲覧中</span>}
           <button onClick={()=>setShowTutorial(true)} style={{fontSize:12,fontWeight:600,padding:"4px 12px",borderRadius:8,border:"1px solid #E8D5B0",background:"#fff",color:"#A07840",cursor:"pointer"}}>❓ 使い方</button>
@@ -2098,7 +2100,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                 </div>
                 );
               })()}
-              {fyInternals.length===0&&fyExternals.length===0&&<div style={S.empty}>{viewFY}年度の研修はありません</div>}
+              {fyInternals.length===0&&fyExternals.length===0&&<div style={S.empty}>{reiwa(viewFY)}の研修はありません</div>}
               {/* 自己学習の記録（管理者は関与しない・参考記録） */}
               <SelfTrainingSection items={selfTrainings} onAdd={addSelfTraining} onToggleReport={toggleSelfReport} onDelete={deleteSelfTraining} emp={emp}/>
             </div>
@@ -2349,7 +2351,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
           {readonly&&<span style={{fontSize:11,fontWeight:700,background:"#e0f2fe",color:"#0369a1",borderRadius:20,padding:"2px 10px",border:"1px solid #7dd3fc"}}>👁 閲覧のみ</span>}
         </div>
         {setFiscalYear&&<select value={fiscalYear} onChange={e=>{setSelTraining(null);setFiscalYear(Number(e.target.value));}} style={{padding:"3px 8px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:12,cursor:"pointer",background:"#fff"}}>
-          {[currentFY()-1,currentFY(),currentFY()+1].map(y=><option key={y} value={y}>{y}年度</option>)}
+          {[currentFY()-1,currentFY(),currentFY()+1].map(y=><option key={y} value={y}>{reiwa(y)}</option>)}
         </select>}
       </div>
 
@@ -2364,7 +2366,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
 
       {mode==="i"&&(
         <>
-          {fyInternals.length===0?<div style={S.empty}>{fiscalYear}年度の内部研修はありません</div>:<>
+          {fyInternals.length===0?<div style={S.empty}>{reiwa(fiscalYear)}の内部研修はありません</div>:<>
             {/* ① 研修一覧（未選択時）：研修が増えても縦1列なので探しやすい */}
             {!curT&&<>
               <div style={{fontSize:12,color:"#A07840",fontWeight:600,marginBottom:8}}>研修を選ぶと、その研修の職員リストが開きます</div>
@@ -2470,7 +2472,7 @@ function ManagerTabContent({dept,employees,internals,getIS,setIS,externals,getXS
 
       {mode==="x"&&(
         <>
-          {fyExternals.length===0?<div style={S.empty}>{fiscalYear}年度の外部研修はありません</div>
+          {fyExternals.length===0?<div style={S.empty}>{reiwa(fiscalYear)}の外部研修はありません</div>
           :fyExternals.map(x=>{
             const targets=employees.filter(e=>x.targetEmpIds.includes(e.id));
             const unreportedX=targets.filter(e=>getXS(e.id,x.id).attended&&!getXS(e.id,x.id).reportConfirmed).length;
@@ -3238,7 +3240,7 @@ function SeminarStampRow({fy,empId,seminars,getSMV}){
   return(
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-        <div style={{fontWeight:700,fontSize:13,color:"#4A3020"}}>📺 セミナー視聴スタンプ（{fy}年度）</div>
+        <div style={{fontWeight:700,fontSize:13,color:"#4A3020"}}>📺 セミナー視聴スタンプ（{reiwa(fy)}）</div>
         <span style={{fontSize:13,fontWeight:800,color:"#0e7490"}}>{n}<span style={{fontSize:10,fontWeight:400,color:"#9ca3af"}}>/12ヶ月</span></span>
       </div>
       <div style={{display:"flex",gap:4}}>
@@ -3269,7 +3271,7 @@ function SeminarStatusBoard({employees,seminars,getSMV,setSMV,fiscalYear,readonl
   const months=allMonths.filter(m=>m.ym<=nowYM);
   const [selYM,setSelYM]=useState(months.length?months[months.length-1].ym:allMonths[0].ym);
   const [busy,setBusy]=useState(false);
-  if(fySems.length===0) return <div style={S.empty}>{fiscalYear}年度のオンラインセミナーは登録されていません</div>;
+  if(fySems.length===0) return <div style={S.empty}>{reiwa(fiscalYear)}のオンラインセミナーは登録されていません</div>;
   const monthSems=fySems.filter(s=>!s.isPortal&&ymOf(s.date)===selYM);
   // 管理者（非readonly）は、その職員のセミナーを1本ずつ視聴済/未視聴に切り替えられる
   const canEdit=!readonly&&!!setSMV;
@@ -3406,7 +3408,7 @@ function SeminarTab({seminars,empId,getSMV,setSMV,readonly,fiscalYear,showToast}
   const portal=seminars.find(s=>s.isPortal)||seminars.find(s=>s.videoUrl);
   const monthVideos=seminars.filter(s=>!s.isPortal&&ymOf(s.date)===nowYM);
   const innerBox={background:"#fff",borderRadius:10,padding:"12px 14px",border:"1px solid #a5f3fc",marginBottom:8};
-  if(seminars.length===0) return <div style={S.empty}>{fiscalYear}年度のオンラインセミナーはまだ登録されていません</div>;
+  if(seminars.length===0) return <div style={S.empty}>{reiwa(fiscalYear)}のオンラインセミナーはまだ登録されていません</div>;
   return(
     <div>
       <div style={{background:"#ecfeff",border:"1.5px solid #67e8f9",borderRadius:14,padding:16,marginBottom:16}}>
@@ -3574,7 +3576,7 @@ function FukumeishoBackupTab({employees,internals,externals,fiscalYear,getIS,get
       }
       out.sort((a,b)=>(a.training.date<b.training.date?-1:a.training.date>b.training.date?1:0)||(a.emp.dept||"").localeCompare(b.emp.dept||"","ja")||(a.emp.name||"").localeCompare(b.emp.name||"","ja"));
       setDocs(out);
-      if(out.length===0) setMsg(`${y}年度の復命書データはありません。`);
+      if(out.length===0) setMsg(`${reiwa(y)}の復命書データはありません。`);
     }catch(e){ setMsg("読み込みに失敗しました："+(e.message||"")); }
     setLoading(false);
   };
@@ -3586,27 +3588,27 @@ function FukumeishoBackupTab({employees,internals,externals,fiscalYear,getIS,get
       const lines=p.format==="B"?fukuLinesB(p.answers):fukuLinesA(p.body);
       return (i>0?'<div style="page-break-before:always;"></div>':'')+fukumeishoFormHTML({training:d.training,emp:d.emp,job:d.job,submitDate:d.submitDate,lines});
     }).join("");
-    const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>復命書バックアップ_${fy}年度</title><style>@page{size:A4;margin:0;} html,body{margin:0;padding:0;} body{font-family:'游明朝','MS Mincho',serif;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact;}</style></head><body>${inner}</body></html>`;
-    dl(`復命書バックアップ_${fy}年度.html`, new Blob(["﻿"+html],{type:"text/html;charset=utf-8"}));
+    const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>復命書バックアップ_${reiwa(fy)}</title><style>@page{size:A4;margin:0;} html,body{margin:0;padding:0;} body{font-family:'游明朝','MS Mincho',serif;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact;}</style></head><body>${inner}</body></html>`;
+    dl(`復命書バックアップ_${reiwa(fy)}.html`, new Blob(["﻿"+html],{type:"text/html;charset=utf-8"}));
     setBackedUp(true);
   };
   const downloadJSON=()=>{
     if(!docs||!docs.length) return;
     const records=docs.map(d=>({empId:d.emp.id,氏名:d.emp.name,部署:d.emp.dept,種別:d.kind,研修名:d.training.title,研修日:d.training.date,提出日:d.submitDate,本文データ:d.body,更新日時:d.updatedAt}));
-    dl(`復命書バックアップ_${fy}年度.json`, new Blob([JSON.stringify({年度:fy,出力日時:new Date().toISOString(),件数:records.length,records},null,2)],{type:"application/json;charset=utf-8"}));
+    dl(`復命書バックアップ_${reiwa(fy)}.json`, new Blob([JSON.stringify({年度:fy,出力日時:new Date().toISOString(),件数:records.length,records},null,2)],{type:"application/json;charset=utf-8"}));
     setBackedUp(true);
   };
   const delYear=async()=>{
     if(!docs||!docs.length) return;
     if(!backedUp){ alert("先にバックアップ（印刷用HTML または データJSON）をダウンロードしてください。"); return; }
-    const ans=window.prompt(`⚠️ ${fy}年度の復命書 ${docs.length}件 をアプリから完全に削除します。\nこの操作は元に戻せません（ダウンロード済みのバックアップが唯一の控えになります）。\n\n削除する場合は、確認のため「${fy}」と入力してください。`);
+    const ans=window.prompt(`⚠️ ${reiwa(fy)}の復命書 ${docs.length}件 をアプリから完全に削除します。\nこの操作は元に戻せません（ダウンロード済みのバックアップが唯一の控えになります）。\n\n削除する場合は、確認のため「${fy}」と入力してください。`);
     if(ans===null) return;
     if(ans.trim()!==String(fy)){ alert("入力が一致しないため中止しました。"); return; }
     setDeleting(true); setMsg("");
     try{
       const tids=[...new Set(docs.map(d=>d.tid))];
       await db.deleteFukumeishoByTrainingIds(tids);
-      setMsg(`${fy}年度の復命書 ${docs.length}件を削除しました。容量が戻ります。`);
+      setMsg(`${reiwa(fy)}の復命書 ${docs.length}件を削除しました。容量が戻ります。`);
       setDocs([]); setBackedUp(false);
     }catch(e){ setMsg("削除に失敗しました："+(e.message||"")); }
     setDeleting(false);
@@ -3619,13 +3621,13 @@ function FukumeishoBackupTab({employees,internals,externals,fiscalYear,getIS,get
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:16}}>
         <span style={{fontSize:13,fontWeight:700,color:"#A07840"}}>対象年度</span>
         <select value={fy} onChange={e=>{setFy(Number(e.target.value)); setDocs(null); setMsg(""); setBackedUp(false);}} style={{padding:"7px 10px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:14}}>
-          {Array.from({length:12},(_,i)=>currentFY()-i).map(y=><option key={y} value={y}>{y}年度</option>)}
+          {Array.from({length:12},(_,i)=>currentFY()-i).map(y=><option key={y} value={y}>{reiwa(y)}</option>)}
         </select>
       </div>
 
       {/* ── 各種出力 ── */}
       <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
-        <div style={{fontSize:14,fontWeight:800,color:"#4A3020",marginBottom:4}}>📊 各種出力（{fy}年度）</div>
+        <div style={{fontSize:14,fontWeight:800,color:"#4A3020",marginBottom:4}}>📊 各種出力（{reiwa(fy)}）</div>
         <div style={{fontSize:12,color:"#6b7280",marginBottom:10}}>内部研修などの一覧・名簿を出力します。</div>
         <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
           <button onClick={()=>exportTrainingHistory({employees,internals,externals,getIS,getXS,fiscalYear:fy})} style={{padding:"9px 18px",borderRadius:10,border:"1.5px solid #7c3aed",background:"#f5f3ff",color:"#7c3aed",fontWeight:700,fontSize:13,cursor:"pointer"}}>📊 職員研修履歴を出力（HTML・印刷用）</button>
@@ -3641,12 +3643,12 @@ function FukumeishoBackupTab({employees,internals,externals,fiscalYear,getIS,get
         ・<b>データ（JSON）</b>：全データの控えです（再表示・確認用）。
       </div>
       <div style={{marginBottom:12}}>
-        <button onClick={()=>load(fy)} disabled={loading} style={{fontSize:14,fontWeight:700,padding:"8px 16px",borderRadius:10,border:"none",background:"#C89A55",color:"#fff",cursor:loading?"default":"pointer"}}>{loading?"読み込み中…":`🔍 ${fy}年度の復命書を読み込む`}</button>
+        <button onClick={()=>load(fy)} disabled={loading} style={{fontSize:14,fontWeight:700,padding:"8px 16px",borderRadius:10,border:"none",background:"#C89A55",color:"#fff",cursor:loading?"default":"pointer"}}>{loading?"読み込み中…":`🔍 ${reiwa(fy)}の復命書を読み込む`}</button>
       </div>
       {msg&&<div style={{fontSize:13,color:"#dc2626",marginBottom:10}}>{msg}</div>}
       {docs&&docs.length>0&&(
         <div style={{background:"#FDF6EC",border:"1px solid #E8D5B0",borderRadius:12,padding:"14px 16px"}}>
-          <div style={{fontSize:14,fontWeight:700,color:"#4A3020",marginBottom:10}}>{fy}年度の復命書：{docs.length}件</div>
+          <div style={{fontSize:14,fontWeight:700,color:"#4A3020",marginBottom:10}}>{reiwa(fy)}の復命書：{docs.length}件</div>
           <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
             <button onClick={downloadHTML} style={{fontSize:14,fontWeight:700,padding:"10px 18px",borderRadius:10,border:"none",background:"#0e7490",color:"#fff",cursor:"pointer"}}>📄 印刷用（HTML）をダウンロード</button>
             <button onClick={downloadJSON} style={{fontSize:14,fontWeight:700,padding:"10px 18px",borderRadius:10,border:"1.5px solid #C89A55",background:"#fff",color:"#A07840",cursor:"pointer"}}>💾 データ（JSON）をダウンロード</button>
@@ -3665,7 +3667,7 @@ function FukumeishoBackupTab({employees,internals,externals,fiscalYear,getIS,get
             </div>
             <button onClick={delYear} disabled={!backedUp||deleting}
               style={{fontSize:14,fontWeight:700,padding:"10px 18px",borderRadius:10,border:"none",background:(!backedUp||deleting)?"#e5b3b0":"#dc2626",color:"#fff",cursor:(!backedUp||deleting)?"not-allowed":"pointer"}}>
-              {deleting?"削除中…":`🗑 ${fy}年度の復命書を削除する`}
+              {deleting?"削除中…":`🗑 ${reiwa(fy)}の復命書を削除する`}
             </button>
           </div>
         </div>
@@ -3695,7 +3697,7 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
           {/* 下段：年度・操作ボタン群 */}
           <div style={{display:"flex",flexDirection:"row",alignItems:"center",gap:6,marginTop:8,width:"100%"}}>
             <select value={fiscalYear} onChange={e=>setFiscalYear(Number(e.target.value))} style={{padding:"4px 8px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:12,cursor:"pointer",background:"#fff",flexShrink:0}}>
-              {[currentFY()-1,currentFY(),currentFY()+1].map(y=><option key={y} value={y}>{y}年度</option>)}
+              {[currentFY()-1,currentFY(),currentFY()+1].map(y=><option key={y} value={y}>{reiwa(y)}</option>)}
             </select>
             {onRefresh&&<button style={{flexShrink:0,padding:"5px 10px",borderRadius:8,border:"1px solid rgba(255,255,255,.5)",background:"#0e7490",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:600,opacity:refreshing?0.6:1,whiteSpace:"nowrap"}} onClick={onRefresh} disabled={refreshing}>{refreshing?"更新中…":"🔄 更新"}</button>}
             {onSwitchToEmployee&&<button style={{flexShrink:0,padding:"5px 10px",borderRadius:8,border:"1px solid rgba(255,255,255,.5)",background:"#059669",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:600,whiteSpace:"nowrap"}} onClick={onSwitchToEmployee}>👤 職員画面へ</button>}
@@ -3988,7 +3990,7 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap"}}>
         <span style={{fontSize:12,color:"#6b7280"}}>表示年度：</span>
         <select value={fiscalYear} onChange={e=>setFiscalYear&&setFiscalYear(Number(e.target.value))} style={{padding:"3px 8px",borderRadius:8,border:"1px solid #E8D5B0",fontSize:12,cursor:"pointer"}}>
-          {[currentFY()-2,currentFY()-1,currentFY(),currentFY()+1].map(y=><option key={y} value={y}>{y}年度{y===currentFY()?"（今年度）":""}</option>)}
+          {[currentFY()-2,currentFY()-1,currentFY(),currentFY()+1].map(y=><option key={y} value={y}>{reiwa(y)}{y===currentFY()?"（今年度）":""}</option>)}
         </select>
         <span style={{fontSize:11,color:"#6b7280"}}>在籍：{activeEmps.length}名　今年度退職：{retiredThisYearEmps.length}名</span>
       </div>
@@ -4042,7 +4044,7 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
       {retiredThisYearEmps.length>0&&(
         <div style={{marginTop:20}}>
           <div style={{fontSize:13,fontWeight:700,color:"#6b7280",padding:"7px 14px",background:"#f3f4f6",borderRadius:"8px 8px 0 0",border:"1px solid #e5e7eb",borderBottom:"none"}}>
-            🚪 {fiscalYear}年度退職者　<span style={{fontWeight:400,fontSize:12}}>{retiredThisYearEmps.length}名</span>
+            🚪 {reiwa(fiscalYear)}退職者　<span style={{fontWeight:400,fontSize:12}}>{retiredThisYearEmps.length}名</span>
           </div>
           <table style={{width:"100%",borderCollapse:"collapse",border:"1px solid #e5e7eb",borderRadius:"0 0 8px 8px",overflow:"hidden",fontSize:13,opacity:0.7}}>
             <thead>
@@ -4087,7 +4089,7 @@ function RankingTab({employees,fiscalYear,getCount}){
       </div>
       <div style={{background:"#fff",border:"1px solid #E8D5B0",borderRadius:14,overflow:"hidden"}}>
         <div style={{background:"#C89A55",color:"#fff",padding:"12px 16px"}}>
-          <div style={{fontWeight:700,fontSize:14}}>🏅 {fiscalYear}年度 復命書提出ランキング</div>
+          <div style={{fontWeight:700,fontSize:14}}>🏅 {reiwa(fiscalYear)} 復命書提出ランキング</div>
           <div style={{fontSize:11,color:"rgba(255,255,255,.8)",marginTop:3}}>人事考課加点：⭐ 5件→+1点　🏆 10件→+2点</div>
         </div>
         {ranked.map((emp,i)=>{const rank=i+1;const rs=rankStyle(rank);const badge=getBadge(emp.count);const bc=emp.count>=20?"#b45309":emp.count>=15?"#0369a1":emp.count>=10?"#7c3aed":emp.count>=5?"#d97706":"#C89A55";
@@ -4133,7 +4135,7 @@ function exportTrainingHistory({employees,internals,externals,getIS,getXS,fiscal
   .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;margin:1px;}
   .q{background:#dbeafe;color:#1e40af;}.c{background:#ede9fe;color:#7c3aed;}.t{background:#dcfce7;color:#15803d;}
   @media print{h2{page-break-before:always;}}</style></head><body>
-  <h1>${ORG_NAME}　職員研修履歴　${fiscalYear}年度</h1>
+  <h1>${ORG_NAME}　職員研修履歴　${reiwa(fiscalYear)}</h1>
   <div class="sub">出力日：${today}　　対象人数：${employees.length}名</div>`;
   const makeTable=(emps,title)=>{
     const rows=emps.map((emp,i)=>{
@@ -4147,14 +4149,14 @@ function exportTrainingHistory({employees,internals,externals,getIS,getXS,fiscal
       <td>${all.map(t=>`<span class="badge t">${t}</span>`).join("")||"─"}</td></tr>`;
     }).join("");
     return `<h2>${title}（${emps.length}名）</h2>
-    <table><thead><tr><th>No.</th><th>ID</th><th>氏名</th><th>部署</th><th>勤続年数</th><th>保有資格</th><th>認定研修</th><th>参加済み研修（${fiscalYear}年度）</th></tr></thead><tbody>${rows}</tbody></table>`;
+    <table><thead><tr><th>No.</th><th>ID</th><th>氏名</th><th>部署</th><th>勤続年数</th><th>保有資格</th><th>認定研修</th><th>参加済み研修（${reiwa(fiscalYear)}）</th></tr></thead><tbody>${rows}</tbody></table>`;
   };
   html+=makeTable(employees,"全員一覧");
   depts.forEach(dept=>{ html+=makeTable(employees.filter(e=>e.dept===dept),dept); });
   html+="</body></html>";
   const blob=new Blob([html],{type:"text/html;charset=utf-8;"});
   const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");a.href=url;a.download=`職員研修履歴_${fiscalYear}年度.html`;a.click();
+  const a=document.createElement("a");a.href=url;a.download=`職員研修履歴_${reiwa(fiscalYear)}.html`;a.click();
   URL.revokeObjectURL(url);
 }
 
@@ -4187,7 +4189,7 @@ function exportAttendanceExcel({employees,internals,fiscalYear,getIS}){
   const xml=`<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">${sheets.join("")}</Workbook>`;
   const blob=new Blob(["﻿"+xml],{type:"application/vnd.ms-excel"});
   const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");a.href=url;a.download=`参加名簿_${fiscalYear}年度.xls`;a.click();
+  const a=document.createElement("a");a.href=url;a.download=`参加名簿_${reiwa(fiscalYear)}.xls`;a.click();
   URL.revokeObjectURL(url);
 }
 
@@ -4229,7 +4231,7 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
   return(
     <div>
       <div style={{fontSize:12,color:"#6b7280",padding:"2px 0 8px"}}>※ 参加名簿Excel・研修履歴などの出力は「📤 出力・バックアップ管理」にまとめました。</div>
-      {fyInternals.length===0&&<div style={S.empty}>{fiscalYear}年度の内部研修はありません</div>}
+      {fyInternals.length===0&&<div style={S.empty}>{reiwa(fiscalYear)}の内部研修はありません</div>}
 
       {/* ① 研修一覧（未選択時）：横に折り返さず縦1列なので、研修が増えても探しやすい */}
       {fyInternals.length>0&&!curT&&(
@@ -4623,7 +4625,7 @@ function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear}){
   );};
   return(
     <div>
-      {fyExternals.length===0&&<div style={S.empty}>{fiscalYear}年度の外部研修はありません</div>}
+      {fyExternals.length===0&&<div style={S.empty}>{reiwa(fiscalYear)}の外部研修はありません</div>}
 
       {/* ① 研修一覧（未選択時） */}
       {fyExternals.length>0&&!curX&&(
@@ -4962,7 +4964,7 @@ function SeminarManageTab({seminars,upsertSeminar,deleteSeminar,employees,getSMV
       })}
       {getSMV&&seminars.length>0&&(
         <div style={{marginTop:24}}>
-          <div style={{fontWeight:700,fontSize:14,color:"#4A3020",marginBottom:10}}>📊 視聴・復命書 提出状況（{fiscalYear}年度）</div>
+          <div style={{fontWeight:700,fontSize:14,color:"#4A3020",marginBottom:10}}>📊 視聴・復命書 提出状況（{reiwa(fiscalYear)}）</div>
           <SeminarStatusBoard key={fiscalYear} employees={activeEmps} seminars={seminars} getSMV={getSMV} fiscalYear={fiscalYear}/>
         </div>
       )}
