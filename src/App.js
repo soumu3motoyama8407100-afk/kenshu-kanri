@@ -2751,18 +2751,18 @@ function FukumeishoForm({training,emp,docKey}){
                   {hasVideo&&<button onClick={()=>setRightTab("video")} style={{fontSize:12,fontWeight:700,padding:"6px 12px",borderRadius:8,border:"1.5px solid #C89A55",cursor:"pointer",background:rightTab==="video"?"#C89A55":"#fff",color:rightTab==="video"?"#fff":"#A07840"}}>▶ 研修動画</button>}
                   <button onClick={()=>setRightTab("preview")} style={{fontSize:12,fontWeight:700,padding:"6px 12px",borderRadius:8,border:"1.5px solid #C89A55",cursor:"pointer",background:rightTab==="preview"?"#C89A55":"#fff",color:rightTab==="preview"?"#fff":"#A07840"}}>🖨️ 印刷イメージ</button>
                 </div>
-                {rightTab==="video"&&hasVideo?(
-                  <div>
-                    <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>動画を見ながら本文を記入できます。</div>
+                {/* 動画は常にマウントしたまま表示だけ切り替える（タブを行き来しても再生が止まらない） */}
+                {hasVideo&&(
+                  <div style={{display:rightTab==="video"?"block":"none"}}>
+                    <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>動画を見ながら本文を記入できます。印刷イメージに切り替えても再生は続きます。</div>
                     <AutoVideoPlayer videoUrl={training.videoUrl} title={training.title} watched={false} readonly={true} onWatched={()=>{}}/>
                     <div style={{fontSize:11,color:"#9ca3af",marginTop:8}}>※ ここでの再生は「視聴済」記録には影響しません。視聴記録は研修カードの動画から行えます。</div>
                   </div>
-                ):(
-                  <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
-                    <div style={{fontSize:12,fontWeight:700,color:"#6b7280",alignSelf:"flex-start"}}>🖨️ 印刷イメージ（A4・実際の文字量の目安）</div>
-                    <div style={{zoom:pscale,boxShadow:"0 2px 12px rgba(0,0,0,.2)"}}><FukumeishoA4 training={training} emp={emp} job={dept} submitDate={submitDate} lines={lines}/></div>
-                  </div>
                 )}
+                <div style={{display:(rightTab==="video"&&hasVideo)?"none":"flex",flexDirection:"column",alignItems:"center",gap:8}}>
+                  <div style={{fontSize:12,fontWeight:700,color:"#6b7280",alignSelf:"flex-start"}}>🖨️ 印刷イメージ（A4・実際の文字量の目安）</div>
+                  <div style={{zoom:pscale,boxShadow:"0 2px 12px rgba(0,0,0,.2)"}}><FukumeishoA4 training={training} emp={emp} job={dept} submitDate={submitDate} lines={lines}/></div>
+                </div>
               </div>
             </div>
             {/* フッター */}
