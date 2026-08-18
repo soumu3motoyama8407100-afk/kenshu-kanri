@@ -87,6 +87,8 @@ const seasonalNote = () => [
 ][new Date().getMonth()];
 // 内部研修の表示対象判定：指定なし＝用務・休職中を除く全職員、指定あり＝選択された職員のみ
 const isTargetedFor = (t,e) => ((t.targetEmpIds||[]).length>0 ? t.targetEmpIds.includes(e.id) : ((e.dept||"")!=="用務"&&e.onLeave!==true));
+// 【今だけ】前年度の復命書も記入できるようにする（不要になったら false に戻す）
+const FUKU_ALLOW_LAST_FY = true;
 // LINE配信・お知らせの既定の対象外（この人たちには既定で送らない）：休職中・退職済み・犬丸理事(999)
 const NOTIFY_EXCLUDE_IDS = ["999"];
 const canReceiveNotice = e => !!e && e.isActive!==false && e.onLeave!==true && !(e.retireDate && new Date(e.retireDate)<=new Date()) && !NOTIFY_EXCLUDE_IDS.includes(e.id);
@@ -1858,6 +1860,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
     catch(e){ setSelfTrainings(prev); showToast("削除に失敗しました。もう一度お試しください",true); }
   };
   const isCurrentFY=viewFY===fiscalYear;
+  // 復命書だけは、今年度に加えて前年度も記入可にできる（他の操作＝出欠/動画は従来どおり過去年度は閲覧のみ）
+  const fukuEditable=isCurrentFY||(FUKU_ALLOW_LAST_FY&&viewFY===fiscalYear-1);
   // 今年度は開催日の1ヶ月前になるまで研修タブに表示しない（先の予定が多すぎて分かりにくくなるため）。過去の研修は引き続き表示
   const trainingVisibleFrom=(()=>{ const d=new Date(); d.setMonth(d.getMonth()+1); return d; })();
   const fyInternals=internals.filter(t=>inFiscalYear(t.date,viewFY)&&isTargetedFor(t,emp)&&(!isCurrentFY||new Date(t.date+"T00:00:00")<=trainingVisibleFrom)).sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -2027,7 +2031,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                   ※ カードのデータ配線(getXS/setXS)は一切変えていない＝既存の受講・復命書は影響なし */}
               {fyExternals.length>0&&(()=>{
                 const extCard=x=>(
-                  <ExternalCard key={x.id} ext={x} empId={emp.id} emp={emp} status={getXS(emp.id,x.id)} readonly={!isCurrentFY}
+                  <ExternalCard key={x.id} ext={x} empId={emp.id} emp={emp} status={getXS(emp.id,x.id)} readonly={!isCurrentFY} fukuEditable={fukuEditable}
                     onAttend={v=>{ if(isCurrentFY){setXS(emp.id,x.id,{attended:v});showToast(v?"受講済にしました":"「受講済」を取り消しました");} }}
                     onViewPdf={type=>setPdfExt({...x,_pdfType:type})}/>
                 );
@@ -2056,7 +2060,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                   復命書未提出は赤い印付きで未完了側に残る。※ InternalCardのデータ配線(getIS/setIS)は不変 */}
               {fyInternals.length>0&&(()=>{
                 const intCard=t=>(
-                  <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)} empId={emp.id} emp={emp} readonly={!isCurrentFY}
+                  <InternalCard key={t.id} training={t} status={getIS(emp.id,t.id)} empId={emp.id} emp={emp} readonly={!isCurrentFY} fukuEditable={fukuEditable}
                     focusId={focusTrainingId} onFocused={()=>setFocusTrainingId(null)}
                     onDetailClosed={()=>{ if(returnTab){ switchTab(returnTab); setReturnTab(null); } }}
                     onCancelReport={()=>{ if(isCurrentFY){setIS(emp.id,t.id,"report","未提出");showToast("「提出しない」を取り消しました");} }}
@@ -2779,7 +2783,9 @@ function FukumeishoForm({training,emp,docKey}){
     </div>
   );
 }
-function InternalCard({training,status,empId,emp,onCancelReport,onDeclineReport,onVideo,onWatchVideo,onAttendSession,readonly,focusId,onFocused,onDetailClosed}){
+function InternalCard({training,status,empId,emp,onCancelReport,onDeclineReport,onVideo,onWatchVideo,onAttendSession,readonly,fukuEditable,focusId,onFocused,onDetailClosed}){
+  // 復命書だけは前年度も記入可にできる（未指定なら従来どおり readonly に従う）
+  const fukuRO = fukuEditable!==undefined ? !fukuEditable : readonly;
   const [open,setOpen]=useState(false);
   const [playVideo,setPlayVideo]=useState(false);
   const [editSession,setEditSession]=useState(false); // 選んだ参加日を選び直す
@@ -2903,7 +2909,7 @@ function InternalCard({training,status,empId,emp,onCancelReport,onDeclineReport,
           </div>
           {!training.noReport&&<div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書</div>
-            {readonly
+            {fukuRO
               ? <SPill color="#6b7280" bg="#f3f4f6" border="#d1d5db">閲覧のみ（過去年度のため記入不可）</SPill>
               : !emp
               ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">読み込み中…</SPill>
@@ -2924,7 +2930,8 @@ function InternalCard({training,status,empId,emp,onCancelReport,onDeclineReport,
   );
 }
 
-function ExternalCard({ext,empId,emp,status,onAttend,onViewPdf,readonly}){
+function ExternalCard({ext,empId,emp,status,onAttend,onViewPdf,readonly,fukuEditable}){
+  const fukuRO = fukuEditable!==undefined ? !fukuEditable : readonly;
   const [open,setOpen]=useState(false);
   const {attended,reportSubmitted,reportConfirmed}=status;
   // 復命書が必須か：管理者が任意で指定した人 OR 受講済みの人
@@ -2987,7 +2994,7 @@ function ExternalCard({ext,empId,emp,status,onAttend,onViewPdf,readonly}){
           </div>
           <div style={S.sBlock}>
             <div style={S.sLabel}><span style={S.stepNum}>2</span> 復命書</div>
-            {readonly
+            {fukuRO
               ? <SPill color="#6b7280" bg="#f3f4f6" border="#d1d5db">閲覧のみ（過去年度のため記入不可）</SPill>
               : !emp
               ? <SPill color="#9ca3af" bg="#f9fafb" border="#e5e7eb">読み込み中…</SPill>
