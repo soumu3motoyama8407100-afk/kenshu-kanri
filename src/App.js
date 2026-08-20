@@ -178,14 +178,14 @@ function fukumeishoFormHTML({training,emp,job,submitDate,lines}){
   const lb=`border:${bd};padding:5px 6px;text-align:center;font-weight:bold;white-space:nowrap;font-size:11pt;`;
   const c=`border:${bd};padding:5px 8px;word-break:break-all;font-size:11pt;`;
   const sc=`border:${bd};text-align:center;font-size:10.5pt;padding:3px;`;
-  const headerInfo=`<table style="border-collapse:collapse;width:100%;">
+  const headerInfo=`<table style="border-collapse:collapse;width:100%;table-layout:fixed;">
   <tr>
-    <td rowspan="2" style="border:${bd};width:58%;text-align:center;vertical-align:middle;"><span style="font-size:26pt;font-weight:bold;letter-spacing:0.4em;">復　命　書</span></td>
-    <td style="${sc}width:14%;">施設長</td><td style="${sc}width:14%;">総務部長</td><td style="${sc}width:14%;">部署責任者</td>
+    <td rowspan="2" style="border:${bd};width:54%;text-align:center;vertical-align:middle;"><span style="font-size:26pt;font-weight:bold;letter-spacing:0.4em;">復　命　書</span></td>
+    <td style="${sc}">施設長</td><td style="${sc}">総務部長</td><td style="${sc}">部署責任者</td>
   </tr>
   <tr><td style="border:${bd};height:64px;">&nbsp;</td><td style="border:${bd};">&nbsp;</td><td style="border:${bd};">&nbsp;</td></tr>
   </table>
-  <table style="border-collapse:collapse;width:100%;margin-top:-1px;">
+  <table style="border-collapse:collapse;width:100%;margin-top:-1px;table-layout:fixed;">
   <tr><td style="${lb}width:12%;">研 修 名</td><td style="${c}width:42%;">${esc(training.title)}</td><td style="${lb}width:12%;">提 出 日</td><td style="${c}width:34%;">${toReiwa(submitDate)}</td></tr>
   <tr><td style="${lb}">研修場所</td><td style="${c}">${esc(training.location||"")}</td><td style="${lb}">部　署</td><td style="${c}">${esc(job||"")}</td></tr>
   <tr><td style="${lb}">日　時</td><td style="${c}">${jitiji}</td><td style="${lb}">氏　名</td><td style="${c}">${esc(emp.name||"")}</td></tr>
@@ -2673,15 +2673,15 @@ function FukumeishoA4({training,emp,job,submitDate,lines}){
   const sc={border:bd,textAlign:"center",fontSize:"9.5pt",padding:"3px"};
   const header=(<>
     {/* 上部：復命書（大・中央）＋ 決裁印欄（ラベル＋押印枠） */}
-    <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
+    <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}><tbody>
       <tr>
-        <td rowSpan={2} style={{border:bd,width:"58%",textAlign:"center",verticalAlign:"middle"}}><span style={{fontSize:"26pt",fontWeight:"bold",letterSpacing:"0.4em"}}>復　命　書</span></td>
-        <td style={{...sc,width:"14%"}}>施設長</td><td style={{...sc,width:"14%"}}>総務部長</td><td style={{...sc,width:"14%"}}>部署責任者</td>
+        <td rowSpan={2} style={{border:bd,width:"54%",textAlign:"center",verticalAlign:"middle"}}><span style={{fontSize:"26pt",fontWeight:"bold",letterSpacing:"0.4em"}}>復　命　書</span></td>
+        <td style={sc}>施設長</td><td style={sc}>総務部長</td><td style={sc}>部署責任者</td>
       </tr>
       <tr><td style={{border:bd,height:64}}>&nbsp;</td><td style={{border:bd}}>&nbsp;</td><td style={{border:bd}}>&nbsp;</td></tr>
     </tbody></table>
     {/* 中段：2列（研修名｜提出日 / 研修場所｜部署 / 日時｜氏名）。上の表と枠線を重ねて二重線を防ぐ */}
-    <table style={{width:"100%",borderCollapse:"collapse",marginTop:-1}}><tbody>
+    <table style={{width:"100%",borderCollapse:"collapse",marginTop:-1,tableLayout:"fixed"}}><tbody>
       <tr><td style={{...lb,width:"12%"}}>研 修 名</td><td style={{...cell,width:"42%"}}>{training.title}</td><td style={{...lb,width:"12%"}}>提 出 日</td><td style={{...cell,width:"34%"}}>{toReiwa(submitDate)}</td></tr>
       <tr><td style={lb}>研修場所</td><td style={cell}>{training.location||""}</td><td style={lb}>部　署</td><td style={cell}>{job||""}</td></tr>
       <tr><td style={lb}>日　時</td><td style={cell}>{jitiji}</td><td style={lb}>氏　名</td><td style={cell}>{emp.name||""}</td></tr>
