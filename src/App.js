@@ -379,9 +379,9 @@ const db = {
         r.file_url=null; r.file_path=null; r.pdf_name=null;
       }
     }
-    return data.map(r=>({id:r.id,title:r.title,date:r.date,date2:r.date2||"",organizer:r.organizer,location:r.location,startTime:r.start_time||"",endTime:r.end_time||"",targetEmpIds:r.target_emp_ids||[],requiredEmpIds:r.required_emp_ids||[],pdfUrl:r.file_url||null,pdfPath:r.file_path||null,pdfName:r.pdf_name,noticePdfUrl:r.notice_file_url||null,noticePdfPath:r.notice_file_path||null,noticePdfName:r.notice_file_name||null}));
+    return data.map(r=>({id:r.id,title:r.title,date:r.date,date2:r.date2||"",organizer:r.organizer,location:r.location,startTime:r.start_time||"",endTime:r.end_time||"",targetEmpIds:r.target_emp_ids||[],requiredEmpIds:r.required_emp_ids||[],pdfUrl:r.file_url||null,pdfPath:r.file_path||null,pdfName:r.pdf_name,noticePdfUrl:r.notice_file_url||null,noticePdfPath:r.notice_file_path||null,noticePdfName:r.notice_file_name||null,category:r.category||"外部"}));
   },
-  async upsertExternal(x) { await supabase.from("externals").upsert({id:x.id,title:x.title,date:x.date,date2:x.date2||null,organizer:x.organizer,location:x.location,start_time:x.startTime||"",end_time:x.endTime||"",target_emp_ids:x.targetEmpIds,required_emp_ids:x.requiredEmpIds||[],pdf_name:x.pdfName,file_url:x.pdfUrl,file_path:x.pdfPath,notice_file_url:x.noticePdfUrl||null,notice_file_path:x.noticePdfPath||null,notice_file_name:x.noticePdfName||null},{onConflict:"id"}); },
+  async upsertExternal(x) { await supabase.from("externals").upsert({id:x.id,title:x.title,date:x.date,date2:x.date2||null,organizer:x.organizer,location:x.location,start_time:x.startTime||"",end_time:x.endTime||"",target_emp_ids:x.targetEmpIds,required_emp_ids:x.requiredEmpIds||[],pdf_name:x.pdfName,file_url:x.pdfUrl,file_path:x.pdfPath,notice_file_url:x.noticePdfUrl||null,notice_file_path:x.noticePdfPath||null,notice_file_name:x.noticePdfName||null,category:x.category||"外部"},{onConflict:"id"}); },
   async uploadExternalPdf(xId,file) {
     const MAX=20*1024*1024;
     if(file.size>MAX)throw new Error("20MBを超えるファイルはアップロードできません");
@@ -1922,6 +1922,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
   const restoreNotice=id=>{ const next=dismissedNotices.filter(x=>x!==id); setDismissedNotices(next); try{localStorage.setItem(`ndismissed_${emp.id}`,JSON.stringify(next));}catch(_){} };
   const [showDismissed,setShowDismissed]=useState(false);
   const [showDoneExt,setShowDoneExt]=useState(false); // 外部研修：受講済みも表示するか（既定は未受講のみ）
+  const [showDoneKyotaku,setShowDoneKyotaku]=useState(false); // 居宅研修：完了も表示するか
   const [showDoneInt,setShowDoneInt]=useState(false); // 内部研修：完了分も表示するか（既定は未完了のみ）
   const [showDoneReq,setShowDoneReq]=useState(false); // 必須研修：提出済みも表示するか（既定は未提出のみ）
   const [showTutorial,setShowTutorial]=useState(()=>{ try{ return localStorage.getItem("tutorial_seen")!=="1"; }catch(_){ return false; } });
@@ -1965,7 +1966,9 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
   const fyInternals=internals.filter(t=>!t.isStanding&&inFiscalYear(t.date,viewFY)&&isTargetedFor(t,emp)&&(!isCurrentFY||new Date(t.date+"T00:00:00")<=trainingVisibleFrom)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   // 必須研修（部署恒常）：対象部署に在籍していれば年度に関係なく常に表示。未提出のものだけ出す
   const standingRequired=internals.filter(t=>t.isStanding&&isTargetedFor(t,emp)).sort((a,b)=>String(a.title).localeCompare(String(b.title),"ja"));
-  const fyExternals=externals.filter(x=>x.targetEmpIds.includes(emp.id)&&inFiscalYear(x.date,viewFY)).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const fyExternalsAll=externals.filter(x=>x.targetEmpIds.includes(emp.id)&&inFiscalYear(x.date,viewFY)).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const fyExternals=fyExternalsAll.filter(x=>(x.category||"外部")!=="居宅"); // 外部研修
+  const fyKyotaku=fyExternalsAll.filter(x=>(x.category||"外部")==="居宅");    // 居宅研修
   const fySeminars=(seminars||[]).filter(s=>inFiscalYear(s.date,viewFY)).sort((a,b)=>new Date(a.date)-new Date(b.date));
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(null),2500);};
   const count=getCount(emp.id,viewFY);
@@ -2186,6 +2189,33 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                 </div>
                 );
               })()}
+              {/* 居宅研修：外部研修と同じ作り（カテゴリ=居宅のみ表示） */}
+              {fyKyotaku.length>0&&(()=>{
+                const extCard=x=>(
+                  <ExternalCard key={x.id} ext={x} empId={emp.id} emp={emp} status={getXS(emp.id,x.id)} readonly={!isCurrentFY} fukuEditable={fukuEditable}
+                    onAbsent={v=>{ if(isCurrentFY){setXS(emp.id,x.id,{absent:v});showToast(v?"「受講せず（欠席）」にしました":"「受講せず」を取り消しました");} }}
+                    onViewPdf={type=>setPdfExt({...x,_pdfType:type})}/>
+                );
+                const xDone=x=>{ const s=getXS(emp.id,x.id); return s.absent||s.reportConfirmed; };
+                const kPending=fyKyotaku.filter(x=>!xDone(x));
+                const kDone=fyKyotaku.filter(xDone);
+                const needReport=kPending.filter(x=>xReportRequired(x,getXS(emp.id,x.id))).length;
+                return(
+                <div>
+                  <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"6px 12px",background:"#FDF6EC",borderRadius:8,marginBottom:8,border:"1px solid #E8D5B0"}}>🏠 居宅研修（要対応 {kPending.length}件{kDone.length>0?` ／ 完了 ${kDone.length}件`:""}{needReport>0?`　●復命書 ${needReport}件`:""}）</div>
+                  {kPending.map(extCard)}
+                  {kPending.length===0&&kDone.length>0&&<div style={{fontSize:12,color:"#9ca3af",padding:"8px 12px"}}>要対応の居宅研修はありません 🎉</div>}
+                  {kDone.length>0&&(
+                    <div style={{marginTop:4}}>
+                      <button onClick={()=>setShowDoneKyotaku(v=>!v)} style={{display:"inline-flex",alignItems:"center",gap:8,fontSize:12,fontWeight:700,color:"#A07840",background:"#fff",border:"1px solid #E8D5B0",borderRadius:20,padding:"6px 14px",cursor:"pointer"}}>
+                        {showDoneKyotaku?`▲ 完了 ${kDone.length}件を隠す`:`▼ 完了 ${kDone.length}件を表示`}
+                      </button>
+                      {showDoneKyotaku&&<div style={{marginTop:8}}>{kDone.map(extCard)}</div>}
+                    </div>
+                  )}
+                </div>
+                );
+              })()}
               {/* 内部研修：外部研修と同じく未完了のみ既定表示し、完了（参加/視聴済＋復命書済）は折りたたむ。
                   復命書未提出は赤い印付きで未完了側に残る。※ InternalCardのデータ配線(getIS/setIS)は不変 */}
               {fyInternals.length>0&&(()=>{
@@ -2226,7 +2256,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                 </div>
                 );
               })()}
-              {fyInternals.length===0&&fyExternals.length===0&&<div style={S.empty}>{reiwa(viewFY)}の研修はありません</div>}
+              {fyInternals.length===0&&fyExternals.length===0&&fyKyotaku.length===0&&<div style={S.empty}>{reiwa(viewFY)}の研修はありません</div>}
               {/* 自己学習の記録（管理者は関与しない・参考記録） */}
               <SelfTrainingSection items={selfTrainings} onAdd={addSelfTraining} onToggleReport={toggleSelfReport} onDelete={deleteSelfTraining} emp={emp}/>
             </div>
@@ -3097,7 +3127,7 @@ function ExternalCard({ext,empId,emp,status,onAbsent,onViewPdf,readonly,fukuEdit
     <div style={S.card}>
       <div style={S.cardHead} onClick={()=>setOpen(true)}>
         <div style={{flex:1}}>
-          <span style={S.extBadge}>外部</span>
+          <span style={S.extBadge}>{ext.category||"外部"}</span>
           {/* 復命書が必要で未確認のときだけ「復命書未提出」を1つ表示（確認されたら消える） */}
           {showReportBadge&&<span style={{fontSize:11,fontWeight:800,color:"#dc2626",background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:20,padding:"2px 9px",marginLeft:4,whiteSpace:"nowrap"}}>復命書未提出</span>}
           {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
@@ -3113,7 +3143,7 @@ function ExternalCard({ext,empId,emp,status,onAbsent,onViewPdf,readonly,fukuEdit
           <div style={{position:"sticky",top:0,background:"#fff",borderBottom:"1px solid #F0D9B0",padding:"16px 18px",zIndex:2}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
               <div style={{flex:1,minWidth:0}}>
-                <span style={S.extBadge}>外部</span>
+                <span style={S.extBadge}>{ext.category||"外部"}</span>
                 {showReportBadge&&<span style={{fontSize:11,fontWeight:800,color:"#dc2626",background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:20,padding:"2px 9px",whiteSpace:"nowrap"}}>復命書未提出</span>}
                 {readonly&&<span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,display:"inline-block",background:"#f3f4f6",color:"#6b7280",marginLeft:4}}>閲覧のみ</span>}
                 <div style={{fontSize:17,fontWeight:800,color:"#4A3020",margin:"4px 0 2px"}}>{ext.title}</div>
@@ -3822,7 +3852,7 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
   const [tab,setTab]=useState("ranking");
   const [qrT,setQrT]=useState(null);
   const [sideOpen,setSideOpen]=useState(false); // スマホの左メニュー開閉
-  const ADMIN_TABS=[["ranking","🏅 ランキング"],["adminNotices","📢 お知らせ"],["iProgress","📊 内部研修"],["iManage","📚 内部研修登録"],["reqTraining","⭐ 必須研修"],["xProgress","🌐 外部研修"],["xManage","✏️ 外部研修登録"],["semManage","📺 セミナー"],["empManage","👥 職員管理"],["committeeManage","🏛 委員会管理"],["fukuBackup","📤 出力・バックアップ管理"]];
+  const ADMIN_TABS=[["ranking","🏅 ランキング"],["adminNotices","📢 お知らせ"],["iProgress","📊 内部研修"],["iManage","📚 内部研修登録"],["reqTraining","⭐ 必須研修"],["xProgress","🌐 外部研修"],["xManage","✏️ 外部研修登録"],["kProgress","🏠 居宅研修"],["kManage","🏠 居宅研修登録"],["semManage","📺 セミナー"],["empManage","👥 職員管理"],["committeeManage","🏛 委員会管理"],["fukuBackup","📤 出力・バックアップ管理"]];
   return(
     <div className="rsp-page" style={S.page}>
       {qrT&&<QRModal training={qrT} onClose={()=>setQrT(null)}/>}
@@ -3863,8 +3893,10 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
           {tab==="iProgress" &&<InternalProgressTab employees={employees} internals={internals} externals={externals} getXS={getXS} getIS={getIS} setIS={setIS} onQR={setQrT} fiscalYear={fiscalYear}/>}
           {tab==="iManage"   &&<InternalManageTab internals={internals} setInternals={setInternals} deleteInternal={deleteInternal} employees={employees}/>}
           {tab==="reqTraining"&&<RequiredTrainingTab internals={internals} setInternals={setInternals} deleteInternal={deleteInternal} employees={employees} getIS={getIS} setIS={setIS}/>}
-          {tab==="xProgress" &&<ExternalProgressTab employees={employees} externals={externals} getXS={getXS} setXS={setXS} fiscalYear={fiscalYear}/>}
-          {tab==="xManage"   &&<ExternalManageTab employees={employees} externals={externals} setExternals={setExternals} deleteExternal={deleteExternal}/>}
+          {tab==="xProgress" &&<ExternalProgressTab employees={employees} externals={externals} getXS={getXS} setXS={setXS} fiscalYear={fiscalYear} category="外部"/>}
+          {tab==="xManage"   &&<ExternalManageTab employees={employees} externals={externals} setExternals={setExternals} deleteExternal={deleteExternal} category="外部"/>}
+          {tab==="kProgress" &&<ExternalProgressTab employees={employees} externals={externals} getXS={getXS} setXS={setXS} fiscalYear={fiscalYear} category="居宅"/>}
+          {tab==="kManage"   &&<ExternalManageTab employees={employees} externals={externals} setExternals={setExternals} deleteExternal={deleteExternal} category="居宅"/>}
           {tab==="semManage" &&<SeminarManageTab seminars={seminars} upsertSeminar={upsertSeminar} deleteSeminar={deleteSeminar} employees={employees} getSMV={getSMV} fiscalYear={fiscalYear}/>}
           {tab==="empManage" &&<EmployeeManageTab employees={employees} setEmployees={setEmployees} internals={internals} getIS={getIS} getXS={getXS} externals={externals} fiscalYear={fiscalYear} setFiscalYear={setFiscalYear} committees={committeeProps?.committees||[]} committeeMembers={committeeProps?.committeeMembers||{}} setMembersFor={committeeProps?.setMembersFor}/>}
           {tab==="committeeManage"&&committeeProps&&<CommitteeManageTab {...committeeProps}/>}
@@ -4927,8 +4959,9 @@ function RequiredTrainingTab({internals,setInternals,deleteInternal,employees,ge
   );
 }
 
-function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear}){
-  const fyExternals=externals.filter(x=>inFiscalYear(x.date,fiscalYear));
+function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear,category}){
+  const cat=category||"外部";
+  const fyExternals=externals.filter(x=>(x.category||"外部")===cat&&inFiscalYear(x.date,fiscalYear));
   // 内部研修タブと同じく一覧→詳細のドリルダウン。研修が増えても見やすくする
   const [selX,setSelX]=useState(null);
   const curX=selX;
@@ -4962,7 +4995,7 @@ function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear}){
   );};
   return(
     <div>
-      {fyExternals.length===0&&<div style={S.empty}>{reiwa(fiscalYear)}の外部研修はありません</div>}
+      {fyExternals.length===0&&<div style={S.empty}>{reiwa(fiscalYear)}の{cat}研修はありません</div>}
 
       {/* ① 研修一覧（未選択時） */}
       {fyExternals.length>0&&!curX&&(
@@ -4973,7 +5006,7 @@ function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear}){
               style={{display:"flex",alignItems:"center",gap:10,background:"#fff",border:"1px solid #E8D5B0",borderLeft:`4px solid ${cnt>0?"#C89A55":"#E8D5B0"}`,borderRadius:10,padding:"12px 14px",cursor:"pointer"}}>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}>
-                  <span style={S.extBadge}>外部</span>
+                  <span style={S.extBadge}>{x.category||"外部"}</span>
                   <span style={{fontSize:14,fontWeight:700,color:"#4A3020",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{x.title}</span>
                   {(x.requiredEmpIds||[]).length>0&&<span style={{fontSize:10,color:"#dc2626",fontWeight:700,flexShrink:0}}>必須{(x.requiredEmpIds||[]).length}</span>}
                 </div>
@@ -4995,7 +5028,7 @@ function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear}){
           <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#FDF6EC",border:"1px solid #E8D5B0",borderLeft:"4px solid #C89A55",borderRadius:10,marginBottom:10}}>
             <span style={{fontSize:10,fontWeight:700,color:"#fff",background:"#C89A55",borderRadius:6,padding:"3px 8px",flexShrink:0,whiteSpace:"nowrap"}}>操作中</span>
             <div style={{minWidth:0,flex:1}}>
-              <div style={{fontSize:14,fontWeight:800,color:"#4A3020",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}><span style={S.extBadge}>外部</span> {x.title}</div>
+              <div style={{fontSize:14,fontWeight:800,color:"#4A3020",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}><span style={S.extBadge}>{x.category||"外部"}</span> {x.title}</div>
               <div style={{fontSize:11,color:"#A07840"}}>📅 {extDateText(x)} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}{(x.requiredEmpIds||[]).length>0?` ｜ 復命書必須 ${(x.requiredEmpIds||[]).length}名`:""}</div>
             </div>
           </div>
@@ -5124,7 +5157,8 @@ function ExternalTrainingForm({data,onChange,onSave,onCancel,title,employees}){
   );
 }
 
-function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
+function ExternalManageTab({employees,externals,setExternals,deleteExternal,category}){
+  const cat=category||"外部"; // "外部" or "居宅"
   const [showAdd,setShowAdd]=useState(false);
   const [newX,setNewX]=useState({title:"",date:"",organizer:"",location:"",targetEmpIds:[],requiredEmpIds:[],pdfUrl:null,pdfPath:null,pdfName:null});
   const [editId,setEditId]=useState(null);
@@ -5148,7 +5182,7 @@ function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
   const add=async()=>{
     if(!newX.title||!newX.date||(newX.targetEmpIds||[]).length===0){alert("研修名・実施日・対象者は必須です。");return;}
     const xId="X"+String(Date.now()).slice(-6);
-    let updated={...newX,id:xId,pdfUrl:null,pdfPath:null,pdfName:newX.pdfName||null};
+    let updated={...newX,id:xId,category:cat,pdfUrl:null,pdfPath:null,pdfName:newX.pdfName||null};
     delete updated._pendingFile;
     await setExternals(p=>[...p,updated]);
     if(newX._pendingFile){
@@ -5173,12 +5207,12 @@ function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
     await setExternals(p=>p.map(x=>x.id===updated.id?updated:x));
     setEditId(null); setEditX(null);
   };
-  // 新しい実施日が上、古いものが下
-  const sorted=[...externals].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  // 新しい実施日が上、古いものが下。カテゴリ（外部/居宅）で絞り込む
+  const sorted=[...externals].filter(x=>(x.category||"外部")===cat).sort((a,b)=>new Date(b.date)-new Date(a.date));
   return(
     <div style={{padding:4}}>
-      <button style={{...S.btn,marginBottom:16}} onClick={()=>{setShowAdd(!showAdd);setEditId(null);}}>＋ 外部研修を申し込み登録</button>
-      {showAdd&&<ExternalTrainingForm data={newX} onChange={setNewX} onSave={add} onCancel={()=>setShowAdd(false)} title="外部研修を登録" employees={employees}/>}
+      <button style={{...S.btn,marginBottom:16}} onClick={()=>{setShowAdd(!showAdd);setEditId(null);}}>＋ {cat}研修を申し込み登録</button>
+      {showAdd&&<ExternalTrainingForm data={newX} onChange={setNewX} onSave={add} onCancel={()=>setShowAdd(false)} title={cat+"研修を登録"} employees={employees}/>}
       {sorted.map(x=>{
         const targets=employees.filter(e=>x.targetEmpIds.includes(e.id));
         const xPast=new Date((x.date2||x.date)+"T23:59:59")<new Date();
@@ -5186,7 +5220,7 @@ function ExternalManageTab({employees,externals,setExternals,deleteExternal}){
         <div key={x.id} style={{...S.card,padding:"14px",marginBottom:10,background:xPast?"#FAF8F3":"#fff",borderLeft:`4px solid ${xPast?"#E8D5B0":"#C89A55"}`}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
             <div style={{flex:1}}>
-              <span style={S.extBadge}>外部</span><div style={{...S.cardTitle,color:xPast?"#8a7660":S.cardTitle.color}}>{x.title}</div>
+              <span style={S.extBadge}>{x.category||"外部"}</span><div style={{...S.cardTitle,color:xPast?"#8a7660":S.cardTitle.color}}>{x.title}</div>
               <div style={{...S.cardDate,color:xPast?"#9ca3af":S.cardDate.color}}>📅 {extDateText(x)} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}
                 {(x.requiredEmpIds||[]).length>0&&<span style={{marginLeft:8,fontSize:11,color:"#dc2626",fontWeight:600}}>復命書必須 {(x.requiredEmpIds||[]).length}名</span>}
               </div>
