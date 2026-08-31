@@ -11,13 +11,22 @@ const ADMIN = { id:"ADMIN", password:"admin123" };
 // 職員ID → 認証用メール。移行スクリプト(scripts/migrate-to-auth.mjs)と必ず同じ変換にすること。
 const AUTH_EMAIL_DOMAIN = "kenshu.thc-club.jp";
 const idToEmail = (id) => String(id||"").trim().toLowerCase() + "@" + AUTH_EMAIL_DOMAIN;
+// 職員1名分を取得（ログイン後の役割判定・セッション復元用。RLS導入後は認証済みでのみ読める）
+async function fetchEmployeeById(id){
+  try{
+    const { data } = await supabase.from("employees").select("*").eq("id", id).maybeSingle();
+    if(!data) return null;
+    return { id:data.id, name:data.name||"", dept:data.dept||"", isActive:data.is_active!==false, retireDate:data.retire_date||"", isAdmin:data.is_admin||false, isManager:data.is_manager||false, isViewer:data.is_viewer||false };
+  }catch(_){ return null; }
+}
 // ID/パスワードで正式ログイン。成功なら {ok:true,isAdmin,emp}、失敗なら {ok:false}
-async function authLogin(id, pw, employees){
+// ※employeesの事前読み込みに依存せず、ログイン後に自分の情報を取得する（RLS導入後も動くように）
+async function authLogin(id, pw){
   const _id=String(id||"").trim();
   const { error } = await supabase.auth.signInWithPassword({ email: idToEmail(_id), password: pw||"" });
   if(error) return { ok:false, error };
   if(_id===ADMIN.id) return { ok:true, isAdmin:true, emp:null };
-  const emp=(employees||[]).find(e=>e.id===_id) || null;
+  const emp = await fetchEmployeeById(_id);
   return { ok:true, isAdmin:false, emp };
 }
 // LINEログイン（LIFF）
@@ -629,6 +638,30 @@ export default function App() {
 
   useEffect(()=>{ loadAllData(true); },[]);// eslint-disable-line
 
+  // 【段階2c】起動時：保存された正式ログイン(セッション)があれば自動でログイン状態を復元（＝再ログイン不要に）
+  useEffect(()=>{
+    (async()=>{
+      try{
+        const { data } = await supabase.auth.getSession();
+        const email = data?.session?.user?.email;
+        if(!email || pendingAttend) return; // QR出席の流れは既存処理に任せる
+        const idPart = email.split("@")[0];
+        if(idPart==="admin"){ handleLogin(ADMIN.id, true); return; }
+        const emp = await fetchEmployeeById(idPart);
+        if(emp && emp.isActive!==false && !(emp.retireDate && new Date(emp.retireDate)<=new Date())){
+          handleLogin(emp.id, emp.isAdmin||false, emp.isManager||false, emp.isViewer||false, emp.dept);
+        }
+      }catch(_){}
+    })();
+  },[]);// eslint-disable-line
+
+  // 【段階2c】ログイン(セッション設定)後にデータを読み込む（ログアウト状態＝RLSで空だった場合の再取得も兼ねる）
+  const loadedForSessionRef=useRef(false);
+  useEffect(()=>{
+    if(session||manualSession){ if(!loadedForSessionRef.current){ loadedForSessionRef.current=true; loadAllData(); } }
+    else { loadedForSessionRef.current=false; }
+  },[session,manualSession]);// eslint-disable-line
+
   // ログイン中は30秒ごとに自動更新（他端末での提出などを反映）
   useEffect(()=>{
     if(!session&&!manualSession)return;
@@ -1171,7 +1204,7 @@ function LoginCard({title,icon,accentColor,pendingAttend,internals,employees,onL
   const training=internals&&internals.find(t=>t.id===pendingAttend);
   const submit=async()=>{
     setErr("");
-    const r=await authLogin(id,pw,employees);
+    const r=await authLogin(id,pw);
     if(!r.ok){ setErr("IDまたはパスワードが正しくありません"); return; }
     if(r.isAdmin){ onLogin(ADMIN.id,true); return; }
     const emp=r.emp;
@@ -1270,7 +1303,7 @@ function QRLandingScreen({training,employees,onLogin,onLineLogin,lineLoggingIn,l
   const [id,setId]=useState(""); const [pw,setPw]=useState(""); const [err,setErr]=useState("");
   const submit=async()=>{
     setErr("");
-    const r=await authLogin(id,pw,employees);
+    const r=await authLogin(id,pw);
     if(!r.ok){ setErr("IDまたはパスワードが正しくありません"); return; }
     if(r.isAdmin){ onLogin(ADMIN.id,true); return; }
     const emp=r.emp;
@@ -1373,7 +1406,7 @@ function ManualLoginCard({employees,onManualLogin}){
   const [id,setId]=useState(""); const [pw,setPw]=useState(""); const [err,setErr]=useState(""); const [showForm,setShowForm]=useState(false);
   const submit=async()=>{
     setErr("");
-    const r=await authLogin(id,pw,employees);
+    const r=await authLogin(id,pw);
     if(!r.ok){ setErr("IDまたはパスワードが正しくありません"); return; }
     if(r.isAdmin){ onManualLogin(ADMIN.id,true); return; }
     if(MANUAL_ENABLED && r.emp){ onManualLogin(r.emp.id,false); return; }
