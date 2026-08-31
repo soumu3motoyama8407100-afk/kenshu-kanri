@@ -7,6 +7,19 @@ const supabase = createClient(
 );
 
 const ADMIN = { id:"ADMIN", password:"admin123" };
+// ── 正式ログイン（Supabase Auth）用 ─────────────────────────────
+// 職員ID → 認証用メール。移行スクリプト(scripts/migrate-to-auth.mjs)と必ず同じ変換にすること。
+const AUTH_EMAIL_DOMAIN = "kenshu.thc-club.jp";
+const idToEmail = (id) => String(id||"").trim().toLowerCase() + "@" + AUTH_EMAIL_DOMAIN;
+// ID/パスワードで正式ログイン。成功なら {ok:true,isAdmin,emp}、失敗なら {ok:false}
+async function authLogin(id, pw, employees){
+  const _id=String(id||"").trim();
+  const { error } = await supabase.auth.signInWithPassword({ email: idToEmail(_id), password: pw||"" });
+  if(error) return { ok:false, error };
+  if(_id===ADMIN.id) return { ok:true, isAdmin:true, emp:null };
+  const emp=(employees||[]).find(e=>e.id===_id) || null;
+  return { ok:true, isAdmin:false, emp };
+}
 // LINEログイン（LIFF）
 const LIFF_ID = "2010442697-FT1prfBF";
 // IDトークンの有効期限切れを判定（期限切れの証明書を送って弾かれるのを防ぐ）
@@ -670,7 +683,7 @@ export default function App() {
         .catch(e=>{ console.warn("参加登録に失敗:",e); alert("参加の登録に失敗しました。通信環境をご確認のうえ、もう一度お試しください。"); });
     }
   };
-  const handleLogout=()=>setSession(null);
+  const handleLogout=()=>{ setSession(null); supabase.auth.signOut().catch(()=>{}); };
 
   // ── LINEログイン ──────────────────────────────────────
   const [lineLoggingIn,setLineLoggingIn] = useState(false);
@@ -804,7 +817,7 @@ export default function App() {
     </div>
   );
 
-  if(manualSession) return withDemo(<ManualScreen session={manualSession} employees={employees} onLogout={()=>setManualSession(null)}/>);
+  if(manualSession) return withDemo(<ManualScreen session={manualSession} employees={employees} onLogout={()=>{setManualSession(null);supabase.auth.signOut().catch(()=>{});}}/>);
 
   if(qrAttendDone) return withDemo(<QRSuccessScreen empName={qrAttendDone.empName} trainingName={qrAttendDone.trainingName}/>);
   if(!session&&pendingAttend){
@@ -1146,17 +1159,17 @@ function LoginCard({title,icon,accentColor,pendingAttend,internals,employees,onL
   const [id,setId]=useState(""); const [pw,setPw]=useState(""); const [err,setErr]=useState("");
   const [showFallbackMobile,setShowFallbackMobile]=useState(false);
   const training=internals&&internals.find(t=>t.id===pendingAttend);
-  const submit=()=>{
+  const submit=async()=>{
     setErr("");
-    if(id===ADMIN.id&&pw===ADMIN.password){onLogin(ADMIN.id,true);return;}
-    if(employees){
-      const emp=employees.find(e=>e.id===id&&e.password===pw);
-      if(emp){
-        if(emp.isActive===false||(emp.retireDate&&new Date(emp.retireDate)<=new Date())){setErr("このアカウントは無効です。管理者にお問い合わせください。");return;}
-        onLogin(emp.id,emp.isAdmin||false,emp.isManager||false,emp.isViewer||false,emp.dept);return;
-      }
+    const r=await authLogin(id,pw,employees);
+    if(!r.ok){ setErr("IDまたはパスワードが正しくありません"); return; }
+    if(r.isAdmin){ onLogin(ADMIN.id,true); return; }
+    const emp=r.emp;
+    if(emp){
+      if(emp.isActive===false||(emp.retireDate&&new Date(emp.retireDate)<=new Date())){ await supabase.auth.signOut(); setErr("このアカウントは無効です。管理者にお問い合わせください。"); return; }
+      onLogin(emp.id,emp.isAdmin||false,emp.isManager||false,emp.isViewer||false,emp.dept); return;
     }
-    setErr("IDまたはパスワードが正しくありません");
+    onLogin(String(id).trim(),false,false,false,"");
   };
   const idPwForm=(
     <>
@@ -1245,14 +1258,17 @@ function QRSuccessScreen({empName,trainingName}){
 function QRLandingScreen({training,employees,onLogin,onLineLogin,lineLoggingIn,lineMsg}){
   const [showFallback,setShowFallback]=useState(false);
   const [id,setId]=useState(""); const [pw,setPw]=useState(""); const [err,setErr]=useState("");
-  const submit=()=>{
+  const submit=async()=>{
     setErr("");
-    const emp=employees.find(e=>e.id===id&&e.password===pw);
+    const r=await authLogin(id,pw,employees);
+    if(!r.ok){ setErr("IDまたはパスワードが正しくありません"); return; }
+    if(r.isAdmin){ onLogin(ADMIN.id,true); return; }
+    const emp=r.emp;
     if(emp){
-      if(emp.isActive===false||(emp.retireDate&&new Date(emp.retireDate)<=new Date())){setErr("このアカウントは無効です。");return;}
-      onLogin(emp.id,emp.isAdmin||false,emp.isManager||false,emp.isViewer||false,emp.dept);return;
+      if(emp.isActive===false||(emp.retireDate&&new Date(emp.retireDate)<=new Date())){ await supabase.auth.signOut(); setErr("このアカウントは無効です。"); return; }
+      onLogin(emp.id,emp.isAdmin||false,emp.isManager||false,emp.isViewer||false,emp.dept); return;
     }
-    setErr("IDまたはパスワードが正しくありません");
+    onLogin(String(id).trim(),false,false,false,"");
   };
   return(
     <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#F5EDD8 0%,#FDF6EC 60%,#F5EDD8 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"20px 16px",fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif"}}>
@@ -1345,13 +1361,13 @@ function DualLoginScreen({pendingAttend,internals,employees,onLogin,onManualLogi
 
 function ManualLoginCard({employees,onManualLogin}){
   const [id,setId]=useState(""); const [pw,setPw]=useState(""); const [err,setErr]=useState(""); const [showForm,setShowForm]=useState(false);
-  const submit=()=>{
+  const submit=async()=>{
     setErr("");
-    if(id===ADMIN.id&&pw===ADMIN.password){onManualLogin(ADMIN.id,true);return;}
-    if(MANUAL_ENABLED){
-      const emp=employees.find(e=>e.id===id&&e.password===pw);
-      if(emp){onManualLogin(emp.id,false);return;}
-    }
+    const r=await authLogin(id,pw,employees);
+    if(!r.ok){ setErr("IDまたはパスワードが正しくありません"); return; }
+    if(r.isAdmin){ onManualLogin(ADMIN.id,true); return; }
+    if(MANUAL_ENABLED && r.emp){ onManualLogin(r.emp.id,false); return; }
+    await supabase.auth.signOut();
     setErr("IDまたはパスワードが正しくありません");
   };
   return(
