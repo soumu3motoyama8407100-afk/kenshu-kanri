@@ -12,9 +12,12 @@ import { createClient } from "@supabase/supabase-js";
 const SUPABASE_URL = "https://nncousuugjntzovtmkvt.supabase.co";
 const SECRET = process.env.SUPABASE_SECRET_KEY;
 
-// ★アプリのログインと必ず同じ変換を使うこと（App.js 側と一致させる）
+// ★アプリのログイン・provision-user と必ず同じ変換を使うこと（3か所を一致させる）
 const AUTH_DOMAIN = "kenshu.thc-club.jp";
 const idToEmail = (id) => String(id).trim().toLowerCase() + "@" + AUTH_DOMAIN;
+// Supabase Authは最小6文字。短いパスワード(ID等)でも通るよう固定接尾辞を付けて認証用パスワードにする。
+const PW_SUFFIX = "#thc-kenshu";
+const toAuthPw = (pw) => String(pw) + PW_SUFFIX;
 
 // 従来ログインの管理者アカウント（employees には無いので明示的に含める）
 const ADMIN = { id: "ADMIN", password: "admin123", name: "管理者" };
@@ -62,11 +65,11 @@ async function main() {
       const existId = existing.get(email);
       if (existId) {
         // 既にある：パスワードとメタ情報を同期
-        const { error: uErr } = await admin.auth.admin.updateUserById(existId, { password: pw, user_metadata: meta, email_confirm: true });
+        const { error: uErr } = await admin.auth.admin.updateUserById(existId, { password: toAuthPw(pw), user_metadata: meta, email_confirm: true });
         if (uErr) throw uErr;
         updated++;
       } else {
-        const { error: cErr } = await admin.auth.admin.createUser({ email, password: pw, email_confirm: true, user_metadata: meta });
+        const { error: cErr } = await admin.auth.admin.createUser({ email, password: toAuthPw(pw), email_confirm: true, user_metadata: meta });
         if (cErr) throw cErr;
         created++;
       }

@@ -7,6 +7,9 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const AUTH_EMAIL_DOMAIN = "kenshu.thc-club.jp";
 const idToEmail = (id: string) => String(id).trim().toLowerCase() + "@" + AUTH_EMAIL_DOMAIN;
+// Supabase Authは最小6文字。短いパスワードでも通るよう固定接尾辞（アプリ/移行スクリプトと一致必須）
+const PW_SUFFIX = "#thc-kenshu";
+const toAuthPw = (pw: string) => String(pw) + PW_SUFFIX;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -68,11 +71,11 @@ serve(async (req) => {
     if (!password) return json({ error: "no_password" }, 400);
     const meta = { emp_id: String(id), name: "" };
     if (existing) {
-      const { error } = await admin.auth.admin.updateUserById(existing.id, { password, email_confirm: true, user_metadata: { ...(existing.user_metadata || {}), emp_id: String(id) } });
+      const { error } = await admin.auth.admin.updateUserById(existing.id, { password: toAuthPw(password), email_confirm: true, user_metadata: { ...(existing.user_metadata || {}), emp_id: String(id) } });
       if (error) throw new Error("updateUser: " + error.message);
       return json({ status: "ok", updated: true });
     } else {
-      const { error } = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: meta });
+      const { error } = await admin.auth.admin.createUser({ email, password: toAuthPw(password), email_confirm: true, user_metadata: meta });
       if (error) throw new Error("createUser: " + error.message);
       return json({ status: "ok", created: true });
     }

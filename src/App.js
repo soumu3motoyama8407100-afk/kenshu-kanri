@@ -11,6 +11,9 @@ const ADMIN = { id:"ADMIN", password:"admin123" };
 // 職員ID → 認証用メール。移行スクリプト(scripts/migrate-to-auth.mjs)と必ず同じ変換にすること。
 const AUTH_EMAIL_DOMAIN = "kenshu.thc-club.jp";
 const idToEmail = (id) => String(id||"").trim().toLowerCase() + "@" + AUTH_EMAIL_DOMAIN;
+// Supabase Authは最小6文字。短いパスワードでも通るよう固定接尾辞を付けて認証用パスワードにする（移行/provision-userと一致必須）
+const AUTH_PW_SUFFIX = "#thc-kenshu";
+const toAuthPw = (pw) => String(pw||"") + AUTH_PW_SUFFIX;
 // 職員1名分を取得（ログイン後の役割判定・セッション復元用。RLS導入後は認証済みでのみ読める）
 async function fetchEmployeeById(id){
   try{
@@ -23,7 +26,7 @@ async function fetchEmployeeById(id){
 // ※employeesの事前読み込みに依存せず、ログイン後に自分の情報を取得する（RLS導入後も動くように）
 async function authLogin(id, pw){
   const _id=String(id||"").trim();
-  const { error } = await supabase.auth.signInWithPassword({ email: idToEmail(_id), password: pw||"" });
+  const { error } = await supabase.auth.signInWithPassword({ email: idToEmail(_id), password: toAuthPw(pw) });
   if(error) return { ok:false, error };
   if(_id===ADMIN.id) return { ok:true, isAdmin:true, emp:null };
   const emp = await fetchEmployeeById(_id);
