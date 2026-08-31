@@ -59,9 +59,24 @@ serve(async (req) => {
       return new Response(JSON.stringify({ status: "inactive" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ログイン許可：本人を特定できる最小限の情報だけ返す
+    // 本人確認OK → この職員の「ログイン済みセッション」を発行するためのワンタイムトークンを作る。
+    // メールはアプリ/移行スクリプトと同じ変換（職員ID(小文字)@kenshu.thc-club.jp）にすること。
+    const AUTH_EMAIL_DOMAIN = "kenshu.thc-club.jp";
+    const email = String(emp.id).trim().toLowerCase() + "@" + AUTH_EMAIL_DOMAIN;
+    let token_hash: string | null = null;
+    try {
+      const { data: linkData, error: linkErr } = await supabase.auth.admin.generateLink({ type: "magiclink", email });
+      if (!linkErr && linkData && linkData.properties && linkData.properties.hashed_token) {
+        token_hash = linkData.properties.hashed_token;
+      }
+    } catch (_) {
+      // トークン発行に失敗しても本人確認自体は成功として返す（RLS導入前は従来どおり動く）
+    }
+
+    // ログイン許可：本人を特定できる最小限の情報＋セッション用トークンを返す
     return new Response(JSON.stringify({
       status: "ok",
+      token_hash,
       employee: {
         id: emp.id,
         name: emp.name,

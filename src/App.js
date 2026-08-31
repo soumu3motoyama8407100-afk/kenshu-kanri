@@ -712,6 +712,11 @@ export default function App() {
     const { data, error } = await supabase.functions.invoke("line-login",{ body:{ idToken } });
     if(error||!data){ setLineMsg("ログインに失敗しました。お手数ですがID・パスワードでお試しください。"); return; }
     if(data.status==="ok"){
+      // LINE本人確認OK → ログイン済みセッションを確立（RLS導入後もデータにアクセスできるように）
+      if(data.token_hash){
+        const { error: vErr } = await supabase.auth.verifyOtp({ token_hash: data.token_hash, type: "magiclink" });
+        if(vErr){ setLineMsg("ログインに失敗しました。お手数ですがID・パスワードでお試しください。"); return; }
+      }
       const e=employees.find(x=>x.id===data.employee.id);
       if(e){ handleLogin(e.id,e.isAdmin||false,e.isManager||false,e.isViewer||false,e.dept); }
       else { handleLogin(data.employee.id,false,data.employee.isManager||false,false,data.employee.dept||""); }
@@ -728,6 +733,11 @@ export default function App() {
     const { data, error } = await supabase.functions.invoke("line-login",{ body:{ idToken } });
     if(error||!data){ setLineMsg("ログインに失敗しました。ID・パスワードでお試しください。"); return; }
     if(data.status==="ok"){
+      // LINE本人確認OK → 書き込み用にログイン済みセッションを確立（RLS導入後も出席登録できるように）
+      if(data.token_hash){
+        const { error: vErr } = await supabase.auth.verifyOtp({ token_hash: data.token_hash, type: "magiclink" });
+        if(vErr){ setLineMsg("参加の登録に失敗しました。もう一度QRを読み取ってください。"); return; }
+      }
       const empId=data.employee.id;
       const attendId=pendingAttend||(()=>{try{const r=localStorage.getItem("qr_attend_pending");if(r){const d=JSON.parse(r);return(Date.now()-d.ts)<10*60*1000?d.id:null;}return null;}catch(_){return null;}})();
       const trainingName=internals.find(t=>t.id===attendId)?.title||"研修";
