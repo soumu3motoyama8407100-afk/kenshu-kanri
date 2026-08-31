@@ -1922,7 +1922,6 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
   const restoreNotice=id=>{ const next=dismissedNotices.filter(x=>x!==id); setDismissedNotices(next); try{localStorage.setItem(`ndismissed_${emp.id}`,JSON.stringify(next));}catch(_){} };
   const [showDismissed,setShowDismissed]=useState(false);
   const [showDoneExt,setShowDoneExt]=useState(false); // 外部研修：受講済みも表示するか（既定は未受講のみ）
-  const [showDoneKyotaku,setShowDoneKyotaku]=useState(false); // 居宅研修：完了も表示するか
   const [showDoneInt,setShowDoneInt]=useState(false); // 内部研修：完了分も表示するか（既定は未完了のみ）
   const [showDoneReq,setShowDoneReq]=useState(false); // 必須研修：提出済みも表示するか（既定は未提出のみ）
   const [showTutorial,setShowTutorial]=useState(()=>{ try{ return localStorage.getItem("tutorial_seen")!=="1"; }catch(_){ return false; } });
@@ -1966,9 +1965,8 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
   const fyInternals=internals.filter(t=>!t.isStanding&&inFiscalYear(t.date,viewFY)&&isTargetedFor(t,emp)&&(!isCurrentFY||new Date(t.date+"T00:00:00")<=trainingVisibleFrom)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   // 必須研修（部署恒常）：対象部署に在籍していれば年度に関係なく常に表示。未提出のものだけ出す
   const standingRequired=internals.filter(t=>t.isStanding&&isTargetedFor(t,emp)).sort((a,b)=>String(a.title).localeCompare(String(b.title),"ja"));
-  const fyExternalsAll=externals.filter(x=>x.targetEmpIds.includes(emp.id)&&inFiscalYear(x.date,viewFY)).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  const fyExternals=fyExternalsAll.filter(x=>(x.category||"外部")!=="居宅"); // 外部研修
-  const fyKyotaku=fyExternalsAll.filter(x=>(x.category||"外部")==="居宅");    // 居宅研修
+  // 職員側は居宅研修も外部研修に混ぜて表示（管理側だけカテゴリで分ける）
+  const fyExternals=externals.filter(x=>x.targetEmpIds.includes(emp.id)&&inFiscalYear(x.date,viewFY)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const fySeminars=(seminars||[]).filter(s=>inFiscalYear(s.date,viewFY)).sort((a,b)=>new Date(a.date)-new Date(b.date));
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(null),2500);};
   const count=getCount(emp.id,viewFY);
@@ -2189,33 +2187,6 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                 </div>
                 );
               })()}
-              {/* 居宅研修：外部研修と同じ作り（カテゴリ=居宅のみ表示） */}
-              {fyKyotaku.length>0&&(()=>{
-                const extCard=x=>(
-                  <ExternalCard key={x.id} ext={x} empId={emp.id} emp={emp} status={getXS(emp.id,x.id)} readonly={!isCurrentFY} fukuEditable={fukuEditable}
-                    onAbsent={v=>{ if(isCurrentFY){setXS(emp.id,x.id,{absent:v});showToast(v?"「受講せず（欠席）」にしました":"「受講せず」を取り消しました");} }}
-                    onViewPdf={type=>setPdfExt({...x,_pdfType:type})}/>
-                );
-                const xDone=x=>{ const s=getXS(emp.id,x.id); return s.absent||s.reportConfirmed; };
-                const kPending=fyKyotaku.filter(x=>!xDone(x));
-                const kDone=fyKyotaku.filter(xDone);
-                const needReport=kPending.filter(x=>xReportRequired(x,getXS(emp.id,x.id))).length;
-                return(
-                <div>
-                  <div style={{fontSize:13,fontWeight:700,color:"#4A3020",padding:"6px 12px",background:"#FDF6EC",borderRadius:8,marginBottom:8,border:"1px solid #E8D5B0"}}>🏠 居宅研修（要対応 {kPending.length}件{kDone.length>0?` ／ 完了 ${kDone.length}件`:""}{needReport>0?`　●復命書 ${needReport}件`:""}）</div>
-                  {kPending.map(extCard)}
-                  {kPending.length===0&&kDone.length>0&&<div style={{fontSize:12,color:"#9ca3af",padding:"8px 12px"}}>要対応の居宅研修はありません 🎉</div>}
-                  {kDone.length>0&&(
-                    <div style={{marginTop:4}}>
-                      <button onClick={()=>setShowDoneKyotaku(v=>!v)} style={{display:"inline-flex",alignItems:"center",gap:8,fontSize:12,fontWeight:700,color:"#A07840",background:"#fff",border:"1px solid #E8D5B0",borderRadius:20,padding:"6px 14px",cursor:"pointer"}}>
-                        {showDoneKyotaku?`▲ 完了 ${kDone.length}件を隠す`:`▼ 完了 ${kDone.length}件を表示`}
-                      </button>
-                      {showDoneKyotaku&&<div style={{marginTop:8}}>{kDone.map(extCard)}</div>}
-                    </div>
-                  )}
-                </div>
-                );
-              })()}
               {/* 内部研修：外部研修と同じく未完了のみ既定表示し、完了（参加/視聴済＋復命書済）は折りたたむ。
                   復命書未提出は赤い印付きで未完了側に残る。※ InternalCardのデータ配線(getIS/setIS)は不変 */}
               {fyInternals.length>0&&(()=>{
@@ -2256,7 +2227,7 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
                 </div>
                 );
               })()}
-              {fyInternals.length===0&&fyExternals.length===0&&fyKyotaku.length===0&&<div style={S.empty}>{reiwa(viewFY)}の研修はありません</div>}
+              {fyInternals.length===0&&fyExternals.length===0&&<div style={S.empty}>{reiwa(viewFY)}の研修はありません</div>}
               {/* 自己学習の記録（管理者は関与しない・参考記録） */}
               <SelfTrainingSection items={selfTrainings} onAdd={addSelfTraining} onToggleReport={toggleSelfReport} onDelete={deleteSelfTraining} emp={emp}/>
             </div>
@@ -3854,7 +3825,7 @@ function AdminScreen({employees,setEmployees,internals,setInternals,externals,se
   const [tab,setTab]=useState("ranking");
   const [qrT,setQrT]=useState(null);
   const [sideOpen,setSideOpen]=useState(false); // スマホの左メニュー開閉
-  const ADMIN_TABS=[["ranking","🏅 ランキング"],["adminNotices","📢 お知らせ"],["iProgress","📊 内部研修"],["iManage","📚 内部研修登録"],["reqTraining","⭐ 必須研修"],["xProgress","🌐 外部研修"],["xManage","✏️ 外部研修登録"],["kProgress","🏠 居宅研修"],["kManage","🏠 居宅研修登録"],["semManage","📺 セミナー"],["empManage","👥 職員管理"],["committeeManage","🏛 委員会管理"],["fukuBackup","📤 出力・バックアップ管理"]];
+  const ADMIN_TABS=[["ranking","🏅 ランキング"],["adminNotices","📢 お知らせ"],["reqTraining","⭐ 必須研修"],["iProgress","📊 内部研修"],["iManage","📚 内部研修登録"],["xProgress","🌐 外部研修"],["xManage","✏️ 外部研修登録"],["kProgress","🏠 居宅研修"],["kManage","🏠 居宅研修登録"],["semManage","📺 セミナー"],["empManage","👥 職員管理"],["committeeManage","🏛 委員会管理"],["fukuBackup","📤 出力・バックアップ管理"]];
   return(
     <div className="rsp-page" style={S.page}>
       {qrT&&<QRModal training={qrT} onClose={()=>setQrT(null)}/>}
