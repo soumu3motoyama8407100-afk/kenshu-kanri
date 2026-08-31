@@ -29,6 +29,16 @@ async function authLogin(id, pw){
   const emp = await fetchEmployeeById(_id);
   return { ok:true, isAdmin:false, emp };
 }
+// 職員の追加/パスワード変更/削除に合わせて、ログインアカウント(Supabase Auth)を作成/更新/削除する。
+// 呼び出しには管理者のログイン(JWT)が使われ、Edge Function 側で管理者確認する。
+async function provisionAuthUser(action, id, password){
+  try{
+    const { data, error } = await supabase.functions.invoke("provision-user", { body:{ action, id, password } });
+    if(error) return { ok:false, error:String(error.message||error) };
+    if(data && data.error) return { ok:false, error:data.error };
+    return { ok:true, data };
+  }catch(e){ return { ok:false, error:String(e) }; }
+}
 // LINEログイン（LIFF）
 const LIFF_ID = "2010442697-FT1prfBF";
 // IDトークンの有効期限切れを判定（期限切れの証明書を送って弾かれるのを防ぐ）
@@ -3977,6 +3987,9 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
     };
     if(!e.id||!e.password||!e.name||!e.dept)return;
     await db.upsertEmployee(e);
+    // ログインアカウントも作成/更新（追加した職員がすぐログインできるように）
+    const pr=await provisionAuthUser("upsert", e.id, e.password);
+    if(!pr.ok){ alert("職員は保存しましたが、ログインアカウントの作成/更新に失敗しました。\n"+(pr.error||"")+"\n\n時間をおいてもう一度保存するか、管理者にご相談ください。"); }
     setEmployees(p=>{const idx=p.findIndex(x=>x.id===e.id);return idx>=0?p.map(x=>x.id===e.id?e:x):[...p,e];});
     setShowAdd(false); setEditEmp(null);
     setNewE({id:"",password:"",name:"",dept:"",joinDate:"",qualifications:"",certTrainings:"",isManager:false,isAdmin:false,roleTitle:"",managedDepts:[],isActive:true});
@@ -3985,6 +3998,7 @@ function EmployeeManageTab({employees,setEmployees,internals,getIS,getXS,externa
   const delEmp=async(id)=>{
     if(!window.confirm(`${id}を削除しますか？`))return;
     await db.deleteEmployee(id);
+    await provisionAuthUser("delete", id); // ログインアカウントも削除（失敗しても職員削除は完了）
     setEmployees(p=>p.filter(e=>e.id!==id));
   };
 
