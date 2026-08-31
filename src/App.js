@@ -2296,13 +2296,15 @@ function EmployeeScreen({emp,internals,getIS,setIS,externals,getXS,setXS,seminar
               return {label:`あと${days}日`,color:"#6b7280",bg:"#f3f4f6",bd:"#e5e7eb"};
             };
             const catColor=c=>({"事務連絡":"#0369a1","研修のお知らせ":"#C89A55","アンケート":"#16a34a"})[c]||"#7c3aed";
-            // ① 復命書 締切（当月末）
+            // ① 復命書 締切。通常研修は当月末、必須研修（部署恒常・日付なし）は「現年度の最終日(3/31)」。
+            //    現年度は currentFY() で判定するので、4/1になれば自動で翌年度末が締切になる。
+            const fyLastDay=new Date(currentFY()+1,2,31,12,0,0); // その年度の3/31（正午。時差での日付ズレ防止）
             const reportDue=internals.filter(t=>{
               if(t.noReport||!isTargetedFor(t,emp))return false;
               const s=getIS(emp.id,t.id);
               const required=(t.requiredEmpIds||[]).includes(emp.id)||t.required===true||s.attendance==="参加済";
               return required&&s.report!=="提出済"&&s.report!=="提出しない"&&!s.reportConfirmed;
-            }).map(t=>({t,due:eom(t.date)})).sort((a,b)=>a.due-b.due);
+            }).map(t=>({t,due:t.isStanding?fyLastDay:eom(t.date)})).sort((a,b)=>a.due-b.due);
             // ② お知らせ（締切 または 掲載終了日 があるものを表示）
             const myNotices=(committeeProps?.generalNotices||[]).filter(n=>(n.targetEmpIds||[]).length===0||(n.targetEmpIds||[]).includes(emp.id));
             // 掲載終了日（未指定なら締切日と同じ）を過ぎたら自動で非表示。締切だけ／掲載終了日だけ でも表示する
