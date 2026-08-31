@@ -31,6 +31,9 @@ BEGIN
   END LOOP;
 END $$;
 
+-- PostgREST に反映
+NOTIFY pgrst, 'reload schema';
+
 -- 確認：各テーブルのRLS状態とポリシー
 -- SELECT relname, relrowsecurity FROM pg_class WHERE relnamespace='public'::regnamespace
 --   AND relname = ANY(ARRAY['employees','i_statuses','x_statuses','internals','externals',
