@@ -44,7 +44,7 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { data: emp } = await supabase
       .from("employees")
-      .select("id, name, dept, is_manager, managed_depts, role_title, is_active, retire_date")
+      .select("id, name, dept, is_manager, managed_depts, role_title, is_active, retire_date, password")
       .eq("line_user_id", lineUserId)
       .maybeSingle();
 
@@ -59,24 +59,23 @@ serve(async (req) => {
       return new Response(JSON.stringify({ status: "inactive" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // 本人確認OK → この職員の「ログイン済みセッション」を発行するためのワンタイムトークンを作る。
-    // メールはアプリ/移行スクリプトと同じ変換（職員ID(小文字)@kenshu.thc-club.jp）にすること。
+    // 本人確認OK → サーバー側で直接ログインしてセッションを取得（magiclink不使用＝回数制限に当たらず安定）。
+    // メール/パスワードはアプリ・移行スクリプトと同じ変換にすること。
     const AUTH_EMAIL_DOMAIN = "kenshu.thc-club.jp";
+    const PW_SUFFIX = "#thc-kenshu";
+    const ANON_KEY = "sb_publishable_vtuNEJnmkkZ3N5xTKbghEQ_RekJsS6m"; // 公開キー（クライアントと同じ）
     const email = String(emp.id).trim().toLowerCase() + "@" + AUTH_EMAIL_DOMAIN;
-    let token_hash: string | null = null;
+    let session: { access_token: string; refresh_token: string } | null = null;
     try {
-      const { data: linkData, error: linkErr } = await supabase.auth.admin.generateLink({ type: "magiclink", email });
-      if (!linkErr && linkData && linkData.properties && linkData.properties.hashed_token) {
-        token_hash = linkData.properties.hashed_token;
-      }
-    } catch (_) {
-      // トークン発行に失敗しても本人確認自体は成功として返す（RLS導入前は従来どおり動く）
-    }
+      const authClient = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { data: sd, error: se } = await authClient.auth.signInWithPassword({ email, password: String(emp.password || "") + PW_SUFFIX });
+      if (!se && sd && sd.session) session = { access_token: sd.session.access_token, refresh_token: sd.session.refresh_token };
+    } catch (_) { /* 失敗時は session=null。クライアントでID/パスワードへ誘導 */ }
 
-    // ログイン許可：本人を特定できる最小限の情報＋セッション用トークンを返す
+    // ログイン許可：本人情報＋ログイン済みセッションを返す
     return new Response(JSON.stringify({
       status: "ok",
-      token_hash,
+      session,
       employee: {
         id: emp.id,
         name: emp.name,

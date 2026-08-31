@@ -758,8 +758,11 @@ export default function App() {
     const { data, error } = await supabase.functions.invoke("line-login",{ body:{ idToken } });
     if(error||!data){ setLineMsg("ログインに失敗しました。お手数ですがID・パスワードでお試しください。"); return; }
     if(data.status==="ok"){
-      // LINE本人確認OK → ログイン済みセッションを確立（RLS導入後もデータにアクセスできるように）
-      if(data.token_hash){
+      // LINE本人確認OK → 返ってきたセッションでログイン確立（magiclink不使用＝安定）。旧方式(token_hash)も一応対応
+      if(data.session){
+        const { error: sErr } = await supabase.auth.setSession({ access_token:data.session.access_token, refresh_token:data.session.refresh_token });
+        if(sErr){ setLineMsg("ログインに失敗しました。お手数ですがID・パスワードでお試しください。"); return; }
+      } else if(data.token_hash){
         const { error: vErr } = await supabase.auth.verifyOtp({ token_hash: data.token_hash, type: "magiclink" });
         if(vErr){ setLineMsg("ログインに失敗しました。お手数ですがID・パスワードでお試しください。"); return; }
       }
@@ -779,8 +782,11 @@ export default function App() {
     const { data, error } = await supabase.functions.invoke("line-login",{ body:{ idToken } });
     if(error||!data){ setLineMsg("ログインに失敗しました。ID・パスワードでお試しください。"); return; }
     if(data.status==="ok"){
-      // LINE本人確認OK → 書き込み用にログイン済みセッションを確立（RLS導入後も出席登録できるように）
-      if(data.token_hash){
+      // LINE本人確認OK → 返ってきたセッションでログイン確立（magiclink不使用＝安定）
+      if(data.session){
+        const { error: sErr } = await supabase.auth.setSession({ access_token:data.session.access_token, refresh_token:data.session.refresh_token });
+        if(sErr){ setLineMsg("参加の登録に失敗しました。もう一度QRを読み取ってください。"); return; }
+      } else if(data.token_hash){
         const { error: vErr } = await supabase.auth.verifyOtp({ token_hash: data.token_hash, type: "magiclink" });
         if(vErr){ setLineMsg("参加の登録に失敗しました。もう一度QRを読み取ってください。"); return; }
       }
