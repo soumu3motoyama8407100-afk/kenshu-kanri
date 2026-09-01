@@ -4423,18 +4423,21 @@ function InternalProgressTab({employees,internals,externals,getXS,getIS,setIS,on
 
       {/* ② 選んだ研修の職員リスト */}
       {fyInternals.length>0&&curT&&<>
-        <div style={{display:"flex",alignItems:"center",gap:8,margin:"12px 0 10px",flexWrap:"wrap"}}>
+        {/* 戻るボタン＋研修名は上部に貼りつく（長い一覧でも常に見える・戻れる） */}
+        <div style={{position:"sticky",top:0,zIndex:20,background:"#fff",paddingTop:6,margin: "0 -4px",padding:"6px 4px 8px",boxShadow:"0 6px 6px -5px rgba(0,0,0,.18)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
           <button className="tsel-chip" onClick={()=>{setSelT(null);setBulkMode(false);setBulkIds([]);}}
             style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"12px 18px",borderRadius:12,border:"none",background:"#1e3a5f",color:"#fff",fontSize:15,fontWeight:800,cursor:"pointer",boxShadow:"0 3px 10px rgba(30,58,95,.3)"}}>← 研修一覧に戻る</button>
           <button style={S.qrBtn} onClick={()=>onQR(curT)}>QR生成</button>
         </div>
         {/* いまどの研修を操作しているのかを明示する */}
-        <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#FDF6EC",border:"1px solid #E8D5B0",borderLeft:"4px solid #C89A55",borderRadius:10,marginBottom:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#FDF6EC",border:"1px solid #E8D5B0",borderLeft:"4px solid #C89A55",borderRadius:10}}>
           <span style={{fontSize:10,fontWeight:700,color:"#fff",background:"#C89A55",borderRadius:6,padding:"3px 8px",flexShrink:0,whiteSpace:"nowrap"}}>操作中</span>
           <div style={{minWidth:0,flex:1}}>
             <div style={{fontSize:14,fontWeight:800,color:"#4A3020",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{curT.title}</div>
             <div style={{fontSize:11,color:"#A07840"}}>📅 {formatDate(curT.date)}{curT.date2?` ／ ${formatDate(curT.date2)}`:""}</div>
           </div>
+        </div>
         </div>
 
         {/* サマリー */}
@@ -5003,15 +5006,18 @@ function ExternalProgressTab({employees,externals,getXS,setXS,fiscalYear,categor
       {/* ② 選んだ研修の職員一覧 */}
       {fyExternals.length>0&&curX&&(()=>{const x=curX;const targets=targetsOf(x);return(
         <div>
-          <button className="tsel-chip" onClick={()=>setSelX(null)} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",marginBottom:12,padding:"13px 16px",borderRadius:12,border:"none",background:"#1e3a5f",color:"#fff",fontSize:15,fontWeight:800,cursor:"pointer",boxShadow:"0 3px 10px rgba(30,58,95,.3)"}}>← 研修一覧に戻る</button>
-          <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#FDF6EC",border:"1px solid #E8D5B0",borderLeft:"4px solid #C89A55",borderRadius:10,marginBottom:10}}>
+          {/* 戻るボタン＋研修名は上部に貼りつく（長い一覧でも常に見える・戻れる） */}
+          <div style={{position:"sticky",top:0,zIndex:20,background:"#fff",margin:"0 -4px",padding:"6px 4px 8px",boxShadow:"0 6px 6px -5px rgba(0,0,0,.18)"}}>
+          <button className="tsel-chip" onClick={()=>setSelX(null)} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",marginBottom:8,padding:"13px 16px",borderRadius:12,border:"none",background:"#1e3a5f",color:"#fff",fontSize:15,fontWeight:800,cursor:"pointer",boxShadow:"0 3px 10px rgba(30,58,95,.3)"}}>← 研修一覧に戻る</button>
+          <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"#FDF6EC",border:"1px solid #E8D5B0",borderLeft:"4px solid #C89A55",borderRadius:10}}>
             <span style={{fontSize:10,fontWeight:700,color:"#fff",background:"#C89A55",borderRadius:6,padding:"3px 8px",flexShrink:0,whiteSpace:"nowrap"}}>操作中</span>
             <div style={{minWidth:0,flex:1}}>
               <div style={{fontSize:14,fontWeight:800,color:"#4A3020",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}><span style={S.extBadge}>{x.category||"外部"}</span> {x.title}</div>
               <div style={{fontSize:11,color:"#A07840"}}>📅 {extDateText(x)} ｜ 🏢 {x.organizer} ｜ 📍 {x.location}{(x.requiredEmpIds||[]).length>0?` ｜ 復命書必須 ${(x.requiredEmpIds||[]).length}名`:""}</div>
             </div>
           </div>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+          </div>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,marginTop:10}}>
             <thead><tr style={{background:"#C89A55",color:"#fff"}}><th style={S.th}>従業員</th><th style={S.th}>部署</th><th style={S.th}>進捗</th><th style={S.th}>受講</th><th style={S.th}>復命書</th></tr></thead>
             <tbody>{targets.map((emp,i)=>empRow(emp,i,x))}</tbody>
           </table>
